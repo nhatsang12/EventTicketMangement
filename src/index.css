@@ -1,0 +1,145 @@
+/* globals.css hoặc app.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Import fonts từ Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Open+Sans:wght@300;400;500;600;700&display=swap');
+
+@layer base {
+  :root {
+    --bg: 255 255 255;
+    --bg-secondary: 248 250 252;
+    --bg-dark: 15 23 42;
+    --surface: 255 255 255;
+    --surface-dark: 30 41 59;
+    --text: 15 23 42;
+    --text-muted: 71 85 105;
+    --text-dark: 241 245 249;
+    --border: 226 232 240;
+    --border-dark: 51 65 85;
+    --accent: 99 102 241;       /* indigo-500 */
+    --accent-hover: 79 70 229;  /* indigo-600 */
+    --accent-light: 165 180 252;
+  }
+
+  .dark {
+    --bg: var(--bg-dark);
+    --bg-secondary: 30 41 59;
+    --surface: var(--surface-dark);
+    --text: var(--text-dark);
+    --text-muted: 148 163 184;
+  }
+
+  /* Áp dụng font cho body (Open Sans) */
+  body {
+    @apply bg-white text-black;
+    font-family: "Open Sans", system-ui, sans-serif;
+    @apply bg-[rgb(var(--bg))] text-[rgb(var(--text))] antialiased transition-colors duration-300;
+    font-feature-settings: "liga" 1, "calt" 1;
+  }
+
+  /* Heading sử dụng Montserrat - dùng font-family trực tiếp */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: Montserrat, sans-serif;
+    @apply tracking-tight;
+  }
+
+  h1 { @apply text-4xl md:text-5xl font-extrabold; }
+  h2 { @apply text-3xl md:text-4xl font-bold; }
+  h3 { @apply text-2xl md:text-3xl font-bold; }
+  h4 { @apply text-xl md:text-2xl font-semibold; }
+
+  /* Class tiện lợi để override font khi cần */
+  .font-heading {
+    font-family: Montserrat, sans-serif;
+  }
+
+  .font-body {
+    font-family: "Open Sans", system-ui, sans-serif;
+  }
+
+  /* Cải thiện readability cho body text */
+  p, li, span, div {
+    @apply leading-relaxed text-gray-800 dark:text-gray-200;
+  }
+
+  /* Small text - dùng properties trực tiếp, KHÔNG @apply text-sm/text-xs */
+  .text-sm {
+    font-size: 0.875rem;    /* 14px */
+    line-height: 1.25rem;   /* 20px */
+  }
+
+  .text-xs {
+    font-size: 0.75rem;     /* 12px */
+    line-height: 1rem;      /* 16px */
+  }
+}
+
+@layer components {
+  .glass {
+    background: rgba(255, 255, 255, 0.75);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(226, 232, 240, 0.6);
+  }
+
+  .dark .glass {
+    background: rgba(15, 23, 42, 0.8);
+    border: 1px solid rgba(51, 65, 85, 0.7);
+  }
+
+  .container-custom {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center rounded-xl font-heading font-semibold transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none shadow-sm active:scale-95;
+  }
+
+  .btn-primary {
+    @apply bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-700 hover:to-purple-700 focus:ring-indigo-500/50;
+  }
+
+  .btn-outline {
+    @apply border-2 border-indigo-600 text-indigo-600 hover:bg-indigo-600 hover:text-white dark:border-indigo-400 dark:text-indigo-400 dark:hover:bg-indigo-500 dark:hover:text-white focus:ring-indigo-500/40;
+  }
+
+  .btn-sm { @apply px-4 py-2 text-sm; }
+  .btn-md { @apply px-5 py-2.5 text-base; }
+
+  .card {
+    @apply bg-[rgb(var(--surface))] rounded-2xl border border-[rgb(var(--border))] dark:border-[rgb(var(--border-dark))] overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.06)] dark:shadow-[0_4px_25px_rgba(0,0,0,0.35)] transition-all duration-300;
+  }
+
+  .card-hover:hover {
+    @apply -translate-y-2 scale-[1.015] shadow-[0_15px_40px_rgba(99,102,241,0.18)] dark:shadow-[0_15px_40px_rgba(165,180,252,0.25)];
+  }
+
+  .input-field {
+    @apply w-full px-4 py-3 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:focus:ring-indigo-800/40 transition-all duration-200 font-body;
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.5);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(71, 85, 105);
+}
+
+/* Skeleton Loading */
+.skeleton {
+  @apply animate-pulse bg-slate-200 dark:bg-slate-700 rounded;
+}
