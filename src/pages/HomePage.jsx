@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { mockEvents, mockCategories } from "../data/mockData";
-import { Calendar, MapPin, Heart, ChevronDown, ChevronRight, Star, Users, Award, Clock, TrendingUp, Sparkles } from "lucide-react";
+import { Calendar, MapPin, Heart, ChevronDown, ChevronRight, Star, Users, Award, Clock, TrendingUp, Sparkles, Search } from "lucide-react";
 
 const EventCardSkeleton = () => (
   <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden animate-pulse">
@@ -96,12 +96,12 @@ const HomePage = () => {
     <div className="min-h-screen font-body bg-white text-black overflow-x-hidden">
 
       {/* ─── HERO ─── */}
-      <div className="relative h-[300px] md:h-[380px] lg:h-[450px] max-w-7xl mx-auto rounded-xl overflow-hidden shadow-2xl mt-8 md:mt-10 lg:mt-16 mb-0 group">
+      <div className="relative h-[300px] md:h-[380px] lg:h-[550px] w-full overflow-hidden shadow-lg mb-0 group">
         <div className="absolute inset-0 bg-gradient-to-r from-orange-500/20 to-purple-500/20 animate-gradient-x"></div>
         <img src="https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=1600&auto=format&fit=crop&q=80" alt="hero"
-          className="absolute inset-0 w-full h-full object-cover brightness-75 rounded-xl transform group-hover:scale-105 transition-transform duration-[3000ms]" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent rounded-xl" />
-        <div className="absolute inset-0 overflow-hidden rounded-xl">
+          className="absolute inset-0 w-full h-full object-cover brightness-75 transform group-hover:scale-105 transition-transform duration-[3000ms]" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+        <div className="absolute inset-0 overflow-hidden">
           <div className="absolute top-20 left-20 w-32 h-32 bg-orange-500/30 rounded-full blur-3xl animate-float"></div>
           <div className="absolute bottom-20 right-20 w-40 h-40 bg-purple-500/30 rounded-full blur-3xl animate-float-delayed"></div>
         </div>
@@ -123,33 +123,60 @@ const HomePage = () => {
         </div>
       </div>
 
-      {/* ─── STATS — dark charcoal ─── */}
-      <div className="bg-white-0 py-12">
+      {/* ─── SEARCH + TAGS ─── */}
+      <div className="bg-white py-10 border-b border-gray-100">
         <div
-          id="stats-section" data-animate
-          className={`container-custom transition-all duration-1000 ${visibleSections['stats-section'] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}
+          id="search-section" data-animate
+          className={`container-custom transition-all duration-700 ${visibleSections['search-section'] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
         >
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+          {/* Search bar */}
+          <form
+            onSubmit={(e) => { e.preventDefault(); const q = e.target.q.value.trim(); if (q) window.location.href = `/?search=${encodeURIComponent(q)}`; }}
+            className="flex items-center gap-2 max-w-2xl mx-auto mb-6"
+          >
+            <div className="flex flex-1 items-center bg-gray-50 border-2 border-gray-200 focus-within:border-orange-400 focus-within:bg-white rounded-2xl px-4 py-3 gap-3 transition-all shadow-sm focus-within:shadow-md">
+              <Search className="w-5 h-5 text-gray-400 shrink-0" />
+              <input
+                name="q"
+                type="text"
+                placeholder="Tìm sự kiện, nghệ sĩ, địa điểm..."
+                className="flex-1 bg-transparent outline-none text-gray-800 placeholder-gray-400 text-sm md:text-base"
+              />
+            </div>
+            <button
+              type="submit"
+              className="shrink-0 bg-gradient-to-r from-orange-500 to-purple-600 hover:from-orange-600 hover:to-purple-700 text-white font-semibold px-5 py-3 rounded-2xl transition-all shadow-md hover:shadow-lg text-sm md:text-base"
+            >
+              Tìm kiếm
+            </button>
+          </form>
+
+          {/* Featured tags */}
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <span className="text-xs text-gray-400 mr-1 shrink-0">Phổ biến:</span>
             {[
-              { label: "Sự kiện", value: "500+", icon: Calendar, from: "from-orange-400", to: "to-orange-600" },
-              { label: "Người tham gia", value: "50K+", icon: Users, from: "from-purple-400", to: "to-purple-600" },
-              { label: "Thành phố", value: "10+", icon: MapPin, from: "from-pink-400", to: "to-pink-600" },
-              { label: "Đánh giá 5⭐", value: "10K+", icon: Star, from: "from-yellow-400", to: "to-orange-500" },
-            ].map((stat, i) => (
-              <div key={stat.label} className="flex flex-col items-center text-center p-6 rounded-black/2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all duration-300 hover:-translate-y-1">
-                <div className={`w-12 h-12 bg-gradient-to-br ${stat.from} ${stat.to} rounded-xl flex items-center justify-center mb-3 shadow-lg`}>
-                  <stat.icon className="w-6 h-6 text-white" />
-                </div>
-                <div className="text-3xl font-bold text-black mb-1">{stat.value}</div>
-                <div className="text-sm text-black-400">{stat.label}</div>
-              </div>
+              { label: "🎵 Âm nhạc", cat: "Âm nhạc" },
+              { label: "💻 Công nghệ", cat: "Công nghệ" },
+              { label: "🎨 Nghệ thuật", cat: "Nghệ thuật" },
+              { label: "⚽ Thể thao", cat: "Thể thao" },
+              { label: "🍜 Ẩm thực", cat: "Ẩm thực" },
+              { label: "📚 Giáo dục", cat: "Giáo dục" },
+              { label: "🎭 Sân khấu", cat: "Sân khấu" },
+            ].map(({ label, cat }) => (
+              <Link
+                key={cat}
+                to={`/?category=${encodeURIComponent(cat)}`}
+                className="px-3 py-1.5 bg-gray-100 hover:bg-gradient-to-r hover:from-orange-500 hover:to-purple-600 hover:text-white text-gray-600 text-xs font-medium rounded-full transition-all duration-200 hover:shadow-md hover:scale-105"
+              >
+                {label}
+              </Link>
             ))}
           </div>
         </div>
       </div>
 
       {/* ─── HOT EVENTS — subtle warm cream ─── */}
-      <div className="bg-amber-50 py-16">
+      <div className="bg-orange-50/60 py-16">
         <div
           id="hot-events" data-animate
           className={`container-custom transition-all duration-1000 ${visibleSections['hot-events'] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}
@@ -204,7 +231,7 @@ const HomePage = () => {
       </div>
 
       {/* ─── UPCOMING — deep navy with mesh ─── */}
-      <div className="relative bg-slate-900 py-16 overflow-hidden">
+      <div className="relative bg-gray-900 py-16 overflow-hidden">
         {/* Decorative blobs */}
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-purple-600/20 rounded-full blur-3xl pointer-events-none"></div>
         <div className="absolute bottom-0 right-1/4 w-80 h-80 bg-orange-500/20 rounded-full blur-3xl pointer-events-none"></div>
@@ -264,7 +291,7 @@ const HomePage = () => {
       </div>
 
       {/* ─── CATEGORIES — clean light gray ─── */}
-      <div className="bg-gray-50 py-16">
+      <div className="bg-white py-16">
         <div className="container-custom">
           {searchParams.get("category") && (
             <h1 className="text-3xl font-heading font-bold mb-10 text-center text-gray-900">
@@ -324,7 +351,7 @@ const HomePage = () => {
       </div>
 
       {/* ─── ORGANIZERS — rich purple-dark ─── */}
-      <div className="relative bg-gradient-to-br from-violet-950 via-purple-900 to-indigo-900 py-16 overflow-hidden">
+      <div className="relative bg-gray-900 py-16 overflow-hidden">
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute top-10 right-20 w-72 h-72 bg-orange-500/10 rounded-full blur-3xl"></div>
           <div className="absolute bottom-10 left-20 w-96 h-96 bg-purple-400/10 rounded-full blur-3xl"></div>
@@ -338,7 +365,7 @@ const HomePage = () => {
         >
           <div className="text-center mb-10">
             <h2 className="text-2xl md:text-3xl lg:text-4xl font-heading font-semibold mb-3 text-white">Nhà tổ chức nổi tiếng</h2>
-            <p className="text-purple-300 text-sm md:text-base">Những đơn vị tổ chức uy tín và chuyên nghiệp</p>
+            <p className="text-gray-400 text-sm md:text-base">Những đơn vị tổ chức uy tín và chuyên nghiệp</p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {featuredOrganizers.map((organizer, index) => (
@@ -355,7 +382,7 @@ const HomePage = () => {
                   </div>
                 </div>
                 <h3 className="text-base font-semibold mb-2 text-white group-hover:text-orange-400 transition-colors">{organizer.name}</h3>
-                <p className="text-sm text-purple-300 mb-4 line-clamp-2">{organizer.description}</p>
+                <p className="text-sm text-gray-400 mb-4 line-clamp-2">{organizer.description}</p>
                 <div className="flex items-center justify-center gap-4 text-sm text-gray-400 mb-4">
                   <div className="flex items-center gap-1"><Calendar className="w-4 h-4" /><span>{organizer.totalEvents}</span></div>
                   <div className="flex items-center gap-1"><Users className="w-4 h-4" /><span>{organizer.followers}</span></div>
@@ -370,7 +397,7 @@ const HomePage = () => {
       </div>
 
       {/* ─── TESTIMONIALS — warm tinted light ─── */}
-      <div className="relative bg-gradient-to-br from-rose-50 via-orange-50 to-amber-50 py-16 overflow-hidden">
+      <div className="relative bg-white py-16 overflow-hidden">
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-orange-400 via-pink-400 to-purple-400"></div>
         <div className="absolute -top-24 -right-24 w-80 h-80 bg-orange-200/40 rounded-full blur-3xl pointer-events-none"></div>
         <div className="absolute -bottom-24 -left-24 w-80 h-80 bg-purple-200/40 rounded-full blur-3xl pointer-events-none"></div>
@@ -412,7 +439,7 @@ const HomePage = () => {
       </div>
 
       {/* ─── LOCATIONS — dark teal/emerald ─── */}
-      <div className="relative bg-gradient-to-br from-emerald-900 via-teal-900 to-cyan-900 py-16 overflow-hidden">
+      <div className="relative bg-gray-900 py-16 overflow-hidden">
         <div className="absolute inset-0 pointer-events-none opacity-10"
           style={{backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)', backgroundSize: '32px 32px'}}></div>
         <div
@@ -420,7 +447,7 @@ const HomePage = () => {
           className={`container-custom relative z-10 transition-all duration-1000 ${visibleSections['locations'] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}
         >
           <h2 className="text-2xl md:text-3xl font-heading font-semibold mb-3 text-center text-white">Địa điểm phổ biến</h2>
-          <p className="text-teal-300 text-sm text-center mb-8">Khám phá sự kiện theo thành phố bạn yêu thích</p>
+          <p className="text-gray-400 text-sm text-center mb-8">Khám phá sự kiện theo thành phố bạn yêu thích</p>
           <div className="flex flex-wrap gap-4 justify-center">
             {popularLocations.map((loc, index) => (
               <Link key={loc} to={`/?location=${encodeURIComponent(loc)}`}
