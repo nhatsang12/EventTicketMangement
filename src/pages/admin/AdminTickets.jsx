@@ -4,6 +4,11 @@ import toast from 'react-hot-toast';
 
 const emptyForm = { name: '', price: '', quantity: '', description: '', isEnabled: true, eventId: '' };
 
+// Notify HomePage để reload ngay cùng tab
+const notifyHomePage = () => {
+  try { window.dispatchEvent(new CustomEvent("tickethub:events-updated")); } catch {}
+};
+
 const AdminTickets = () => {
   const [events, setEvents] = useState([]);
   const [ticketTypes, setTicketTypes] = useState([]);
@@ -20,6 +25,7 @@ const AdminTickets = () => {
   const saveTickets = (data) => {
     localStorage.setItem('adminTicketTypes', JSON.stringify(data));
     setTicketTypes(data);
+    notifyHomePage();
   };
 
   const handleSubmit = (e) => {

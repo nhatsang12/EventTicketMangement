@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { mockEvents, mockCategories } from "../data/mockData";
-import { Calendar, MapPin, Heart, ChevronDown, ChevronRight, Star, Users, Award, Clock, TrendingUp, Sparkles, Search } from "lucide-react";
+import { Calendar, MapPin, Heart, ChevronDown, ChevronRight, Star, Users, Award, Clock, TrendingUp, Sparkles, Search, Ticket, Zap } from "lucide-react";
 
 const EventCardSkeleton = () => (
   <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden animate-pulse">
@@ -92,6 +92,11 @@ const HomePage = () => {
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
+  };
+
+  // Helper function for animation classes
+  const anim = (sectionId) => {
+    return `transition-all duration-1000 ${visibleSections[sectionId] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`;
   };
 
   return (
@@ -568,80 +573,62 @@ const HomePage = () => {
         </div>
       </div>
 
-      {/* ─── LOCATIONS — dark teal/emerald ─── */}
-      <div className="relative bg-gray-900 py-16 overflow-hidden">
-        <div className="absolute inset-0 pointer-events-none opacity-10"
-          style={{backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)', backgroundSize: '32px 32px'}}></div>
-        <div
-          id="locations" data-animate
-          className={`container-custom relative z-10 transition-all duration-1000 ${visibleSections['locations'] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}
-        >
-          <h2 className="text-2xl md:text-3xl font-heading font-semibold mb-3 text-center text-white">Địa điểm phổ biến</h2>
-          <p className="text-gray-400 text-sm text-center mb-8">Khám phá sự kiện theo thành phố bạn yêu thích</p>
-          <div className="flex flex-wrap gap-4 justify-center">
-            {popularLocations.map((loc, index) => (
-              <Link key={loc} to={`/?location=${encodeURIComponent(loc)}`}
-                className="bg-white/10 hover:bg-gradient-to-r hover:from-orange-500 hover:to-purple-600 border border-white/20 hover:border-transparent px-6 py-3 rounded-full text-sm font-medium text-white transition-all duration-300 hover:shadow-lg hover:scale-105 backdrop-blur-sm"
-                style={{ animationDelay: `${index * 50}ms` }}>
-                📍 {loc}
+      {/* ─── LOCATIONS — nền trắng, card ảnh ─── */}
+      <div className="bg-white py-14">
+        <div id="locations" data-animate className={`container-custom ${anim("locations")}`}>
+          <div className="text-center mb-8">
+            <p className="text-xs font-medium text-orange-500 mb-1 uppercase tracking-widest">Khám phá</p>
+            <h2 className="text-xl md:text-2xl lg:text-3xl font-heading font-bold text-gray-900 mb-2">Địa điểm phổ biến</h2>
+            <p className="text-gray-400 text-sm">Tìm sự kiện theo thành phố bạn yêu thích</p>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
+            {[
+              { name: "TP. Hồ Chí Minh", img: "https://images.unsplash.com/photo-1583417319070-4a69db38a482?w=600&auto=format&fit=crop&q=80", count: 120 },
+              { name: "Hà Nội",           img: "https://images.unsplash.com/photo-1509030450996-dd1a26dda07a?w=600&auto=format&fit=crop&q=80", count: 85 },
+              { name: "Đà Nẵng",          img: "https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?w=600&auto=format&fit=crop&q=80", count: 47 },
+              { name: "Nha Trang",        img: "https://images.unsplash.com/photo-1573968694073-5af7d6dfe5e0?w=600&auto=format&fit=crop&q=80", count: 32 },
+              { name: "Phú Quốc",         img: "https://images.unsplash.com/photo-1540541338537-1220059af4dc?w=600&auto=format&fit=crop&q=80", count: 28 },
+              { name: "Cần Thơ",          img: "https://images.unsplash.com/photo-1555400038-63f5ba517a47?w=600&auto=format&fit=crop&q=80", count: 19 },
+            ].map((loc, i) => (
+              <Link key={loc.name} to={`/?location=${encodeURIComponent(loc.name)}`}
+                className={`group relative overflow-hidden rounded-2xl ${i === 0 ? "md:col-span-2 md:row-span-2" : ""}`}>
+                <div className={`relative w-full overflow-hidden ${i === 0 ? "h-[220px] md:h-full md:min-h-[280px]" : "h-[140px] md:h-[130px]"}`}>
+                  <img src={loc.img} alt={loc.name}
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                    onError={(e) => { e.target.src = "https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=600&h=400&fit=crop"; }} />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+                  <div className="absolute bottom-0 left-0 right-0 p-3 md:p-4">
+                    <div className="flex items-end justify-between">
+                      <div>
+                        <h3 className={`font-bold text-white leading-tight ${i === 0 ? "text-lg md:text-2xl" : "text-sm md:text-base"}`}>{loc.name}</h3>
+                        <p className="text-white/70 text-xs mt-0.5">{loc.count} sự kiện</p>
+                      </div>
+                      <div className="bg-white/20 backdrop-blur-sm border border-white/20 p-1.5 rounded-full group-hover:bg-orange-500 group-hover:border-orange-500 transition-all">
+                        <ChevronRight className="w-3.5 h-3.5 text-white" />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="absolute inset-0 bg-orange-500/0 group-hover:bg-orange-500/10 transition-all duration-300" />
+                </div>
               </Link>
             ))}
           </div>
         </div>
       </div>
 
-      {/* ─── CTA — bold gradient ─── */}
-      <div
-        id="cta" data-animate
-        className={`relative bg-gradient-to-br from-orange-500 via-rose-500 to-purple-600 py-20 overflow-hidden transition-all duration-1000 ${visibleSections['cta'] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}
-      >
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute top-10 left-10 w-40 h-40 bg-white/10 rounded-full blur-3xl animate-float"></div>
-          <div className="absolute bottom-10 right-10 w-60 h-60 bg-white/10 rounded-full blur-3xl animate-float-delayed"></div>
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-white/5 rounded-full blur-3xl"></div>
-        </div>
-        <div className="container-custom relative z-10 text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full mb-6 animate-bounce">
-            <Sparkles className="w-8 h-8 text-white" />
-          </div>
-          <h2 className="text-3xl md:text-5xl font-heading font-bold mb-4 text-white drop-shadow-lg">
-            Sẵn sàng tạo sự kiện của riêng bạn?
-          </h2>
-          <p className="text-base md:text-lg text-white/90 mb-8 max-w-2xl mx-auto drop-shadow-md">
-            Đăng ký ngay để trở thành người tổ chức và kết nối với hàng ngàn người tham gia!
-          </p>
-          <Link to="/create-event"
-            className="inline-block bg-white hover:bg-gray-100 text-purple-700 font-bold px-10 py-4 rounded-full text-base md:text-lg shadow-2xl transition-all hover:scale-105 transform">
-            Bắt đầu ngay →
-          </Link>
-        </div>
-      </div>
+    
 
       <style jsx>{`
         @keyframes fade-in-up {
-          from { opacity: 0; transform: translateY(30px); }
+          from { opacity: 0; transform: translateY(24px); }
           to { opacity: 1; transform: translateY(0); }
         }
-        @keyframes float {
-          0%, 100% { transform: translateY(0) translateX(0); }
-          50% { transform: translateY(-20px) translateX(10px); }
-        }
-        @keyframes float-delayed {
-          0%, 100% { transform: translateY(0) translateX(0); }
-          50% { transform: translateY(-30px) translateX(-15px); }
-        }
-        @keyframes gradient-x {
-          0%, 100% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-        }
-        .animate-fade-in-up { animation: fade-in-up 0.8s ease-out forwards; }
-        .animate-float { animation: float 6s ease-in-out infinite; }
-        .animate-float-delayed { animation: float-delayed 8s ease-in-out infinite; }
-        .animate-gradient-x { background-size: 200% 200%; animation: gradient-x 15s ease infinite; }
+        .animate-fade-in-up { animation: fade-in-up 0.7s ease-out forwards; }
         .overflow-x-auto::-webkit-scrollbar { display: none; }
       `}</style>
     </div>
   );
 };
+
 
 export default HomePage;
