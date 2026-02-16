@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { eventAPI } from '../services/eventService';
+
 import { mockEvents, mockTicketTypes } from '../data/mockData'; // Import mock data
 import useCartStore from '../store/cartStore';
 import useAuthStore from '../store/authStore';

@@ -7,6 +7,7 @@ import MyTicketsPage from './pages/TicketHistoryPage.jsx'
 import LoginPage from './pages/auth/LoginPage'
 import RegisterPage from './pages/auth/RegisterPage'
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage'
+
 import ProtectedRoute from './components/ProtectedRoute'
 import NotFoundPage from './pages/NotFoundPage'
 import AdminLayout from './components/layout/AdminLayout'
