@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
-import { mockEvents, mockCategories } from "../data/mockData";
+import axios from "axios";
 import { Calendar, MapPin, Heart, ChevronDown, ChevronRight, Star, Users, Award, Clock, TrendingUp, Sparkles, Search, Ticket, Zap } from "lucide-react";
 
 const EventCardSkeleton = () => (
@@ -29,21 +29,41 @@ const UpcomingEventSkeleton = () => (
 
 const HomePage = () => {
   const [events, setEvents] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [visibleSections, setVisibleSections] = useState({});
   const [showAllCategories, setShowAllCategories] = useState(false);
   const INITIAL_CAT_COUNT = 3;
 
+  // 1. TẢI DỮ LIỆU SỰ KIỆN TỪ BACKEND
   useEffect(() => {
-    setLoading(true);
-    setTimeout(() => {
-      let data = [...mockEvents];
-      const category = searchParams.get("category");
-      if (category) data = data.filter((e) => e.category === category);
-      setEvents(data);
-      setLoading(false);
-    }, 1000);
+    const fetchEvents = async () => {
+      try {
+        setLoading(true);
+        // Gọi API lấy danh sách sự kiện (Dùng URL tuyệt đối trỏ tới Backend)
+        const res = await axios.get("http://localhost:8000/api/events");
+        let data = res.data?.data || res.data || [];
+
+        // Trích xuất danh sách các Category (duy nhất) từ dữ liệu thật
+        const uniqueCategories = [...new Set(data.map(item => item.category).filter(Boolean))];
+        setCategories(uniqueCategories.map(name => ({ name })));
+
+        // Lọc theo query param nếu có
+        const categoryFilter = searchParams.get("category");
+        if (categoryFilter) {
+          data = data.filter((e) => e.category === categoryFilter);
+        }
+
+        setEvents(data);
+      } catch (error) {
+        console.error("Lỗi tải sự kiện trang chủ:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchEvents();
   }, [searchParams]);
 
   useEffect(() => {
@@ -65,16 +85,16 @@ const HomePage = () => {
     if (searchParams.get("category")) {
       return [{ category: searchParams.get("category"), events: events.slice(0, 8) }];
     }
-    return mockCategories
+    return categories
       .map((cat) => ({ category: cat.name, events: events.filter((e) => e.category === cat.name).slice(0, 8) }))
       .filter((group) => group.events.length > 0);
   };
 
   const groupedEvents = getEventsByCategory();
-  const hotEvents = [...events].sort((a, b) => b.minPrice - a.minPrice).slice(0, 6);
-  const upcomingEvents = [...events].sort((a, b) => new Date(a.date) - new Date(b.date)).slice(0, 4);
-
-  const popularLocations = ["TP. Hồ Chí Minh", "Hà Nội", "Đà Nẵng", "Cần Thơ", "Nha Trang", "Phú Quốc"];
+  // Sắp xếp sự kiện nổi bật (Tạm thời xếp theo ngày tạo hoặc ID nếu không có minPrice)
+  const hotEvents = [...events].slice(0, 6);
+  // Sắp xếp sự kiện sắp diễn ra (Theo startDate)
+  const upcomingEvents = [...events].sort((a, b) => new Date(a.startDate) - new Date(b.startDate)).slice(0, 4);
 
   const featuredOrganizers = [
     { id: 1, name: "Vietnam Music Events", avatar: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=300&auto=format&fit=crop&q=80", totalEvents: 45, followers: "12K", description: "Tổ chức các sự kiện âm nhạc hàng đầu tại Việt Nam" },
@@ -89,12 +109,20 @@ const HomePage = () => {
     { id: 3, name: "Lê Thu Hà", avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&auto=format&fit=crop&q=80", rating: 5, comment: "Giao diện đẹp, dễ sử dụng. Thông tin sự kiện rõ ràng, chi tiết. Rất hài lòng với dịch vụ khách hàng.", event: "Saigon Food Festival" },
   ];
 
+  // Format ngày tháng an toàn
   const formatDate = (dateString) => {
+    if (!dateString) return "Chưa cập nhật";
     const date = new Date(dateString);
+    if (isNaN(date.getTime())) return "Chưa cập nhật";
     return `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
   };
 
-  // Helper function for animation classes
+  // Helper cho đường dẫn ảnh thật từ Backend
+  const getImageUrl = (imagePath) => {
+    if (!imagePath) return "https://via.placeholder.com/800x600?text=No+Image";
+    return imagePath.startsWith('http') ? imagePath : `http://localhost:8000${imagePath}`;
+  };
+
   const anim = (sectionId) => {
     return `transition-all duration-1000 ${visibleSections[sectionId] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`;
   };
@@ -136,223 +164,124 @@ const HomePage = () => {
           id="search-section" data-animate
           className={`container-custom transition-all duration-700 ${visibleSections['search-section'] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
         >
-          {/* Search bar */}
           <form
             onSubmit={(e) => { e.preventDefault(); const q = e.target.q.value.trim(); if (q) window.location.href = `/?search=${encodeURIComponent(q)}`; }}
             className="flex items-center gap-2 max-w-2xl mx-auto mb-6"
           >
             <div className="flex flex-1 items-center bg-gray-50 border-2 border-gray-200 focus-within:border-orange-400 focus-within:bg-white rounded-2xl px-4 py-3 gap-3 transition-all shadow-sm focus-within:shadow-md">
               <Search className="w-5 h-5 text-gray-400 shrink-0" />
-              <input
-                name="q"
-                type="text"
-                placeholder="Tìm sự kiện, nghệ sĩ, địa điểm..."
-                className="flex-1 bg-transparent outline-none text-gray-800 placeholder-gray-400 text-sm md:text-base"
-              />
+              <input name="q" type="text" placeholder="Tìm sự kiện, nghệ sĩ, địa điểm..."
+                className="flex-1 bg-transparent outline-none text-gray-800 placeholder-gray-400 text-sm md:text-base" />
             </div>
-            <button
-              type="submit"
-              className="shrink-0 bg-gradient-to-r from-orange-500 to-purple-600 hover:from-orange-600 hover:to-purple-700 text-white font-semibold px-5 py-3 rounded-2xl transition-all shadow-md hover:shadow-lg text-sm md:text-base"
-            >
+            <button type="submit"
+              className="shrink-0 bg-gradient-to-r from-orange-500 to-purple-600 hover:from-orange-600 hover:to-purple-700 text-white font-semibold px-5 py-3 rounded-2xl transition-all shadow-md hover:shadow-lg text-sm md:text-base">
               Tìm kiếm
             </button>
           </form>
 
-          {/* Featured tags */}
           <div className="flex flex-wrap items-center justify-center gap-2">
             <span className="text-xs text-gray-400 mr-1 shrink-0">Phổ biến:</span>
-            {[
-              { label: "🎵 Âm nhạc", cat: "Âm nhạc" },
-              { label: "💻 Công nghệ", cat: "Công nghệ" },
-              { label: "🎨 Nghệ thuật", cat: "Nghệ thuật" },
-              { label: "⚽ Thể thao", cat: "Thể thao" },
-              { label: "🍜 Ẩm thực", cat: "Ẩm thực" },
-              { label: "📚 Giáo dục", cat: "Giáo dục" },
-              { label: "🎭 Sân khấu", cat: "Sân khấu" },
-            ].map(({ label, cat }) => (
-              <Link
-                key={cat}
-                to={`/?category=${encodeURIComponent(cat)}`}
-                className="px-3 py-1.5 bg-gray-100 hover:bg-gradient-to-r hover:from-orange-500 hover:to-purple-600 hover:text-white text-gray-600 text-xs font-medium rounded-full transition-all duration-200 hover:shadow-md hover:scale-105"
-              >
-                {label}
+            {categories.slice(0, 8).map(({ name }) => (
+              <Link key={name} to={`/?category=${encodeURIComponent(name)}`}
+                className="px-3 py-1.5 bg-gray-100 hover:bg-gradient-to-r hover:from-orange-500 hover:to-purple-600 hover:text-white text-gray-600 text-xs font-medium rounded-full transition-all duration-200 hover:shadow-md hover:scale-105">
+                {name}
               </Link>
             ))}
           </div>
         </div>
       </div>
 
-      {/* ─── HOT EVENTS — subtle warm cream ─── */}
+      {/* ─── HOT EVENTS ─── */}
       <div className="bg-orange-50/60 py-16">
-        {/* Header + Featured — trong container */}
-        <div
-          id="hot-events" data-animate
-          className={`container-custom transition-all duration-1000 ${visibleSections['hot-events'] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}
-        >
-          {/* Header */}
+        <div id="hot-events" data-animate className={`container-custom transition-all duration-1000 ${visibleSections['hot-events'] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
           <div className="flex items-end justify-between mb-8">
             <div>
               <p className="text-xs font-semibold tracking-[0.2em] text-orange-400 uppercase mb-2">Được yêu thích</p>
-              <h2 className="text-2xl md:text-3xl lg:text-4xl font-heading font-bold text-gray-900 leading-tight">
-                Sự kiện nổi bật
-              </h2>
+              <h2 className="text-2xl md:text-3xl lg:text-4xl font-heading font-bold text-gray-900 leading-tight">Sự kiện nổi bật</h2>
             </div>
-            <Link to="/events"
-              className="hidden sm:flex items-center gap-1.5 text-sm text-gray-400 hover:text-orange-500 transition-colors group shrink-0">
-              Xem tất cả
-              <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+            <Link to="/events" className="hidden sm:flex items-center gap-1.5 text-sm text-gray-400 hover:text-orange-500 transition-colors group shrink-0">
+              Xem tất cả <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
             </Link>
           </div>
 
           {loading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
-              {[...Array(6)].map((_, i) => <EventCardSkeleton key={i} />)}
+              {[...Array(4)].map((_, i) => <EventCardSkeleton key={i} />)}
             </div>
           ) : hotEvents.length > 0 ? (
             <>
-              {/* ── FEATURED CARD (event đầu tiên) ── */}
-              <Link to={`/event/${hotEvents[0]._id}`}
-                className="group relative block w-full rounded-3xl overflow-hidden mb-8 shadow-lg hover:shadow-2xl transition-all duration-500">
+              {/* FEATURED CARD */}
+              <Link to={`/event/${hotEvents[0]._id}`} className="group relative block w-full rounded-3xl overflow-hidden mb-8 shadow-lg hover:shadow-2xl transition-all duration-500">
                 <div className="relative h-[280px] md:h-[400px] lg:h-[460px]">
-                  <img
-                    src={hotEvents[0].imageUrl} alt={hotEvents[0].name}
+                  <img src={getImageUrl(hotEvents[0].image)} alt={hotEvents[0].title}
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                    onError={(e) => { e.target.src = 'https://via.placeholder.com/1200x600?text=Event'; }}
-                  />
+                    onError={(e) => { e.target.src = 'https://via.placeholder.com/1200x600?text=Event'; }} />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                  <div className="absolute top-5 left-5 bg-orange-500 text-white text-xs font-bold px-3 py-1 rounded-full tracking-widest uppercase">
-                    ✦ Nổi bật
-                  </div>
-                  <button className="absolute top-5 right-5 bg-white/15 backdrop-blur-md border border-white/20 p-2.5 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-300 hover:bg-white/25">
-                    <Heart className="w-4 h-4 text-white" />
-                  </button>
+                  <div className="absolute top-5 left-5 bg-orange-500 text-white text-xs font-bold px-3 py-1 rounded-full tracking-widest uppercase">✦ Nổi bật</div>
                   <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8">
                     <div className="flex flex-wrap items-center gap-2 mb-3">
                       {hotEvents[0].category && (
-                        <span className="px-2.5 py-0.5 bg-white/15 backdrop-blur-sm border border-white/20 text-white/80 text-xs rounded-full">
-                          {hotEvents[0].category}
-                        </span>
+                        <span className="px-2.5 py-0.5 bg-white/15 backdrop-blur-sm border border-white/20 text-white/80 text-xs rounded-full">{hotEvents[0].category}</span>
                       )}
                     </div>
-                    <h3 className="text-xl md:text-3xl font-bold text-white mb-3 leading-snug line-clamp-2 group-hover:text-orange-200 transition-colors">
-                      {hotEvents[0].name}
-                    </h3>
+                    <h3 className="text-xl md:text-3xl font-bold text-white mb-3 leading-snug line-clamp-2 group-hover:text-orange-200 transition-colors">{hotEvents[0].title}</h3>
                     <div className="flex flex-wrap items-center gap-4 text-sm text-white/70">
-                      <span className="flex items-center gap-1.5">
-                        <Calendar className="w-3.5 h-3.5 text-white/50" />
-                        {formatDate(hotEvents[0].date)}
-                      </span>
-                      <span className="flex items-center gap-1.5">
-                        <MapPin className="w-3.5 h-3.5 text-white/50" />
-                        <span className="line-clamp-1">{hotEvents[0].location}</span>
-                      </span>
-                    </div>
-                    <div className="mt-4 flex items-center justify-between">
-                      <div>
-                        <p className="text-xs text-white/50 mb-0.5">Giá từ</p>
-                        <p className="text-2xl font-bold text-white">{hotEvents[0].minPrice.toLocaleString("vi-VN")}₫</p>
-                      </div>
-                      <span className="flex items-center gap-2 bg-white text-gray-900 text-sm font-bold px-5 py-2.5 rounded-full group-hover:bg-orange-500 group-hover:text-white transition-all duration-300 shadow-lg">
-                        Đặt vé <ChevronRight className="w-4 h-4" />
-                      </span>
+                      <span className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5 text-white/50" />{formatDate(hotEvents[0].startDate)}</span>
+                      <span className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 text-white/50" /><span className="line-clamp-1">{hotEvents[0].location}</span></span>
                     </div>
                   </div>
                 </div>
               </Link>
             </>
-          ) : null}
+          ) : (
+             <div className="text-center py-10 text-gray-500">Chưa có sự kiện nào nổi bật</div>
+          )}
         </div>
 
-        {/* ── HORIZONTAL SCROLL — full width, ngoài container để không bị clip ── */}
+        {/* HORIZONTAL SCROLL */}
         {!loading && hotEvents.length > 1 && (
           <div className="relative w-full">
-            {/* Fade trái */}
             <div className="absolute left-0 top-0 bottom-4 w-12 bg-gradient-to-r from-[#fff7ed] to-transparent z-10 pointer-events-none" />
-            {/* Fade phải */}
             <div className="absolute right-0 top-0 bottom-4 w-12 bg-gradient-to-l from-[#fff7ed] to-transparent z-10 pointer-events-none" />
-
-            <div
-              className="flex gap-4 overflow-x-auto pb-4 px-4 md:px-8 lg:px-16"
-              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}
-            >
-              {hotEvents.slice(1).map((event, index) => (
-                <Link key={event._id} to={`/event/${event._id}`}
-                  className="group flex-none w-[220px] md:w-[260px] bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border border-orange-100/60">
+            <div className="flex gap-4 overflow-x-auto pb-4 px-4 md:px-8 lg:px-16" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+              {hotEvents.slice(1).map((event) => (
+                <Link key={event._id} to={`/event/${event._id}`} className="group flex-none w-[220px] md:w-[260px] bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border border-orange-100/60">
                   <div className="relative h-[145px] md:h-[165px] overflow-hidden">
-                    {index === 0 && (
-                      <div className="absolute top-2.5 left-2.5 z-10 bg-orange-500 text-white px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide">
-                        HOT
-                      </div>
-                    )}
-                    <img src={event.imageUrl} alt={event.name}
+                    <img src={getImageUrl(event.image)} alt={event.title}
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                       onError={(e) => { e.target.src = 'https://via.placeholder.com/400x300?text=Event'; }} />
-                    <button className="absolute bottom-2.5 right-2.5 opacity-0 group-hover:opacity-100 transition-all duration-300 bg-white/90 p-1.5 rounded-full shadow-md">
-                      <Heart className="w-3.5 h-3.5 text-gray-300" />
-                    </button>
                   </div>
                   <div className="p-3.5">
-                    <h3 className="text-sm font-semibold mb-2 line-clamp-2 text-gray-900 group-hover:text-orange-600 transition-colors leading-snug">{event.name}</h3>
+                    <h3 className="text-sm font-semibold mb-2 line-clamp-2 text-gray-900 group-hover:text-orange-600 transition-colors leading-snug">{event.title}</h3>
                     <div className="space-y-1 text-xs text-gray-400 mb-3">
-                      <div className="flex items-center gap-1.5">
-                        <Calendar className="w-3 h-3 shrink-0 text-gray-300" />
-                        <span>{formatDate(event.date)}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <MapPin className="w-3 h-3 shrink-0 text-gray-300" />
-                        <span className="line-clamp-1">{event.location}</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between pt-2.5 border-t border-gray-100">
-                      <p className="text-sm font-bold text-orange-600">{event.minPrice.toLocaleString("vi-VN")}₫</p>
-                      <span className="text-xs text-gray-300">từ</span>
+                      <div className="flex items-center gap-1.5"><Calendar className="w-3 h-3 shrink-0 text-gray-300" /><span>{formatDate(event.startDate)}</span></div>
+                      <div className="flex items-center gap-1.5"><MapPin className="w-3 h-3 shrink-0 text-gray-300" /><span className="line-clamp-1">{event.location}</span></div>
                     </div>
                   </div>
                 </Link>
               ))}
-
-              {/* See all card */}
-              <Link to="/events"
-                className="flex-none w-[150px] rounded-2xl border-2 border-dashed border-orange-200 flex flex-col items-center justify-center gap-3 text-orange-400 hover:border-orange-400 hover:bg-white/60 transition-all duration-300 group mr-4">
-                <div className="w-10 h-10 rounded-full border-2 border-orange-200 group-hover:border-orange-400 flex items-center justify-center transition-colors">
-                  <ChevronRight className="w-5 h-5" />
-                </div>
+              <Link to="/events" className="flex-none w-[150px] rounded-2xl border-2 border-dashed border-orange-200 flex flex-col items-center justify-center gap-3 text-orange-400 hover:border-orange-400 hover:bg-white/60 transition-all duration-300 group mr-4">
+                <div className="w-10 h-10 rounded-full border-2 border-orange-200 group-hover:border-orange-400 flex items-center justify-center transition-colors"><ChevronRight className="w-5 h-5" /></div>
                 <span className="text-xs font-semibold text-center px-3 leading-snug">Xem tất cả sự kiện</span>
               </Link>
             </div>
           </div>
         )}
-
-        {/* Mobile see all */}
-        {!loading && (
-          <div className="flex justify-center mt-4 sm:hidden container-custom">
-            <Link to="/events" className="text-sm text-orange-500 font-medium flex items-center gap-1">
-              Xem tất cả <ChevronRight className="w-4 h-4" />
-            </Link>
-          </div>
-        )}
       </div>
 
-      {/* ─── UPCOMING — deep navy with mesh ─── */}
+      {/* ─── UPCOMING ─── */}
       <div className="relative bg-gray-900 py-16 overflow-hidden">
-        {/* Decorative blobs */}
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-purple-600/20 rounded-full blur-3xl pointer-events-none"></div>
         <div className="absolute bottom-0 right-1/4 w-80 h-80 bg-orange-500/20 rounded-full blur-3xl pointer-events-none"></div>
 
-        <div
-          id="upcoming-events" data-animate
-          className={`container-custom relative z-10 transition-all duration-1000 ${visibleSections['upcoming-events'] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}
-        >
+        <div id="upcoming-events" data-animate className={`container-custom relative z-10 transition-all duration-1000 ${visibleSections['upcoming-events'] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-purple-600 rounded-xl flex items-center justify-center">
-                <Clock className="w-6 h-6 text-white" />
-              </div>
+              <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-purple-600 rounded-xl flex items-center justify-center"><Clock className="w-6 h-6 text-white" /></div>
               <h2 className="text-2xl md:text-3xl font-heading font-semibold text-white">Sự kiện sắp diễn ra</h2>
             </div>
             <Link to="/events" className="flex items-center gap-1 text-sm text-gray-400 hover:text-orange-400 transition-colors group">
-              <span>Xem thêm</span>
-              <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              <span>Xem thêm</span><ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </Link>
           </div>
 
@@ -363,27 +292,16 @@ const HomePage = () => {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {upcomingEvents.map((event, index) => (
-                <Link key={event._id} to={`/event/${event._id}`}
-                  className="group cursor-pointer bg-white/8 backdrop-blur-sm border border-white/10 rounded-2xl overflow-hidden hover:bg-white/15 hover:border-orange-400/40 transition-all duration-500 flex flex-col sm:flex-row hover:-translate-y-1"
-                  style={{ animationDelay: `${index * 100}ms` }}>
+                <Link key={event._id} to={`/event/${event._id}`} className="group cursor-pointer bg-white/8 backdrop-blur-sm border border-white/10 rounded-2xl overflow-hidden hover:bg-white/15 hover:border-orange-400/40 transition-all duration-500 flex flex-col sm:flex-row hover:-translate-y-1" style={{ animationDelay: `${index * 100}ms` }}>
                   <div className="relative w-full sm:w-44 h-44 sm:h-auto overflow-hidden shrink-0">
-                    <img src={event.imageUrl} alt={event.name}
-                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                      onError={(e) => { e.target.src = 'https://via.placeholder.com/400x300?text=Event'; }} />
-                    <div className="absolute top-3 left-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white px-3 py-1 rounded-full text-xs font-semibold">
-                      {formatDate(event.date)}
-                    </div>
+                    <img src={getImageUrl(event.image)} alt={event.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" onError={(e) => { e.target.src = 'https://via.placeholder.com/400x300?text=Event'; }} />
+                    <div className="absolute top-3 left-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white px-3 py-1 rounded-full text-xs font-semibold">{formatDate(event.startDate)}</div>
                   </div>
                   <div className="p-5 flex-1 flex flex-col justify-between">
                     <div>
                       <span className="inline-block px-3 py-1 bg-white/10 text-gray-300 text-xs rounded-full mb-3 border border-white/10">{event.category}</span>
-                      <h3 className="text-base font-semibold mb-2 line-clamp-2 text-white group-hover:text-orange-400 transition-colors">{event.name}</h3>
-                      <div className="flex items-center gap-2 text-sm text-gray-400 mb-1"><Clock className="w-4 h-4 shrink-0" /><span>{event.time}</span></div>
+                      <h3 className="text-base font-semibold mb-2 line-clamp-2 text-white group-hover:text-orange-400 transition-colors">{event.title}</h3>
                       <div className="flex items-center gap-2 text-sm text-gray-400"><MapPin className="w-4 h-4 shrink-0" /><span className="line-clamp-1">{event.location}</span></div>
-                    </div>
-                    <div className="mt-4 flex items-center justify-between">
-                      <p className="text-xl font-bold text-white">{event.minPrice.toLocaleString("vi-VN")}₫</p>
-                      <span className="text-sm text-orange-400 font-medium flex items-center gap-1 group-hover:gap-2 transition-all">Xem chi tiết <ChevronRight className="w-4 h-4" /></span>
                     </div>
                   </div>
                 </Link>
@@ -393,7 +311,7 @@ const HomePage = () => {
         </div>
       </div>
 
-      {/* ─── CATEGORIES — clean light gray ─── */}
+      {/* ─── CATEGORIES ─── */}
       <div className="bg-white py-16">
         <div className="container-custom">
           {searchParams.get("category") && (
@@ -402,47 +320,32 @@ const HomePage = () => {
             </h1>
           )}
 
-          {groupedEvents.length === 0 ? (
-            <div className="text-center py-20 text-gray-500">Không tìm thấy sự kiện nào...</div>
+          {!loading && groupedEvents.length === 0 ? (
+            <div className="text-center py-20 text-gray-500">Chưa có sự kiện nào...</div>
           ) : (
             <>
-              {/* Chỉ hiện 3 category đầu, hoặc tất cả nếu showAllCategories */}
               {(showAllCategories ? groupedEvents : groupedEvents.slice(0, INITIAL_CAT_COUNT)).map((group, groupIndex) => (
-                <section key={group.category} id={`category-${groupIndex}`} data-animate
-                  className={`mb-14 transition-all duration-1000 ${visibleSections[`category-${groupIndex}`] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+                <section key={group.category} id={`category-${groupIndex}`} data-animate className={`mb-14 transition-all duration-1000 ${visibleSections[`category-${groupIndex}`] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
                   <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-3">
                       <div className="w-1.5 h-8 bg-gradient-to-b from-orange-500 to-purple-600 rounded-full"></div>
                       <h2 className="text-xl md:text-2xl font-heading font-semibold text-gray-800">{group.category}</h2>
                     </div>
-                    <Link to={`/?category=${encodeURIComponent(group.category)}`}
-                      className="flex items-center gap-1 text-sm text-gray-500 hover:text-orange-600 transition-colors group">
-                      <span>Xem thêm</span>
-                      <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                    <Link to={`/?category=${encodeURIComponent(group.category)}`} className="flex items-center gap-1 text-sm text-gray-500 hover:text-orange-600 transition-colors group">
+                      <span>Xem thêm</span><ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                     </Link>
                   </div>
-
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                     {group.events.map((event) => (
-                      <Link key={event._id} to={`/event/${event._id}`}
-                        className="group cursor-pointer bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-500 hover:-translate-y-2 border border-gray-100">
+                      <Link key={event._id} to={`/event/${event._id}`} className="group cursor-pointer bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-500 hover:-translate-y-2 border border-gray-100">
                         <div className="relative h-48 overflow-hidden">
-                          <img src={event.imageUrl} alt={event.name}
-                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                            onError={(e) => { e.target.src = 'https://via.placeholder.com/800x600?text=Event'; }} />
-                          <button className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-all duration-300 bg-white/90 p-2.5 rounded-full shadow-lg">
-                            <Heart className="w-5 h-5 text-red-500" />
-                          </button>
+                          <img src={getImageUrl(event.image)} alt={event.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" onError={(e) => { e.target.src = 'https://via.placeholder.com/800x600?text=Event'; }} />
                         </div>
                         <div className="p-4">
-                          <h3 className="text-base font-semibold mb-2 line-clamp-2 text-gray-900 group-hover:text-orange-600 transition-colors">{event.name}</h3>
+                          <h3 className="text-base font-semibold mb-2 line-clamp-2 text-gray-900 group-hover:text-orange-600 transition-colors">{event.title}</h3>
                           <div className="space-y-1.5 text-sm text-gray-500">
-                            <div className="flex items-center gap-2"><Calendar className="w-4 h-4 shrink-0" /><span>{formatDate(event.date)}</span></div>
+                            <div className="flex items-center gap-2"><Calendar className="w-4 h-4 shrink-0" /><span>{formatDate(event.startDate)}</span></div>
                             <div className="flex items-center gap-2"><MapPin className="w-4 h-4 shrink-0" /><span className="line-clamp-1">{event.location}</span></div>
-                          </div>
-                          <div className="mt-4 flex items-baseline justify-between">
-                            <p className="text-lg font-bold text-gray-900">{event.minPrice.toLocaleString("vi-VN")}₫</p>
-                            <span className="text-xs text-gray-400">từ</span>
                           </div>
                         </div>
                       </Link>
@@ -451,32 +354,11 @@ const HomePage = () => {
                 </section>
               ))}
 
-              {/* Nút xem thêm / thu gọn — chỉ hiện khi không filter theo category */}
               {!searchParams.get("category") && groupedEvents.length > INITIAL_CAT_COUNT && (
                 <div className="flex justify-center mt-2 mb-4">
-                  <button
-                    onClick={() => {
-                      if (showAllCategories) {
-                        setShowAllCategories(false);
-                        // Scroll lên đầu section categories
-                        document.getElementById("category-0")?.scrollIntoView({ behavior: "smooth", block: "start" });
-                      } else {
-                        setShowAllCategories(true);
-                      }
-                    }}
-                    className="group inline-flex items-center gap-2 px-8 py-3.5 bg-white border-2 border-gray-200 hover:border-orange-400 text-gray-600 hover:text-orange-500 font-medium rounded-full transition-all duration-300 shadow-sm hover:shadow-md text-sm"
-                  >
-                    {showAllCategories ? (
-                      <>
-                        <ChevronDown className="w-4 h-4 rotate-180 transition-transform duration-300" />
-                        Thu gọn
-                      </>
-                    ) : (
-                      <>
-                        <ChevronDown className="w-4 h-4 group-hover:translate-y-0.5 transition-transform duration-300" />
-                        Xem thêm {groupedEvents.length - INITIAL_CAT_COUNT} danh mục khác
-                      </>
-                    )}
+                  <button onClick={() => { if (showAllCategories) { setShowAllCategories(false); document.getElementById("category-0")?.scrollIntoView({ behavior: "smooth", block: "start" }); } else { setShowAllCategories(true); } }}
+                    className="group inline-flex items-center gap-2 px-8 py-3.5 bg-white border-2 border-gray-200 hover:border-orange-400 text-gray-600 hover:text-orange-500 font-medium rounded-full transition-all duration-300 shadow-sm hover:shadow-md text-sm">
+                    {showAllCategories ? <><ChevronDown className="w-4 h-4 rotate-180 transition-transform duration-300" /> Thu gọn</> : <><ChevronDown className="w-4 h-4 group-hover:translate-y-0.5 transition-transform duration-300" /> Xem thêm {groupedEvents.length - INITIAL_CAT_COUNT} danh mục khác</>}
                   </button>
                 </div>
               )}
@@ -484,139 +366,6 @@ const HomePage = () => {
           )}
         </div>
       </div>
-
-      {/* ─── ORGANIZERS — rich purple-dark ─── */}
-      <div className="relative bg-gray-900 py-16 overflow-hidden">
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-10 right-20 w-72 h-72 bg-orange-500/10 rounded-full blur-3xl"></div>
-          <div className="absolute bottom-10 left-20 w-96 h-96 bg-purple-400/10 rounded-full blur-3xl"></div>
-          {/* Grid lines overlay */}
-          <div className="absolute inset-0 opacity-5" style={{backgroundImage: 'linear-gradient(white 1px, transparent 1px), linear-gradient(90deg, white 1px, transparent 1px)', backgroundSize: '60px 60px'}}></div>
-        </div>
-
-        <div
-          id="organizers" data-animate
-          className={`container-custom relative z-10 transition-all duration-1000 ${visibleSections['organizers'] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}
-        >
-          <div className="text-center mb-10">
-            <h2 className="text-2xl md:text-3xl lg:text-4xl font-heading font-semibold mb-3 text-white">Nhà tổ chức nổi tiếng</h2>
-            <p className="text-gray-400 text-sm md:text-base">Những đơn vị tổ chức uy tín và chuyên nghiệp</p>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {featuredOrganizers.map((organizer, index) => (
-              <div key={organizer.id}
-                className="group cursor-pointer bg-white/8 backdrop-blur-sm border border-white/10 rounded-2xl p-6 text-center hover:bg-white/15 hover:border-orange-400/30 transition-all duration-500 hover:-translate-y-2"
-                style={{ animationDelay: `${index * 100}ms` }}>
-                <div className="relative w-24 h-24 mx-auto mb-4">
-                  <div className="absolute inset-0 bg-gradient-to-r from-orange-500 to-purple-500 rounded-full blur-lg opacity-0 group-hover:opacity-60 transition-opacity duration-500"></div>
-                  <img src={organizer.avatar} alt={organizer.name}
-                    className="relative w-full h-full rounded-full object-cover border-4 border-white/10 group-hover:border-orange-400/50 transition-all duration-500 group-hover:scale-110"
-                    onError={(e) => { e.target.src = 'https://via.placeholder.com/150?text=O'; }} />
-                  <div className="absolute -bottom-1 -right-1 bg-gradient-to-r from-orange-500 to-purple-600 p-1.5 rounded-full shadow-lg">
-                    <Award className="w-4 h-4 text-white" />
-                  </div>
-                </div>
-                <h3 className="text-base font-semibold mb-2 text-white group-hover:text-orange-400 transition-colors">{organizer.name}</h3>
-                <p className="text-sm text-gray-400 mb-4 line-clamp-2">{organizer.description}</p>
-                <div className="flex items-center justify-center gap-4 text-sm text-gray-400 mb-4">
-                  <div className="flex items-center gap-1"><Calendar className="w-4 h-4" /><span>{organizer.totalEvents}</span></div>
-                  <div className="flex items-center gap-1"><Users className="w-4 h-4" /><span>{organizer.followers}</span></div>
-                </div>
-                <button className="w-full bg-white/10 hover:bg-gradient-to-r hover:from-orange-500 hover:to-purple-600 text-white font-medium py-2.5 rounded-full transition-all duration-300 text-sm border border-white/20 hover:border-transparent">
-                  Theo dõi
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* ─── TESTIMONIALS — warm tinted light ─── */}
-      <div className="relative bg-white py-16 overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-orange-400 via-pink-400 to-purple-400"></div>
-        <div className="absolute -top-24 -right-24 w-80 h-80 bg-orange-200/40 rounded-full blur-3xl pointer-events-none"></div>
-        <div className="absolute -bottom-24 -left-24 w-80 h-80 bg-purple-200/40 rounded-full blur-3xl pointer-events-none"></div>
-
-        <div
-          id="testimonials" data-animate
-          className={`container-custom relative z-10 transition-all duration-1000 ${visibleSections['testimonials'] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}
-        >
-          <div className="text-center mb-10">
-            <h2 className="text-2xl md:text-3xl lg:text-4xl font-heading font-semibold mb-3 text-gray-900">Đánh giá từ người dùng</h2>
-            <p className="text-gray-500 text-base flex items-center justify-center gap-2">
-              <Star className="w-5 h-5 text-yellow-400 fill-current" />
-              Hàng ngàn khách hàng hài lòng đã tin tưởng chúng tôi
-            </p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
-            {testimonials.map((t, index) => (
-              <div key={t.id}
-                className="bg-white rounded-2xl p-6 shadow-md hover:shadow-xl transition-all duration-500 hover:-translate-y-2 border border-orange-100/50"
-                style={{ animationDelay: `${index * 100}ms` }}>
-                {/* Quote mark */}
-                <div className="text-5xl font-serif text-orange-200 leading-none mb-2 select-none">"</div>
-                <div className="flex items-center gap-1 mb-3">
-                  {[...Array(t.rating)].map((_, i) => <Star key={i} className="w-4 h-4 text-yellow-400 fill-current" />)}
-                </div>
-                <p className="text-gray-700 mb-6 text-sm leading-relaxed">{t.comment}</p>
-                <div className="flex items-center gap-3 pt-4 border-t border-gray-100">
-                  <img src={t.avatar} alt={t.name} className="w-11 h-11 rounded-full object-cover border-2 border-orange-200 shadow-sm"
-                    onError={(e) => { e.target.src = 'https://via.placeholder.com/100?text=U'; }} />
-                  <div>
-                    <h4 className="font-semibold text-gray-900 text-sm">{t.name}</h4>
-                    <p className="text-xs text-gray-500">{t.event}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* ─── LOCATIONS — nền trắng, card ảnh ─── */}
-      <div className="bg-white py-14">
-        <div id="locations" data-animate className={`container-custom ${anim("locations")}`}>
-          <div className="text-center mb-8">
-            <p className="text-xs font-medium text-orange-500 mb-1 uppercase tracking-widest">Khám phá</p>
-            <h2 className="text-xl md:text-2xl lg:text-3xl font-heading font-bold text-gray-900 mb-2">Địa điểm phổ biến</h2>
-            <p className="text-gray-400 text-sm">Tìm sự kiện theo thành phố bạn yêu thích</p>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
-            {[
-              { name: "TP. Hồ Chí Minh", img: "https://images.unsplash.com/photo-1583417319070-4a69db38a482?w=600&auto=format&fit=crop&q=80", count: 120 },
-              { name: "Hà Nội",           img: "https://images.unsplash.com/photo-1509030450996-dd1a26dda07a?w=600&auto=format&fit=crop&q=80", count: 85 },
-              { name: "Đà Nẵng",          img: "https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?w=600&auto=format&fit=crop&q=80", count: 47 },
-              { name: "Nha Trang",        img: "https://images.unsplash.com/photo-1573968694073-5af7d6dfe5e0?w=600&auto=format&fit=crop&q=80", count: 32 },
-              { name: "Phú Quốc",         img: "https://images.unsplash.com/photo-1540541338537-1220059af4dc?w=600&auto=format&fit=crop&q=80", count: 28 },
-              { name: "Cần Thơ",          img: "https://images.unsplash.com/photo-1555400038-63f5ba517a47?w=600&auto=format&fit=crop&q=80", count: 19 },
-            ].map((loc, i) => (
-              <Link key={loc.name} to={`/?location=${encodeURIComponent(loc.name)}`}
-                className={`group relative overflow-hidden rounded-2xl ${i === 0 ? "md:col-span-2 md:row-span-2" : ""}`}>
-                <div className={`relative w-full overflow-hidden ${i === 0 ? "h-[220px] md:h-full md:min-h-[280px]" : "h-[140px] md:h-[130px]"}`}>
-                  <img src={loc.img} alt={loc.name}
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                    onError={(e) => { e.target.src = "https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=600&h=400&fit=crop"; }} />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-                  <div className="absolute bottom-0 left-0 right-0 p-3 md:p-4">
-                    <div className="flex items-end justify-between">
-                      <div>
-                        <h3 className={`font-bold text-white leading-tight ${i === 0 ? "text-lg md:text-2xl" : "text-sm md:text-base"}`}>{loc.name}</h3>
-                        <p className="text-white/70 text-xs mt-0.5">{loc.count} sự kiện</p>
-                      </div>
-                      <div className="bg-white/20 backdrop-blur-sm border border-white/20 p-1.5 rounded-full group-hover:bg-orange-500 group-hover:border-orange-500 transition-all">
-                        <ChevronRight className="w-3.5 h-3.5 text-white" />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="absolute inset-0 bg-orange-500/0 group-hover:bg-orange-500/10 transition-all duration-300" />
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </div>
-
-    
 
       <style jsx>{`
         @keyframes fade-in-up {
@@ -629,6 +378,5 @@ const HomePage = () => {
     </div>
   );
 };
-
 
 export default HomePage;

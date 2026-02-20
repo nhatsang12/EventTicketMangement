@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import axios from 'axios';
 import {
   User, Mail, Phone, MapPin, Calendar, Edit3, Save, X,
   Ticket, History, QrCode, LogOut, Camera, Shield,
@@ -11,6 +12,7 @@ import toast from 'react-hot-toast';
 const ProfilePage = () => {
   const navigate = useNavigate();
   const { user, isAuthenticated, logout, setAuth } = useAuthStore();
+  const token = useAuthStore(state => state.accessToken || state.token);
   const fileInputRef = useRef(null);
 
   const [editing, setEditing] = useState(false);
@@ -26,17 +28,33 @@ const ProfilePage = () => {
     bio: user?.bio || '',
   });
 
+  // 👇 ĐÂY LÀ ĐOẠN LẤY DỮ LIỆU THẬT TỪ BACKEND ĐÃ ĐƯỢC THÊM VÀO AN TOÀN
   useEffect(() => {
     if (!isAuthenticated) {
       navigate('/login', { state: { from: '/profile' } });
       return;
     }
-    const stored = JSON.parse(localStorage.getItem('ticketHistory') || '[]');
-    setRecentOrders(stored.slice(0, 3));
+
     const savedAvatar = localStorage.getItem(`avatar_${user?.id}`);
     if (savedAvatar) setAvatarPreview(savedAvatar);
-  }, [isAuthenticated, navigate, user?.id]);
 
+    const fetchRecentOrders = async () => {
+      try {
+        const config = { headers: { Authorization: `Bearer ${token}` } };
+        const res = await axios.get('http://localhost:8000/api/orders/my-orders', config);
+        
+        let ordersData = res.data?.data || res.data || [];
+        ordersData = ordersData.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 3);
+        setRecentOrders(ordersData);
+      } catch (error) {
+        console.error("Lỗi lấy đơn hàng gần đây:", error);
+      }
+    };
+
+    fetchRecentOrders();
+  }, [isAuthenticated, navigate, user?.id, token]);
+
+  // 👇 CÁC HÀM NÀY BỊ BẠN LỠ TAY XÓA MẤT NAY ĐÃ ĐƯỢC PHỤC HỒI
   const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
   const handleSave = () => {
@@ -94,19 +112,14 @@ const ProfilePage = () => {
 
       {/* ── COVER BANNER ── */}
       <div className="relative h-52 md:h-72 overflow-hidden">
-        {/* Gradient base */}
         <div className="absolute inset-0 bg-gradient-to-br from-orange-500 via-rose-500 to-purple-700" />
-        {/* Dot grid */}
         <div className="absolute inset-0 opacity-[0.15]"
           style={{ backgroundImage: 'radial-gradient(circle, white 1.5px, transparent 1.5px)', backgroundSize: '28px 28px' }} />
-        {/* Blobs */}
         <div className="absolute -top-10 -left-10 w-72 h-72 bg-orange-400/30 rounded-full blur-3xl" />
         <div className="absolute -bottom-16 right-1/3 w-80 h-80 bg-purple-400/30 rounded-full blur-3xl" />
         <div className="absolute top-6 right-10 w-40 h-40 bg-rose-300/20 rounded-full blur-2xl" />
-        {/* Floating sparkle icons */}
         <Sparkles className="absolute top-8 right-24 w-6 h-6 text-white/20" />
         <Sparkles className="absolute bottom-10 left-16 w-4 h-4 text-white/15" />
-        {/* Bottom fade */}
         <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-gray-50 to-transparent" />
       </div>
 
@@ -125,7 +138,6 @@ const ProfilePage = () => {
                     : <span className="text-4xl font-bold text-white tracking-tight">{initials}</span>
                   }
                 </div>
-                {/* Online dot */}
                 <div className="absolute bottom-2 right-2 w-4 h-4 bg-green-400 rounded-full border-2 border-white shadow-sm" />
                 {editing && (
                   <>
@@ -202,7 +214,6 @@ const ProfilePage = () => {
 
           {/* LEFT SIDEBAR */}
           <div className="md:col-span-1 space-y-4">
-            {/* Quick links card */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
               <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 px-1">Truy cập nhanh</p>
               <div className="space-y-1">
@@ -222,7 +233,6 @@ const ProfilePage = () => {
               </div>
             </div>
 
-            {/* Member card */}
             <div className="bg-gradient-to-br from-orange-500 via-rose-500 to-purple-600 rounded-2xl p-5 text-white relative overflow-hidden">
               <div className="absolute -top-4 -right-4 w-24 h-24 bg-white/10 rounded-full blur-2xl" />
               <div className="absolute bottom-0 left-0 w-32 h-20 bg-white/5 rounded-full blur-xl" />
@@ -246,7 +256,6 @@ const ProfilePage = () => {
               </div>
             </div>
 
-            {/* Logout */}
             <button onClick={() => { logout(); navigate('/login'); }}
               className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-white border border-gray-200 rounded-2xl text-sm font-semibold text-red-500 hover:bg-red-50 hover:border-red-200 transition-all shadow-sm">
               <LogOut className="w-4 h-4" /> Đăng xuất
@@ -255,7 +264,6 @@ const ProfilePage = () => {
 
           {/* RIGHT CONTENT */}
           <div className="md:col-span-2">
-            {/* Tab bar */}
             <div className="flex gap-1 bg-white border border-gray-100 shadow-sm p-1.5 rounded-2xl mb-5">
               {tabs.map(({ key, label, icon: Icon }) => (
                 <button key={key} onClick={() => setActiveTab(key)}
@@ -311,7 +319,6 @@ const ProfilePage = () => {
                   ))}
                 </div>
 
-                {/* Bio full width */}
                 <div>
                   <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">Giới thiệu</label>
                   <textarea
@@ -370,14 +377,15 @@ const ProfilePage = () => {
                 ) : (
                   <div className="space-y-3">
                     {recentOrders.map((order) => (
-                      <div key={order.id}
+                      <div key={order._id || order.id}
                         className="flex items-center gap-4 p-4 rounded-2xl border border-gray-100 hover:border-orange-200 hover:bg-orange-50/30 transition-all">
                         <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-purple-600 rounded-xl flex items-center justify-center shrink-0 shadow-md shadow-orange-100">
                           <Ticket className="w-6 h-6 text-white" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-bold text-gray-900 truncate">{order.event?.name}</p>
-                          <p className="text-xs text-gray-400 mt-0.5">{order.tickets?.length} vé · {formatDate(order.createdAt)}</p>
+                          {/* Hỗ trợ trường title hoặc name tùy backend của bạn */}
+                          <p className="text-sm font-bold text-gray-900 truncate">{order.event?.title || order.event?.name || 'Sự kiện chưa rõ'}</p>
+                          <p className="text-xs text-gray-400 mt-0.5">{order.tickets?.length || 0} vé · {formatDate(order.createdAt)}</p>
                         </div>
                         <div className="text-right shrink-0">
                           <p className="text-sm font-bold bg-gradient-to-r from-orange-600 to-purple-600 bg-clip-text text-transparent">
@@ -429,24 +437,6 @@ const ProfilePage = () => {
                     </button>
                   </div>
                 ))}
-
-                {/* Danger zone */}
-                <div className="mt-2 pt-5 border-t border-gray-100">
-                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Vùng nguy hiểm</p>
-                  <div className="p-4 rounded-2xl border border-red-100 bg-red-50/50">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-bold text-red-600">Xóa tài khoản</p>
-                        <p className="text-xs text-red-400 mt-0.5">Hành động này không thể hoàn tác</p>
-                      </div>
-                      <button
-                        onClick={() => toast.error('Tính năng đang phát triển')}
-                        className="px-4 py-1.5 border border-red-300 text-red-500 rounded-xl text-sm font-bold hover:bg-red-100 transition-colors">
-                        Xóa
-                      </button>
-                    </div>
-                  </div>
-                </div>
               </div>
             )}
           </div>

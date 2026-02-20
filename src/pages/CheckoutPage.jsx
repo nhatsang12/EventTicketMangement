@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import { ShoppingCart, Trash2, CreditCard, CheckCircle, Lock, ArrowLeft } from 'lucide-react';
 import useCartStore from '../store/cartStore';
 import useAuthStore from '../store/authStore';
@@ -8,10 +9,12 @@ import toast from 'react-hot-toast';
 const CheckoutPage = () => {
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuthStore();
+  const token = useAuthStore(state => state.accessToken || state.token);
   const { items, event, clearCart, removeItem, getTotalPrice } = useCartStore();
+  
   const [loading, setLoading] = useState(false);
-  const [step, setStep] = useState(1); // 1: info, 2: payment, 3: success
-  const [order, setOrder] = useState(null);
+  const [step, setStep] = useState(1);
+  const [orderResponse, setOrderResponse] = useState(null);
 
   const [formData, setFormData] = useState({
     fullName: user?.name || '',
@@ -24,7 +27,6 @@ const CheckoutPage = () => {
   });
 
   useEffect(() => {
-    // Nếu chưa đăng nhập, redirect sang login với state để quay lại checkout
     if (!isAuthenticated) {
       navigate('/login', { state: { from: '/checkout' } });
     }
@@ -35,10 +37,8 @@ const CheckoutPage = () => {
   const formatPrice = (price) =>
     new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
 
-  const generateOrderId = () => 'ORD-' + Date.now().toString(36).toUpperCase();
-
-  const generateQRCode = (orderId) =>
-    `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(`TICKETHUB|${orderId}|${user?.email}|${Date.now()}`)}`;
+  const generateQRCode = (dataString) =>
+    `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(dataString)}`;
 
   const handleCheckout = async (e) => {
     e.preventDefault();
@@ -46,121 +46,112 @@ const CheckoutPage = () => {
 
     try {
       setLoading(true);
-      // Mock payment delay
-      await new Promise((r) => setTimeout(r, 1500));
-
-      const orderId = generateOrderId();
-      const newOrder = {
-        id: orderId,
-        createdAt: new Date().toISOString(),
-        event: event || { name: 'Sample Event', location: 'Ho Chi Minh City' },
-        items: [...items],
-        totalAmount: getTotalPrice(),
-        customerInfo: { ...formData },
-        status: 'confirmed',
-        qrCode: generateQRCode(orderId),
-        tickets: items.flatMap((item) =>
-          Array.from({ length: item.quantity }, (_, i) => ({
-            id: `${orderId}-${item.ticketType._id}-${i}`,
-            ticketType: item.ticketType,
-            qrCode: generateQRCode(`${orderId}-${item.ticketType._id}-${i}`),
-            status: 'active',
-          }))
-        ),
+      const payload = {
+        eventId: event._id || event.id,
+        tickets: items.map(item => ({
+          ticketTypeId: item.ticketType._id,
+          quantity: item.quantity
+        })),
+        customerInfo: {
+          fullName: formData.fullName,
+          email: formData.email,
+          phone: formData.phone
+        },
+        paymentMethod: formData.paymentMethod
       };
 
-      // Lưu vào localStorage để ticket history có thể đọc
-      const existing = JSON.parse(localStorage.getItem('ticketHistory') || '[]');
-      existing.unshift(newOrder);
-      localStorage.setItem('ticketHistory', JSON.stringify(existing));
+      const config = {
+        headers: { Authorization: `Bearer ${token}` } 
+      };
 
-      setOrder(newOrder);
+      const res = await axios.post('http://localhost:8000/api/orders/buy', payload, config);  
+
+      const orderData = res.data?.data || res.data;
+      setOrderResponse(orderData);
+      
       clearCart();
       setStep(3);
       toast.success('Đặt vé thành công!');
     } catch (err) {
-      toast.error('Thanh toán thất bại, vui lòng thử lại');
+      console.error("Lỗi đặt vé:", err);
+      toast.error(err.response?.data?.message || 'Thanh toán thất bại, vui lòng thử lại');
     } finally {
       setLoading(false);
     }
   };
 
-  if (step === 3 && order) {
+  // ==========================================
+  // MÀN HÌNH 3: ĐẶT VÉ THÀNH CÔNG (ĐÃ FIX LỖI ẨN VÉ)
+  // ==========================================
+  if (step === 3 && orderResponse) {
     return (
       <div className="min-h-screen bg-gray-50 pt-20 pb-12">
         <div className="max-w-2xl mx-auto px-4">
-          {/* Success header */}
           <div className="text-center mb-8">
             <div className="w-20 h-20 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
               <CheckCircle className="w-10 h-10 text-white" />
             </div>
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Đặt vé thành công!</h1>
-            <p className="text-gray-600">Mã đơn hàng: <span className="font-bold text-orange-600">{order.id}</span></p>
+            <p className="text-gray-600">Mã đơn hàng: <span className="font-bold text-orange-600">{orderResponse._id || orderResponse.id}</span></p>
           </div>
 
-          {/* E-Tickets */}
           <div className="space-y-4 mb-6">
-            {order.tickets.map((ticket, idx) => (
-              <div key={ticket.id} className="bg-white rounded-2xl shadow-md overflow-hidden border border-gray-100">
-                {/* Ticket header */}
+            {/* Vòng lặp lấy trực tiếp mảng tickets từ Backend trả về */}
+            {orderResponse.tickets?.map((ticket, idx) => (
+              <div key={ticket._id || idx} className="bg-white rounded-2xl shadow-md overflow-hidden border border-gray-100">
                 <div className="bg-gradient-to-r from-orange-600 to-purple-600 px-6 py-4 text-white">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-xs opacity-80 uppercase tracking-widest">E-Ticket #{idx + 1}</p>
-                      <p className="font-bold text-lg mt-0.5">{order.event.name}</p>
+                      <p className="font-bold text-lg mt-0.5">{orderResponse.event?.title || orderResponse.event?.name || event?.title || event?.name}</p>
                     </div>
                     <div className="text-right">
                       <p className="text-xs opacity-80">Loại vé</p>
-                      <p className="font-semibold">{ticket.ticketType.name}</p>
+                      <p className="font-semibold">{ticket.ticketType?.name}</p>
                     </div>
                   </div>
                 </div>
 
-                {/* Ticket body */}
                 <div className="px-6 py-5 flex items-center justify-between gap-4">
                   <div className="space-y-2 flex-1">
                     <div className="flex items-center gap-2 text-sm text-gray-600">
                       <span className="w-20 text-gray-400 font-medium">Địa điểm</span>
-                      <span className="text-gray-800">{order.event.location}</span>
+                      <span className="text-gray-800">{orderResponse.event?.location || event?.location}</span>
                     </div>
                     <div className="flex items-center gap-2 text-sm text-gray-600">
                       <span className="w-20 text-gray-400 font-medium">Email</span>
-                      <span className="text-gray-800 truncate">{order.customerInfo.email}</span>
+                      <span className="text-gray-800 truncate">{orderResponse.customerInfo?.email || formData.email}</span>
                     </div>
                     <div className="flex items-center gap-2 text-sm text-gray-600">
                       <span className="w-20 text-gray-400 font-medium">Ticket ID</span>
-                      <span className="text-gray-800 font-mono text-xs">{ticket.id}</span>
+                      <span className="text-gray-800 font-mono text-xs">{ticket._id || ticket.id}</span>
                     </div>
                     <div className="inline-flex items-center px-3 py-1 bg-green-100 text-green-700 text-xs font-semibold rounded-full">
                       ✓ Active
                     </div>
                   </div>
 
-                  {/* QR Code */}
                   <div className="shrink-0 text-center">
-                    <img src={ticket.qrCode} alt="QR" className="w-24 h-24 rounded-lg border border-gray-200" />
+                    {/* Render mã QR code thật từ Backend */}
+                    <img src={generateQRCode(ticket.qrCode || ticket._id)} alt="QR" className="w-24 h-24 rounded-lg border border-gray-200" />
                     <p className="text-xs text-gray-400 mt-1">Quét để check-in</p>
                   </div>
                 </div>
 
-                {/* Dashed divider */}
                 <div className="mx-6 border-t-2 border-dashed border-gray-200" />
                 <div className="px-6 py-3 bg-gray-50 flex justify-between text-xs text-gray-500">
-                  <span>Giá: <span className="font-bold text-gray-800">{formatPrice(ticket.ticketType.price)}</span></span>
-                  <span>{new Date(order.createdAt).toLocaleDateString('vi-VN')}</span>
+                  <span>Giá: <span className="font-bold text-gray-800">{formatPrice(ticket.price || ticket.ticketType?.price)}</span></span>
+                  <span>{new Date(orderResponse.createdAt || Date.now()).toLocaleDateString('vi-VN')}</span>
                 </div>
               </div>
             ))}
           </div>
 
-          {/* Actions */}
           <div className="flex gap-4">
-            <button onClick={() => navigate('/ticket-history')}
-              className="flex-1 py-3 border-2 border-gray-300 rounded-full text-gray-700 font-medium hover:border-orange-500 hover:bg-orange-50 transition-all text-sm">
+            <button onClick={() => navigate('/ticket-history')} className="flex-1 py-3 border-2 border-gray-300 rounded-full text-gray-700 font-medium hover:border-orange-500 hover:bg-orange-50 transition-all text-sm">
               Xem lịch sử vé
             </button>
-            <button onClick={() => navigate('/')}
-              className="flex-1 py-3 bg-gradient-to-r from-orange-600 to-purple-600 text-white rounded-full font-medium hover:from-orange-700 hover:to-purple-700 transition-all text-sm">
+            <button onClick={() => navigate('/')} className="flex-1 py-3 bg-gradient-to-r from-orange-600 to-purple-600 text-white rounded-full font-medium hover:from-orange-700 hover:to-purple-700 transition-all text-sm">
               Về trang chủ
             </button>
           </div>
@@ -187,12 +178,10 @@ const CheckoutPage = () => {
   return (
     <div className="min-h-screen bg-gray-50 pt-20 pb-12">
       <div className="max-w-4xl mx-auto px-4">
-        {/* Back */}
         <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-gray-600 hover:text-orange-600 transition-colors mb-6 text-sm font-medium">
           <ArrowLeft className="w-4 h-4" /> Quay lại
         </button>
 
-        {/* Progress */}
         <div className="flex items-center justify-center mb-8 gap-2">
           {[['1', 'Thông tin'], ['2', 'Thanh toán'], ['3', 'Hoàn tất']].map(([num, label], i) => (
             <div key={num} className="flex items-center gap-2">
@@ -209,7 +198,6 @@ const CheckoutPage = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main */}
           <div className="lg:col-span-2">
             <form onSubmit={handleCheckout} className="space-y-6">
               {/* Order Summary */}
@@ -217,7 +205,7 @@ const CheckoutPage = () => {
                 <h2 className="text-lg font-bold text-gray-900 mb-4">Thông tin đơn hàng</h2>
                 {event && (
                   <div className="p-3 bg-gradient-to-r from-orange-50 to-purple-50 rounded-xl mb-4 border border-orange-100">
-                    <p className="font-semibold text-gray-900">{event.name}</p>
+                    <p className="font-semibold text-gray-900">{event.title || event.name}</p>
                     <p className="text-sm text-gray-600">{event.location}</p>
                   </div>
                 )}
@@ -254,7 +242,7 @@ const CheckoutPage = () => {
                 </div>
               </div>
 
-              {/* Payment */}
+              {/* Payment Info */}
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                 <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
                   <Lock className="w-5 h-5 text-green-500" /> Thanh toán bảo mật
@@ -271,9 +259,9 @@ const CheckoutPage = () => {
                     </label>
                   ))}
                 </div>
-
+                
                 {formData.paymentMethod === 'credit_card' && (
-                  <div className="space-y-3 p-4 bg-gray-50 rounded-xl border border-gray-200">
+                  <div className="space-y-3 p-4 bg-gray-50 rounded-xl border border-gray-200 mt-4">
                     <p className="text-xs text-gray-500 font-medium uppercase tracking-wider">Thông tin thẻ (Mock)</p>
                     <input type="text" name="cardNumber" value={formData.cardNumber} onChange={handleChange} placeholder="Số thẻ"
                       className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 text-sm font-mono" />
@@ -283,7 +271,6 @@ const CheckoutPage = () => {
                       <input type="text" name="cardCVV" value={formData.cardCVV} onChange={handleChange} placeholder="CVV"
                         className="px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 text-sm font-mono" />
                     </div>
-                    <p className="text-xs text-green-600 flex items-center gap-1"><Lock className="w-3 h-3" /> Thanh toán được mã hóa SSL (Mock)</p>
                   </div>
                 )}
               </div>
@@ -299,7 +286,6 @@ const CheckoutPage = () => {
             </form>
           </div>
 
-          {/* Summary sidebar */}
           <div className="lg:col-span-1">
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sticky top-24">
               <h3 className="font-bold text-gray-900 text-lg mb-4">Tổng đơn hàng</h3>

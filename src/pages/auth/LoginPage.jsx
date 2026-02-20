@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import useAuthStore from '../../store/authStore';
 import toast from 'react-hot-toast';
+import axios from 'axios'; // Import thư viện gọi API
 
 const LoginPage = () => {
   const { setAuth } = useAuthStore();
@@ -20,32 +21,44 @@ const LoginPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Validate cơ bản phía Client
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) { toast.error('Email không hợp lệ'); return; }
     if (formData.password.length < 6) { toast.error('Mật khẩu phải có ít nhất 6 ký tự'); return; }
 
     try {
       setLoading(true);
-      await new Promise((r) => setTimeout(r, 800));
 
-      // ── Tài khoản Admin cứng ──
-      const ADMIN_EMAIL = 'admin@tickethub.vn';
-      const ADMIN_PASSWORD = 'admin123';
-
-      const isAdmin = formData.email === ADMIN_EMAIL && formData.password === ADMIN_PASSWORD;
-
-      const fakeUser = {
-        id: isAdmin ? 'admin-001' : 'temp-' + Date.now(),
-        name: isAdmin ? 'Admin' : formData.email.split('@')[0],
+      // --- PHẦN SỬA ĐỔI QUAN TRỌNG: GỌI API THẬT ---
+      // Gọi xuống Backend thông qua Proxy (đã cài ở vite.config.js)
+      const response = await axios.post('/api/auth/login', {
         email: formData.email,
-        role: isAdmin ? 'admin' : 'user',
-      };
+        password: formData.password
+      });
 
-      setAuth(fakeUser, 'fake-access-token', 'fake-refresh-token');
-      toast.success(isAdmin ? '👋 Xin chào Admin!' : 'Đăng nhập thành công!');
-      navigate(isAdmin ? '/admin' : from, { replace: true });
-    } catch {
-      toast.error('Đăng nhập thất bại');
+      // Lấy dữ liệu Backend trả về (khớp với authController.js)
+      const { accessToken, refreshToken, data } = response.data;
+      const user = data.user; // Lấy thông tin user từ object data
+
+      // Lưu vào Global State (Zustand)
+      setAuth(user, accessToken, refreshToken);
+
+      // Thông báo thành công
+      toast.success(`👋 Xin chào ${user.name || user.username}!`);
+
+      // Điều hướng: Nếu là admin thì vào trang admin, ngược lại về trang trước đó
+      if (user.role === 'admin') {
+        navigate('/admin', { replace: true });
+      } else {
+        navigate(from, { replace: true });
+      }
+
+    } catch (error) {
+      // Xử lý lỗi từ Backend trả về (ví dụ: Sai mật khẩu)
+      const message = error.response?.data?.message || 'Đăng nhập thất bại. Vui lòng thử lại!';
+      toast.error(message);
+      console.error('Login Error:', error);
     } finally {
       setLoading(false);
     }
@@ -53,11 +66,13 @@ const LoginPage = () => {
 
   return (
     <div className="min-h-screen relative flex items-center justify-center px-4 font-body">
+      {/* Background Image */}
       <div className="absolute inset-0">
         <img src="https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=1600" alt="bg" className="w-full h-full object-cover brightness-50" />
         <div className="absolute inset-0 bg-black/40" />
       </div>
 
+      {/* Login Form Container */}
       <div className="relative z-10 w-full max-w-md bg-white rounded-lg shadow-2xl p-8">
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-gray-600 mb-2">Welcome!</h1>
@@ -70,13 +85,34 @@ const LoginPage = () => {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          <input type="email" name="email" value={formData.email} onChange={handleChange} required placeholder="Email"
-            className="w-full px-3 py-3 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all" />
-          <input type="password" name="password" value={formData.password} onChange={handleChange} required placeholder="Password"
-            className="w-full px-3 py-3 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all" />
-          <button type="submit" disabled={loading}
+          <div>
+            <input 
+              type="email" 
+              name="email" 
+              value={formData.email} 
+              onChange={handleChange} 
+              required 
+              placeholder="Email"
+              className="w-full px-3 py-3 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all" 
+            />
+          </div>
+          <div>
+            <input 
+              type="password" 
+              name="password" 
+              value={formData.password} 
+              onChange={handleChange} 
+              required 
+              placeholder="Password"
+              className="w-full px-3 py-3 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all" 
+            />
+          </div>
+          
+          <button 
+            type="submit" 
+            disabled={loading}
             className="w-full py-3 text-lg font-semibold text-white bg-gradient-to-r from-orange-600 to-purple-600 hover:from-orange-700 hover:to-purple-700 disabled:opacity-50 rounded-md transition-all duration-300">
-            {loading ? 'Đang đăng nhập...' : 'Continue'}
+            {loading ? 'Đang xử lý...' : 'Continue'}
           </button>
         </form>
 

@@ -1,56 +1,118 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { QrCode, CheckCircle, XCircle, Ticket, ArrowLeft, RefreshCw } from 'lucide-react';
+import axios from 'axios';
+import { QrCode, CheckCircle, XCircle, Ticket, ArrowLeft, RefreshCw, Loader2 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
+import toast from 'react-hot-toast';
 
 const CheckInPage = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuthStore();
+  const token = useAuthStore(state => state.accessToken || state.token);
+  
   const [tickets, setTickets] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [selectedTicket, setSelectedTicket] = useState(null);
-  const [scanResult, setScanResult] = useState(null); // null | 'success' | 'used' | 'invalid'
+  
+  // scanResult có thể là: null | 'success' | 'used' | 'invalid' | 'error'
+  const [scanResult, setScanResult] = useState(null); 
   const [scanning, setScanning] = useState(false);
+  const [scanMessage, setScanMessage] = useState("");
+
+  // ==========================================
+  // LẤY DANH SÁCH VÉ TỪ BACKEND
+  // ==========================================
+  const fetchTickets = async () => {
+    try {
+      setLoading(true);
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      const res = await axios.get('http://localhost:8000/api/orders/my-orders', config);
+      
+      const orders = res.data?.data || res.data || [];
+      
+      // Bung tất cả vé từ các đơn hàng ra thành 1 mảng phẳng
+      const allTickets = orders.flatMap((o) =>
+        (o.tickets || []).map((t) => ({ 
+          ...t, 
+          eventName: o.event?.title || o.event?.name, 
+          eventLocation: o.event?.location, 
+          orderId: o._id 
+        }))
+      );
+      
+      setTickets(allTickets);
+    } catch (error) {
+      console.error("Lỗi lấy danh sách vé:", error);
+      toast.error("Không thể tải danh sách vé");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    if (!isAuthenticated) { navigate('/login', { state: { from: '/checkin' } }); return; }
-    // Load all tickets from history
-    const orders = JSON.parse(localStorage.getItem('ticketHistory') || '[]');
-    const allTickets = orders.flatMap((o) =>
-      (o.tickets || []).map((t) => ({ ...t, eventName: o.event?.name, eventLocation: o.event?.location, orderId: o.id }))
-    );
-    setTickets(allTickets);
-  }, [isAuthenticated, navigate]);
+    if (!isAuthenticated) { 
+      navigate('/login', { state: { from: '/checkin' } }); 
+      return; 
+    }
+    fetchTickets();
+  }, [isAuthenticated, navigate, token]);
 
+  const getQRCodeImage = (qrString) => {
+    if (!qrString) return '';
+    if (qrString.startsWith('http')) return qrString;
+    return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrString)}`;
+  };
+
+  // ==========================================
+  // XỬ LÝ QUÉT VÉ GỌI API THẬT
+  // ==========================================
   const handleSimulateScan = async (ticket) => {
     setScanning(true);
     setScanResult(null);
-    await new Promise((r) => setTimeout(r, 1200));
-    setScanning(false);
+    setScanMessage("");
 
-    if (ticket.status === 'used') {
-      setScanResult('used');
-      return;
+    try {
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      
+      // Gửi mã QR (hoặc ID) lên API checkin của Admin
+      const payload = { qrCode: ticket.qrCode || ticket._id };
+      
+      const res = await axios.post('http://localhost:8000/api/admin/ticket-types/checkin', payload, config);
+      
+      if (res.data.success) {
+        setScanResult('success');
+        setScanMessage(res.data.message);
+        
+        // Cập nhật giao diện: Đổi vé vừa quét thành isCheckedIn = true
+        setTickets(prev => prev.map(t => t._id === ticket._id ? { ...t, isCheckedIn: true } : t));
+        setSelectedTicket(prev => prev ? { ...prev, isCheckedIn: true } : prev);
+      }
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Có lỗi xảy ra khi quét vé';
+      
+      if (errorMessage.includes('ĐÃ ĐƯỢC SỬ DỤNG')) {
+        setScanResult('used');
+      } else {
+        setScanResult('error');
+      }
+      setScanMessage(errorMessage);
+    } finally {
+      setScanning(false);
     }
-
-    // Mark as used in localStorage
-    const orders = JSON.parse(localStorage.getItem('ticketHistory') || '[]');
-    const updated = orders.map((o) => ({
-      ...o,
-      tickets: (o.tickets || []).map((t) =>
-        t.id === ticket.id ? { ...t, status: 'used', checkedInAt: new Date().toISOString() } : t
-      ),
-    }));
-    localStorage.setItem('ticketHistory', JSON.stringify(updated));
-
-    // Update local state
-    setTickets((prev) => prev.map((t) => t.id === ticket.id ? { ...t, status: 'used', checkedInAt: new Date().toISOString() } : t));
-    setSelectedTicket((prev) => prev ? { ...prev, status: 'used', checkedInAt: new Date().toISOString() } : prev);
-    setScanResult('success');
   };
 
-  const resetScan = () => { setScanResult(null); setSelectedTicket(null); };
+  const resetScan = () => { 
+    setScanResult(null); 
+    setSelectedTicket(null); 
+  };
 
-  const formatPrice = (price) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 pt-20 flex items-center justify-center">
+        <Loader2 className="w-10 h-10 text-orange-500 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 pt-20 pb-12">
@@ -71,24 +133,26 @@ const CheckInPage = () => {
 
         {/* Scan result overlay */}
         {scanResult && (
-          <div className={`mb-6 p-6 rounded-2xl border-2 text-center ${
+          <div className={`mb-6 p-6 rounded-2xl border-2 text-center animate-fade-in-up ${
             scanResult === 'success' ? 'bg-green-50 border-green-300' : 'bg-red-50 border-red-300'
           }`}>
             {scanResult === 'success' ? (
               <>
                 <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-3" />
-                <p className="text-xl font-bold text-gren-8e00">Check-in thành công!</p>
-                <p className="text-sm text-white mt-1">Chào mừng! Bạn đã vào sự kiện.</p>
-                <p className="text-xs text-white mt-2 font-mono">{selectedTicket?.id}</p>
+                <p className="text-xl font-bold text-green-800">Check-in thành công!</p>
+                <p className="text-sm text-green-600 mt-1">{scanMessage || "Chào mừng! Bạn đã vào sự kiện."}</p>
+                <p className="text-xs text-gray-500 mt-2 font-mono">{selectedTicket?._id}</p>
               </>
-            ) : scanResult === 'used' ? (
+            ) : (
               <>
                 <XCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
-                <p className="text-xl font-bold text-red-800">Vé đã được sử dụng!</p>
-                <p className="text-sm text-red-600 mt-1">Vé này đã check-in trước đó.</p>
+                <p className="text-xl font-bold text-red-800">
+                  {scanResult === 'used' ? 'Vé đã được sử dụng!' : 'Lỗi xác thực vé!'}
+                </p>
+                <p className="text-sm text-red-600 mt-1">{scanMessage}</p>
               </>
-            ) : null}
-            <button onClick={resetScan} className="mt-4 flex items-center gap-2 mx-auto text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">
+            )}
+            <button onClick={resetScan} className="mt-6 flex items-center justify-center gap-2 mx-auto px-6 py-2 bg-white border border-gray-200 rounded-full text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-all shadow-sm">
               <RefreshCw className="w-4 h-4" /> Quét vé khác
             </button>
           </div>
@@ -101,55 +165,58 @@ const CheckInPage = () => {
               <div className="text-center py-16">
                 <Ticket className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                 <p className="text-gray-600 font-medium">Không có vé nào để check-in</p>
-                <button onClick={() => navigate('/')} className="mt-4 text-sm text-orange-600 hover:underline">Đặt vé ngay</button>
+                <button onClick={() => navigate('/')} className="mt-4 text-sm font-semibold text-orange-600 hover:text-orange-700 hover:underline">Đặt vé ngay</button>
               </div>
             ) : (
               <div className="space-y-4">
-                <p className="text-sm text-gray-600 font-medium">Chọn vé để mô phỏng check-in:</p>
+                <p className="text-sm text-gray-600 font-medium bg-white px-4 py-3 rounded-xl border border-gray-100 shadow-sm inline-block mb-2">
+                  👉 Chọn một vé bên dưới để giả lập máy quét mã QR của bảo vệ:
+                </p>
                 {tickets.map((ticket) => (
-                  <div key={ticket.id}
+                  <div key={ticket._id}
                     onClick={() => !scanning && setSelectedTicket(ticket)}
                     className={`bg-white rounded-2xl border-2 p-4 cursor-pointer transition-all hover:shadow-md ${
-                      selectedTicket?.id === ticket.id ? 'border-orange-400 shadow-md' : 'border-gray-100 hover:border-gray-200'
-                    } ${ticket.status === 'used' ? 'opacity-60' : ''}`}>
+                      selectedTicket?._id === ticket._id ? 'border-orange-400 shadow-md ring-2 ring-orange-100' : 'border-gray-100 hover:border-gray-200'
+                    } ${ticket.isCheckedIn ? 'opacity-60 bg-gray-50' : ''}`}>
                     <div className="flex items-center gap-4">
                       {/* Mini QR */}
-                      <img src={ticket.qrCode} alt="QR" className="w-14 h-14 rounded-lg border border-gray-200 shrink-0" />
+                      <img src={getQRCodeImage(ticket.qrCode || ticket._id)} alt="QR" className="w-14 h-14 rounded-xl border border-gray-200 shrink-0 bg-white p-1" />
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-gray-900 text-sm truncate">{ticket.eventName}</p>
-                        <p className="text-xs text-gray-500 truncate">{ticket.ticketType?.name} — {ticket.eventLocation}</p>
-                        <p className="text-xs font-mono text-gray-400 mt-0.5 truncate">{ticket.id}</p>
+                        <p className="font-semibold text-gray-900 text-sm truncate">{ticket.eventName || 'Sự kiện chưa rõ'}</p>
+                        <p className="text-xs text-gray-500 truncate mt-0.5">{ticket.ticketType?.name} — {ticket.eventLocation}</p>
+                        <p className="text-xs font-mono text-gray-400 mt-1 truncate" title={ticket._id}>ID: {ticket._id}</p>
                       </div>
                       <div className="shrink-0">
-                        {ticket.status === 'used' ? (
-                          <span className="text-xs font-semibold px-2 py-1 bg-gray-100 text-gray-500 rounded-full border border-gray-200">Đã dùng</span>
+                        {ticket.isCheckedIn ? (
+                          <span className="text-xs font-bold px-3 py-1 bg-gray-100 text-gray-500 rounded-full border border-gray-200">Đã dùng</span>
                         ) : (
-                          <span className="text-xs font-semibold px-2 py-1 bg-green-100 text-green-700 rounded-full border border-green-200">Active</span>
+                          <span className="text-xs font-bold px-3 py-1 bg-green-100 text-green-700 rounded-full border border-green-200 shadow-sm">Active</span>
                         )}
                       </div>
                     </div>
 
                     {/* QR expanded when selected */}
-                    {selectedTicket?.id === ticket.id && ticket.status !== 'used' && (
-                      <div className="mt-4 pt-4 border-t border-orange-100 flex flex-col items-center">
-                        <img src={ticket.qrCode} alt="QR large" className="w-44 h-44 rounded-xl border-2 border-orange-200 shadow-sm mb-4" />
+                    {selectedTicket?._id === ticket._id && !ticket.isCheckedIn && (
+                      <div className="mt-4 pt-5 border-t border-orange-100 flex flex-col items-center bg-gradient-to-b from-orange-50/50 to-transparent rounded-b-xl -mx-4 -mb-4 pb-6">
+                        <img src={getQRCodeImage(ticket.qrCode || ticket._id)} alt="QR large" className="w-44 h-44 rounded-2xl border-4 border-white shadow-lg mb-5 bg-white p-2" />
                         <button
                           onClick={(e) => { e.stopPropagation(); handleSimulateScan(ticket); }}
                           disabled={scanning}
-                          className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-orange-600 to-purple-600 hover:from-orange-700 hover:to-purple-700 text-white font-bold rounded-full shadow-md transition-all disabled:opacity-60">
+                          className="flex items-center gap-2 px-8 py-3.5 bg-gradient-to-r from-orange-600 to-purple-600 hover:from-orange-700 hover:to-purple-700 text-white font-bold rounded-full shadow-lg transition-all transform hover:scale-105 disabled:opacity-60 disabled:hover:scale-100">
                           {scanning ? (
-                            <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Đang quét...</>
+                            <><Loader2 className="w-5 h-5 animate-spin" /> Đang quét hệ thống...</>
                           ) : (
-                            <><QrCode className="w-4 h-4" /> Mô phỏng Check-in</>
+                            <><QrCode className="w-5 h-5" /> Bấm để Check-in vé này</>
                           )}
                         </button>
-                        <p className="text-xs text-gray-400 mt-2">Nhấn để giả lập quét QR vào sự kiện</p>
                       </div>
                     )}
 
-                    {selectedTicket?.id === ticket.id && ticket.status === 'used' && (
+                    {selectedTicket?._id === ticket._id && ticket.isCheckedIn && (
                       <div className="mt-4 pt-4 border-t border-gray-100 text-center">
-                        <p className="text-sm text-gray-500">Vé này đã được sử dụng lúc {ticket.checkedInAt ? new Date(ticket.checkedInAt).toLocaleString('vi-VN') : 'N/A'}</p>
+                        <p className="text-sm font-medium text-gray-500 flex items-center justify-center gap-2">
+                          <XCircle className="w-4 h-4 text-gray-400" /> Vé này đã được sử dụng
+                        </p>
                       </div>
                     )}
                   </div>
@@ -159,6 +226,16 @@ const CheckInPage = () => {
           </>
         )}
       </div>
+
+      <style jsx>{`
+        @keyframes fade-in-up {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in-up {
+          animation: fade-in-up 0.4s ease-out forwards;
+        }
+      `}</style>
     </div>
   );
 };
