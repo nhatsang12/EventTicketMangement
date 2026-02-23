@@ -1,8 +1,17 @@
 import { useState } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard, CalendarDays, Ticket, QrCode,
-  BarChart3, Menu, X, LogOut, ChevronRight, Ticket as TicketIcon
+  LayoutDashboard,
+  CalendarDays,
+  Ticket,
+  QrCode,
+  BarChart3,
+  Menu,
+  X,
+  LogOut,
+  ChevronRight,
+  Ticket as TicketIcon,
+  Users 
 } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
 
@@ -12,6 +21,8 @@ const navItems = [
   { to: '/admin/tickets', label: 'Loại vé', icon: Ticket },
   { to: '/admin/checkin', label: 'Check-in', icon: QrCode },
   { to: '/admin/analytics', label: 'Thống kê', icon: BarChart3 },
+  { to: '/admin/users', label: 'Users', icon: Users },
+
 ];
 
 const AdminLayout = () => {

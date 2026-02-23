@@ -156,7 +156,8 @@ const AdminEvents = () => {
       date: dateStr,
       time: timeStr,
       imageFile: null,
-      imagePreview: ev.image ? `http://localhost:8000${ev.image}` : '' 
+       
+       imagePreview: ev.image || ''
     });
     
     setShowForm(true);
@@ -209,7 +210,7 @@ const AdminEvents = () => {
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Ảnh sự kiện</label>
               <div onClick={() => !loading && fileRef.current?.click()}
                 className={`relative h-48 border-2 border-dashed rounded-xl overflow-hidden transition-all group bg-gray-50 cursor-pointer hover:border-orange-400`}>
-                {form.imagePreview ? (
+              img src={form.imagePreview} (
                   <>
                     <img src={form.imagePreview} alt="" className="w-full h-full object-cover" />
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -221,7 +222,7 @@ const AdminEvents = () => {
                     <ImageIcon className="w-8 h-8" />
                     <p className="text-xs font-medium">Click để tải ảnh lên (tối đa 5MB)</p>
                   </div>
-                )}
+                )
                 <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
               </div>
             </div>

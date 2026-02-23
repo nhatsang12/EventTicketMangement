@@ -7,7 +7,7 @@ import MyTicketsPage from './pages/TicketHistoryPage.jsx'
 import LoginPage from './pages/auth/LoginPage'
 import RegisterPage from './pages/auth/RegisterPage'
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage'
-
+import AdminUsers from './pages/admin/AdminUsers.jsx'
 import ProtectedRoute from './components/ProtectedRoute'
 import NotFoundPage from './pages/NotFoundPage'
 import AdminLayout from './components/layout/AdminLayout'
@@ -59,6 +59,7 @@ function App() {
 <Route path="tickets" element={<AdminTickets />} />
 <Route path="checkin" element={<AdminCheckIn />} />
 <Route path="analytics" element={<AdminAnalytics />} />
+<Route path="users" element={<AdminUsers />} />
 </Route>
       <Route
   path="profile"
