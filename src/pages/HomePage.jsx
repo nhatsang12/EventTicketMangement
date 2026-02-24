@@ -7,7 +7,7 @@ import {
   Users, ArrowRight, ChevronDown, ChevronRight,
   Flame, Sparkles, TrendingUp, Star, Music, Shield,
   Zap, HeartHandshake, Quote, BadgeCheck, Gift, BarChart3,
-  SlidersHorizontal, X, Check, DollarSign, ArrowUpDown
+  SlidersHorizontal, X, Check, DollarSign, ArrowUpDown, Award
 } from "lucide-react";
 
 
@@ -16,14 +16,12 @@ const TICKETS_JSON = [
     "_id": { "$oid": "699879e3368dece455a7b336" },
     "event": { "$oid": "6998676d583716785f91782b" },
     "price": 100,
-    // ... các field khác
   },
   {
     "_id": { "$oid": "699998a685ed6156a6221fb2" },
     "event": { "$oid": "69998c4a85ed6156a6221ef9" },
     "price": 100000,
   },
-
 ];
 
 // Group tickets by event ID để tính min/max price nhanh
@@ -63,51 +61,35 @@ const fmtPrice = (price) => {
   return new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(price);
 };
 
-// Lấy range giá (min - max) từ tickets JSON hoặc fallback ticketTypes
 const getPriceRange = (event) => {
-  const eventId = event._id?.$oid || event._id; // hỗ trợ cả object OID và string
+  const eventId = event._id?.$oid || event._id;
   const ticketPrices = ticketsByEvent[eventId] || [];
 
   if (ticketPrices.length > 0) {
     const validPrices = ticketPrices.filter(p => typeof p === 'number' && p >= 0);
     if (validPrices.length === 0) return { min: 0, max: 0 };
-    return {
-      min: Math.min(...validPrices),
-      max: Math.max(...validPrices),
-    };
+    return { min: Math.min(...validPrices), max: Math.max(...validPrices) };
   }
 
-  // Fallback ticketTypes từ API event
   if (event.ticketTypes?.length) {
     const prices = event.ticketTypes
       .map(t => t.price)
       .filter(p => typeof p === 'number' && p !== null && p !== undefined);
     if (prices.length > 0) {
-      return {
-        min: Math.min(...prices),
-        max: Math.max(...prices),
-      };
+      return { min: Math.min(...prices), max: Math.max(...prices) };
     }
   }
 
-  // Fallback minPrice / price đơn lẻ
-  if (typeof event.minPrice === 'number') {
-    return { min: event.minPrice, max: event.minPrice };
-  }
-  if (typeof event.price === 'number') {
-    return { min: event.price, max: event.price };
-  }
-
-  return { min: null, max: null }; // Miễn phí
+  if (typeof event.minPrice === 'number') return { min: event.minPrice, max: event.minPrice };
+  if (typeof event.price === 'number') return { min: event.price, max: event.price };
+  return { min: null, max: null };
 };
 
-// Format hiển thị range giá: "Từ 100.000₫ - 500.000₫" hoặc "100.000₫" hoặc "Miễn phí"
 const fmtPriceRange = ({ min, max }) => {
   if (min === null || min === undefined) return "Miễn phí";
   const minFmt = fmtPrice(min);
   if (min === max || max === null || max === min) return minFmt;
-  const maxFmt = fmtPrice(max);
-  return `Từ ${minFmt} - ${maxFmt}`;
+  return `Từ ${minFmt} - ${fmtPrice(max)}`;
 };
 
 const getStatusInfo = (status) => {
@@ -141,11 +123,17 @@ const ARTISTS = [
   { id: 6, name: "Tlinh",           genre: "R&B / Rap",          events: 9,  img: "https://images.unsplash.com/photo-1499364615650-ec38552f4f34?w=400&auto=format&fit=crop&q=80" },
 ];
 
+const FEATURED_ORGANIZERS = [
+  { id: 1, name: "LiveNation VN",      description: "Đơn vị tổ chức concert quốc tế hàng đầu tại Việt Nam.", totalEvents: 48, followers: "12.4K", avatar: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=200&auto=format&fit=crop" },
+  { id: 2, name: "Galaxy Events",      description: "Chuyên tổ chức festival âm nhạc và sự kiện giải trí.", totalEvents: 32, followers: "8.1K",  avatar: "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=200&auto=format&fit=crop" },
+  { id: 3, name: "YAN Entertainment", description: "Nhà sản xuất các chương trình âm nhạc đình đám V-Pop.", totalEvents: 61, followers: "20K",   avatar: "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=200&auto=format&fit=crop" },
+  { id: 4, name: "Saigon Concert",     description: "Tổ chức biểu diễn nghệ thuật & âm nhạc tại TP.HCM.",  totalEvents: 27, followers: "6.5K",  avatar: "https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=200&auto=format&fit=crop" },
+];
+
 const TESTIMONIALS = [
-  { id: 1, name: "Nguyễn Minh Anh",  role: "Tín đồ concert",      avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop", rating: 5, text: "Mua vé quá nhanh và tiện lợi! Đặt được vé show Sơn Tùng trong vòng 2 phút, không lo cháy vé như các nền tảng khác.", event: "Sơn Tùng Concert 2024" },
-  { id: 2, name: "Trần Đức Huy",     role: "Người yêu nhạc Jazz",  avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop", rating: 5, text: "Giao diện rõ ràng, thông tin đầy đủ. Phần sơ đồ chỗ ngồi rất hữu ích khi chọn vé cho cả nhóm.", event: "Hà Nội Jazz Night" },
-  { id: 3, name: "Lê Thị Phương",    role: "Fan K-Pop",             avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&auto=format&fit=crop", rating: 5, text: "Lần đầu dùng mà đã nghiện! Thanh toán an toàn, vé điện tử nhận ngay qua email. Sẽ giới thiệu cho bạn bè.", event: "Aespa World Tour – HCM" },
-  { id: 4, name: "Phạm Quang Minh",  role: "Nhiếp ảnh sự kiện",    avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&auto=format&fit=crop", rating: 5, text: "Trang cung cấp đầy đủ thông tin địa điểm & giờ giấc — rất cần thiết cho công việc của tôi mỗi tuần.", event: "Nhiều sự kiện" },
+  { id: 1, name: "Nguyễn Minh Anh",  role: "Tín đồ concert",     avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop", rating: 5, comment: "Mua vé quá nhanh và tiện lợi! Đặt được vé show Sơn Tùng trong vòng 2 phút, không lo cháy vé như các nền tảng khác.", event: "Sơn Tùng Concert 2024" },
+  { id: 2, name: "Trần Đức Huy",     role: "Người yêu nhạc Jazz", avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop", rating: 5, comment: "Giao diện rõ ràng, thông tin đầy đủ. Phần sơ đồ chỗ ngồi rất hữu ích khi chọn vé cho cả nhóm.", event: "Hà Nội Jazz Night" },
+  { id: 3, name: "Lê Thị Phương",    role: "Fan K-Pop",            avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&auto=format&fit=crop", rating: 5, comment: "Lần đầu dùng mà đã nghiện! Thanh toán an toàn, vé điện tử nhận ngay qua email. Sẽ giới thiệu cho bạn bè.", event: "Aespa World Tour – HCM" },
 ];
 
 const WHY_US = [
@@ -181,7 +169,7 @@ const SORT_OPTIONS = [
   { value: "price_desc", label: "Giá cao → thấp" },
 ];
 
-// ─── FILTER DROPDOWN (đã fix dính với button khi scroll) ──────────────────
+// ─── FILTER DROPDOWN ──────────────────────────────────────────────────────
 const FilterDropdown = ({ label, icon: Icon, options, value, onChange }) => {
   const [open, setOpen] = useState(false);
   const buttonRef = useRef(null);
@@ -193,9 +181,7 @@ const FilterDropdown = ({ label, icon: Icon, options, value, onChange }) => {
       if (
         buttonRef.current && !buttonRef.current.contains(e.target) &&
         dropdownRef.current && !dropdownRef.current.contains(e.target)
-      ) {
-        setOpen(false);
-      }
+      ) setOpen(false);
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -203,7 +189,6 @@ const FilterDropdown = ({ label, icon: Icon, options, value, onChange }) => {
 
   useEffect(() => {
     if (!open) return;
-
     const updatePosition = () => {
       if (!buttonRef.current || !dropdownRef.current) return;
       const rect = buttonRef.current.getBoundingClientRect();
@@ -211,14 +196,11 @@ const FilterDropdown = ({ label, icon: Icon, options, value, onChange }) => {
       dropdownRef.current.style.left = `${rect.left}px`;
       dropdownRef.current.style.minWidth = `${rect.width}px`;
     };
-
     updatePosition();
-
     const onScroll = () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       rafRef.current = requestAnimationFrame(updatePosition);
     };
-
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => {
       window.removeEventListener("scroll", onScroll);
@@ -240,7 +222,6 @@ const FilterDropdown = ({ label, icon: Icon, options, value, onChange }) => {
         <span>{options.find(o => o.value === value)?.label || label}</span>
         <ChevronDown className={`w-3 h-3 shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
-
       {open && (
         <div
           ref={dropdownRef}
@@ -308,7 +289,7 @@ const EventCard = ({ event }) => {
             <Tag className="w-2.5 h-2.5" /> {event.category}
           </span>
         )}
-        <span className={`absolute top-2 right-2 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${status.color} ${status.bg}`}>
+        <span className={`absolute top-2 right-2 text-[10px] font-normal px-2 py-0.5 rounded-full flex items-center gap-1 ${status.color} ${status.bg}`}>
           <span className={`w-1.5 h-1.5 rounded-full ${status.dot} inline-block`} /> {status.label}
         </span>
       </div>
@@ -341,7 +322,7 @@ const EventCard = ({ event }) => {
               </span>
             ))}
             {event.ticketTypes.length > 2 && (
-              <span className="text-[10px] text-gray-400 px-2 py-0.5 bg-gray-100 rounded-full">+{event.ticketTypes.length - 2}</span>
+              <span className="text-[10px] text-gray-400 px-2 py-0.5 bg-gray-100 rounded-fullx">+{event.ticketTypes.length - 2}</span>
             )}
           </div>
         )}
@@ -400,11 +381,21 @@ const FeaturedCard = ({ event }) => {
         <h2 className="text-white font-bold leading-tight mb-2 group-hover:bg-gradient-to-r group-hover:from-orange-300 group-hover:to-purple-300 group-hover:bg-clip-text group-hover:text-transparent transition-all"
           style={{ fontSize: "clamp(1.3rem,3vw,2.2rem)" }}>{event.title}</h2>
         {event.description && (
-          <p className="text-white/60 text-sm leading-relaxed mb-3 line-clamp-2">{event.description}</p>
+          <p className="text-white text-sm leading-relaxed mb-3 line-clamp-2">{event.description}</p>
         )}
-        <div className="flex flex-wrap gap-x-4 gap-y-1 mb-3 text-sm text-white/60">
-          <span className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" />{fmtDate(event.startDate)}</span>
-          {event.location && <span className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5" />{event.location}</span>}
+        <div className="flex flex-wrap gap-x-4 gap-y-1 mb-3 text-sm text-white">
+        <span className="flex items-center gap-1.5 text-white/60">
+  <Calendar className="w-3.5 h-3.5" />
+  {fmtDate(event.startDate)}
+</span>
+
+{event.location && (
+  <span className="flex items-center gap-1.5 text-white/60">
+    <MapPin className="w-3.5 h-3.5" />
+    {event.location}
+  </span>
+)}
+
         </div>
         {total > 0 && (
           <div className="mb-4">
@@ -417,11 +408,12 @@ const FeaturedCard = ({ event }) => {
         <div className="flex items-center justify-between border-t border-white/15 pt-4">
           <div>
             <p className="text-white/40 text-xs mb-0.5">Giá</p>
-            <p className="text-white font-black text-xl">
-              {fmtPriceRange({ min, max })}
-            </p>
+            <p className="text-white font-light text-l">
+           {fmtPriceRange({ min, max })}
+</p>
+
           </div>
-          <span className="inline-flex items-center gap-2 bg-gradient-to-r from-orange-500 to-purple-600 text-white font-bold text-sm px-5 py-2.5 rounded-xl hover:opacity-90 transition-opacity">
+          <span className="inline-flex items-center gap-2 bg-gradient-to-r from-orange-500 to-purple-600 text-white font-bold text-sm px-5 py-2.5 rounded-full hover:opacity-90 transition-opacity">
             Đặt vé ngay <ArrowRight className="w-4 h-4" />
           </span>
         </div>
@@ -444,7 +436,7 @@ const UpcomingCard = ({ event }) => {
         <img src={getImageUrl(event.image)} alt={event.title}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           onError={e => { e.target.src = "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=400&auto=format&fit=crop"; }} />
-        <span className="absolute top-2 left-2 bg-gradient-to-r from-orange-500 to-purple-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+        <span className="absolute top-2 left-2 bg-gradient-to-r from-orange-500 to-purple-600 text-white text-[10px] font-normal px-2 py-0.5 rounded-full">
           {fmtDate(event.startDate)}
         </span>
       </div>
@@ -537,11 +529,10 @@ const AllEventsSection = ({ events, loading, clearFilters, catFilter }) => {
             onClick={() => setShowAll(v => !v)}
             className="inline-flex items-center gap-2 px-7 py-3 rounded-2xl text-sm font-bold border-2 border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:shadow-sm transition-all"
           >
-            {showAll ? (
-              <><ChevronDown className="w-4 h-4 rotate-180" /> Thu gọn</>
-            ) : (
-              <><ChevronDown className="w-4 h-4" /> Xem thêm {remaining} sự kiện</>
-            )}
+            {showAll
+              ? <><ChevronDown className="w-4 h-4 rotate-180" /> Thu gọn</>
+              : <><ChevronDown className="w-4 h-4" /> Xem thêm {remaining} sự kiện</>
+            }
           </button>
         </div>
       )}
@@ -562,6 +553,26 @@ const HomePage = () => {
   const [catFilter, setCatFilter] = useState("all");
   const [sortFilter, setSortFilter] = useState("newest");
 
+  // ── Intersection Observer cho scroll animations ──
+  const [visibleSections, setVisibleSections] = useState({});
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => entries.forEach(entry => {
+        if (entry.isIntersecting)
+          setVisibleSections(prev => ({ ...prev, [entry.target.id]: true }));
+      }),
+      { threshold: 0.1 }
+    );
+    document.querySelectorAll('[data-animate]').forEach(el => observer.observe(el));
+    return () => observer.disconnect();
+  }, []);
+
+  // Helper class cho animation
+  const anim = (id) =>
+    `transition-all duration-1000 ${visibleSections[id] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`;
+
+  // ── Fetch events ──
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -586,6 +597,7 @@ const HomePage = () => {
     fetchData();
   }, [searchParams]);
 
+  // ── Filter & sort ──
   useEffect(() => {
     let data = [...allEvents];
     if (catFilter !== "all") data = data.filter(e => e.category === catFilter);
@@ -604,7 +616,7 @@ const HomePage = () => {
     if (dateFilter !== "all") {
       const now = new Date();
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const weekEnd = new Date(today); weekEnd.setDate(today.getDate() + 7);
+      const weekEnd  = new Date(today); weekEnd.setDate(today.getDate() + 7);
       const monthEnd = new Date(today); monthEnd.setMonth(today.getMonth() + 1);
       const next3End = new Date(today); next3End.setMonth(today.getMonth() + 3);
       data = data.filter(e => {
@@ -618,33 +630,25 @@ const HomePage = () => {
       });
     }
 
-    if (sortFilter === "soonest") data.sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
-    if (sortFilter === "newest") data.sort((a, b) => new Date(b.createdAt || b.startDate) - new Date(a.createdAt || a.startDate));
-    if (sortFilter === "price_asc") data.sort((a, b) => (getPriceRange(a).min ?? Infinity) - (getPriceRange(b).min ?? Infinity));
+    if (sortFilter === "soonest")    data.sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
+    if (sortFilter === "newest")     data.sort((a, b) => new Date(b.createdAt || b.startDate) - new Date(a.createdAt || a.startDate));
+    if (sortFilter === "price_asc")  data.sort((a, b) => (getPriceRange(a).min ?? Infinity) - (getPriceRange(b).min ?? Infinity));
     if (sortFilter === "price_desc") data.sort((a, b) => (getPriceRange(b).min ?? -1) - (getPriceRange(a).min ?? -1));
 
     setEvents(data);
   }, [allEvents, priceFilter, dateFilter, catFilter, sortFilter]);
 
   const activeFilters = [priceFilter !== "all", dateFilter !== "all", catFilter !== "all", sortFilter !== "newest"].filter(Boolean).length;
-  const clearFilters = () => {
-    setPriceFilter("all");
-    setDateFilter("all");
-    setCatFilter("all");
-    setSortFilter("newest");
-  };
+  const clearFilters = () => { setPriceFilter("all"); setDateFilter("all"); setCatFilter("all"); setSortFilter("newest"); };
 
   const search = searchParams.get("search");
   const featuredEvent = events[0];
   const hotEvents = events.slice(1, 7);
-  const upcomingEvents = [...allEvents]
-    .filter(e => e.startDate && new Date(e.startDate) > new Date())
-    .sort((a, b) => new Date(a.startDate) - new Date(b.startDate))
-    .slice(0, 4);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* HERO */}
+    <div className="min-h-screen bg-gray-50 homepage-root">
+
+      {/* ── HERO ── */}
       <section className="relative overflow-hidden bg-gray-900" style={{ height: "clamp(480px,85svh,720px)" }}>
         <img src="https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=1800&auto=format&fit=crop&q=80"
           alt="hero" className="absolute inset-0 w-full h-full object-cover opacity-40" />
@@ -660,14 +664,14 @@ const HomePage = () => {
           <p className="text-white/60 mb-6 max-w-xl" style={{ fontSize: "clamp(0.875rem,1.5vw,1rem)" }}>
             Hàng trăm sự kiện âm nhạc, thể thao, văn hóa mỗi tháng — đặt vé nhanh chóng, an toàn.
           </p>
-          <form className="flex items-center bg-white rounded-xl max-w-lg overflow-hidden shadow-lg"
+          <form className="flex items-center bg-white rounded-full max-w-lg overflow-hidden shadow-lg"
             onSubmit={e => { e.preventDefault(); const q = e.target.q.value.trim(); if (q) window.location.href = `/?search=${encodeURIComponent(q)}`; }}>
             <Search className="w-4 h-4 text-gray-400 ml-4 shrink-0" />
             <input name="q" placeholder="Tìm sự kiện, địa điểm, nghệ sĩ..."
               defaultValue={search || ""}
               className="flex-1 px-3 py-3 text-sm text-gray-900 outline-none bg-transparent placeholder:text-gray-400" />
             <button type="submit"
-              className="bg-gradient-to-r from-orange-500 to-purple-600 text-white text-sm font-bold px-5 py-3 shrink-0 hover:opacity-90 transition-opacity">
+              className="bg-gradient-to-r from-orange-500 to-purple-600 text-white text-sm font-normal px-5 py-3 shrink-0 hover:opacity-90 transition-opacity">
               Tìm kiếm
             </button>
           </form>
@@ -688,7 +692,7 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* FILTER BAR */}
+      {/* ── FILTER BAR ── */}
       <nav className="sticky top-0 z-40 bg-white rounded-b-2xl" style={{ boxShadow: "0 8px 32px -4px rgba(0,0,0,0.13)", marginBottom: "-24px" }}>
         <div className="max-w-6xl mx-auto px-4 md:px-6 py-4">
           <div className="flex items-center gap-2 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
@@ -698,28 +702,23 @@ const HomePage = () => {
               </div>
               <span className="text-xs font-semibold text-gray-500 whitespace-nowrap hidden sm:block">Bộ lọc</span>
             </div>
-
             <div className="h-6 w-px bg-gray-200 shrink-0" />
-
-            <FilterDropdown label="Giá vé" icon={DollarSign} options={PRICE_OPTIONS} value={priceFilter} onChange={setPriceFilter} />
-            <FilterDropdown label="Ngày" icon={Calendar} options={DATE_OPTIONS} value={dateFilter} onChange={setDateFilter} />
-            <FilterDropdown label="Danh mục" icon={Tag}
+            <FilterDropdown label="Giá vé"    icon={DollarSign} options={PRICE_OPTIONS} value={priceFilter} onChange={setPriceFilter} />
+            <FilterDropdown label="Ngày"      icon={Calendar}   options={DATE_OPTIONS}  value={dateFilter}  onChange={setDateFilter}  />
+            <FilterDropdown label="Danh mục"  icon={Tag}
               options={[{ value: "all", label: "Tất cả danh mục" }, ...categories.map(c => ({ value: c, label: c }))]}
               value={catFilter} onChange={setCatFilter} />
-            <FilterDropdown label="Sắp xếp" icon={ArrowUpDown} options={SORT_OPTIONS} value={sortFilter} onChange={setSortFilter} />
-
+            <FilterDropdown label="Sắp xếp"  icon={ArrowUpDown} options={SORT_OPTIONS}  value={sortFilter}  onChange={setSortFilter}  />
             {activeFilters > 0 && (
               <>
                 <div className="h-6 w-px bg-gray-200 shrink-0" />
                 <button onClick={clearFilters}
                   className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold border border-gray-200 text-gray-500 hover:border-red-200 hover:text-red-500 hover:bg-red-50 transition-colors whitespace-nowrap shrink-0">
-                  <X className="w-3.5 h-3.5" />
-                  Xoá lọc
+                  <X className="w-3.5 h-3.5" /> Xoá lọc
                   <span className="w-4 h-4 rounded-full bg-gradient-to-r from-orange-500 to-purple-600 text-white text-[9px] font-black flex items-center justify-center">{activeFilters}</span>
                 </button>
               </>
             )}
-
             <span className="ml-auto shrink-0 text-xs text-gray-400 hidden md:block whitespace-nowrap">
               <span className="font-black bg-gradient-to-r from-orange-500 to-purple-600 bg-clip-text text-transparent">{events.length}</span> kết quả
             </span>
@@ -727,12 +726,11 @@ const HomePage = () => {
         </div>
       </nav>
 
-      {/* FEATURED */}
+      {/* ── FEATURED ── */}
       <div className="max-w-6xl mx-auto px-6 pt-14 pb-8">
         <div className="flex items-end justify-between mb-5">
           <h2 className="text-lg font-bold text-gray-900">Sự kiện nổi bật</h2>
-          <Link to="/events"
-            className="text-xs font-medium flex items-center gap-1 bg-gradient-to-r from-orange-500 to-purple-600 bg-clip-text text-transparent hover:opacity-75 transition-opacity">
+          <Link to="/events" className="text-xs font-medium flex items-center gap-1 bg-gradient-to-r from-orange-500 to-purple-600 bg-clip-text text-transparent hover:opacity-75 transition-opacity">
             Xem tất cả <ChevronRight className="w-3.5 h-3.5 text-purple-500" />
           </Link>
         </div>
@@ -741,13 +739,10 @@ const HomePage = () => {
           : featuredEvent ? <FeaturedCard event={featuredEvent} />
           : <div className="text-center py-12 text-gray-400 text-sm">Chưa có sự kiện nổi bật</div>
         }
-
         {!loading && hotEvents.length > 0 && (
           <div className="mt-4 -mx-6">
-            <div
-              className="overflow-x-scroll px-6 pb-3 cursor-grab active:cursor-grabbing"
-              style={{ scrollbarWidth: "thin", scrollbarColor: "#e5e7eb transparent", WebkitOverflowScrolling: "touch" }}
-            >
+            <div className="overflow-x-scroll px-6 pb-3 cursor-grab active:cursor-grabbing"
+              style={{ scrollbarWidth: "thin", scrollbarColor: "#e5e7eb transparent", WebkitOverflowScrolling: "touch" }}>
               <div className="flex gap-3" style={{ width: "max-content" }}>
                 {hotEvents.map(event => (
                   <Link key={event._id} to={`/event/${event._id}`}
@@ -783,194 +778,146 @@ const HomePage = () => {
         )}
       </div>
 
-      {/* ALL EVENTS */}
+      {/* ── ALL EVENTS ── */}
       <AllEventsSection events={events} loading={loading} clearFilters={clearFilters} catFilter={catFilter} />
 
-      {/* ARTISTS */}
-      <div className="bg-white border-y border-gray-200">
-        <div className="max-w-6xl mx-auto px-6 py-10">
-          <div className="flex items-end justify-between mb-6">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-widest mb-1 flex items-center gap-1 bg-gradient-to-r from-orange-500 to-purple-600 bg-clip-text text-transparent">
-                <Music className="w-3 h-3 text-orange-500" /> Line-up đặc sắc
-              </p>
-              <h2 className="text-lg font-bold text-gray-900">Nghệ sĩ nổi bật</h2>
-            </div>
-            <Link to="/events"
-              className="text-xs font-medium flex items-center gap-1 bg-gradient-to-r from-orange-500 to-purple-600 bg-clip-text text-transparent hover:opacity-75 transition-opacity">
-              Khám phá thêm <ChevronRight className="w-3.5 h-3.5 text-purple-500" />
-            </Link>
-          </div>
-          <div className="grid grid-cols-3 sm:grid-cols-6 gap-6">
-            {ARTISTS.map(a => (
-              <div key={a.id} className="flex flex-col items-center gap-2.5 group cursor-pointer">
-                <img src={a.img} alt={a.name}
-                  className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover border-2 border-gray-200 group-hover:border-transparent group-hover:ring-2 group-hover:ring-orange-400 group-hover:ring-offset-2 transition-all duration-300 group-hover:scale-105"
-                  onError={e => { e.target.src = "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=200&auto=format&fit=crop"; }} />
-                <div className="text-center">
-                  <p className="text-xs font-bold text-gray-900 truncate max-w-[80px]">{a.name}</p>
-                  <p className="text-[10px] text-gray-400 mt-0.5 truncate max-w-[80px]">{a.genre}</p>
-                  <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold bg-gradient-to-r from-orange-500 to-purple-600 bg-clip-text text-transparent bg-orange-50 px-1.5 py-0.5 rounded-full mt-1 border border-orange-100">
-                    <Music className="w-2 h-2 text-orange-500" /> {a.events} SK
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* WHY US */}
-      <div className="max-w-6xl mx-auto px-6 py-10">
-        <div className="text-center mb-8">
-          <h2 className="text-lg font-bold text-gray-900">
-            Tại sao chọn <span className="bg-gradient-to-r from-orange-500 to-purple-600 bg-clip-text text-transparent">TicketVN</span>?
-          </h2>
-          <p className="text-sm text-gray-500 mt-1">Hơn 10.000 người dùng tin tưởng mỗi tháng.</p>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {WHY_US.map((w, i) => (
-            <div key={i} className="bg-white border border-gray-200 rounded-2xl p-5 hover:border-orange-200 hover:shadow-md transition-all group">
-              <div className={`w-10 h-10 bg-gradient-to-br ${w.from} ${w.to} rounded-xl flex items-center justify-center text-white mb-3 shadow-md group-hover:scale-110 transition-transform`}>
-                <w.icon className="w-5 h-5" />
-              </div>
-              <h3 className="text-sm font-bold text-gray-900 mb-1">{w.title}</h3>
-              <p className="text-xs text-gray-500 leading-relaxed">{w.desc}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* TESTIMONIALS */}
-      <div className="bg-white border-y border-gray-200">
-        <div className="max-w-6xl mx-auto px-6 py-10">
-          <div className="flex items-end justify-between mb-6">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-widest mb-1 flex items-center gap-1 bg-gradient-to-r from-orange-500 to-purple-600 bg-clip-text text-transparent">
-                <Star className="w-3 h-3 text-orange-500" /> Khách hàng nói gì
-              </p>
-              <h2 className="text-lg font-bold text-gray-900">Hàng nghìn người tin tưởng</h2>
-            </div>
-            <div className="flex items-center gap-1.5 bg-gradient-to-r from-orange-50 to-purple-50 border border-orange-100 px-3 py-1.5 rounded-full">
-              {[...Array(5)].map((_, i) => <Star key={i} className="w-3 h-3 fill-orange-500 text-orange-500" />)}
-              <span className="text-xs font-black text-gray-900 ml-1">4.9</span>
-              <span className="text-xs text-gray-400">/ 5.0</span>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {TESTIMONIALS.map(t => (
-              <div key={t.id}
-                className="bg-white border border-gray-200 rounded-2xl p-4 flex flex-col gap-3 hover:border-orange-200 hover:shadow-sm transition-all">
-                <div className="w-8 h-8 bg-gradient-to-br from-orange-50 to-purple-50 border border-orange-100 rounded-xl flex items-center justify-center shrink-0">
-                  <Quote className="w-4 h-4 text-orange-400" />
-                </div>
-                <p className="text-xs text-gray-600 leading-relaxed italic flex-1">"{t.text}"</p>
-                <div className="flex gap-0.5">
-                  {[...Array(t.rating)].map((_, i) => <Star key={i} className="w-3 h-3 fill-orange-500 text-orange-500" />)}
-                </div>
-                <div className="flex items-center gap-2.5 border-t border-gray-100 pt-3">
-                  <img src={t.avatar} alt={t.name}
-                    className="w-8 h-8 rounded-full object-cover border-2 border-orange-100 shrink-0"
-                    onError={e => { e.target.src = "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop"; }} />
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold text-gray-900 truncate">{t.name}</p>
-                    <p className="text-[10px] text-gray-400 truncate">{t.role}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
       
-
-      {/* ORGANIZER CTA */}
-      <div className="max-w-6xl mx-auto px-6 py-10">
-        <div className="bg-gray-900 rounded-2xl overflow-hidden">
-          <div className="grid grid-cols-1 lg:grid-cols-2">
-            <div className="p-8 md:p-10">
-              <h2 className="text-2xl font-bold text-white leading-tight mb-3">
-                Bán vé sự kiện<br />cùng chúng tôi
-              </h2>
-              <p className="text-white/50 text-sm leading-relaxed mb-6">
-                Tạo sự kiện, quản lý vé và theo dõi doanh thu trong một nền tảng. Miễn phí đăng ký, chỉ tính phí khi bán được vé.
-              </p>
-              <div className="space-y-2.5 mb-7">
-                {[
-                  { icon: BadgeCheck, text: "Tạo sự kiện không giới hạn" },
-                  { icon: Shield, text: "Thanh toán an toàn, rút tiền nhanh" },
-                  { icon: BarChart3, text: "Dashboard phân tích real-time" },
-                  { icon: HeartHandshake, text: "Hỗ trợ 24/7 chuyên nghiệp" },
-                ].map((p, i) => (
-                  <div key={i} className="flex items-center gap-2.5 text-white/70 text-sm">
-                    <div className="w-6 h-6 bg-white/10 rounded-lg flex items-center justify-center shrink-0">
-                      <p.icon className="w-3.5 h-3.5 text-orange-400" />
-                    </div>
-                    {p.text}
-                  </div>
-                ))}
-              </div>
-              <div className="flex flex-wrap gap-3">
-                <Link to="/register"
-                  className="inline-flex items-center gap-2 bg-gradient-to-r from-orange-500 to-purple-600 text-white font-bold text-sm px-5 py-2.5 rounded-xl hover:opacity-90 transition-opacity">
-                  Bắt đầu miễn phí <ArrowRight className="w-4 h-4" />
-                </Link>
-                <Link to="/pricing"
-                  className="inline-flex items-center gap-2 border border-white/20 text-white/60 font-semibold text-sm px-5 py-2.5 rounded-xl hover:border-white/40 hover:text-white transition-all">
-                  Xem bảng giá
-                </Link>
-              </div>
-            </div>
-            <div className="p-6 md:p-8 flex items-center bg-white/5 border-l border-white/10">
-              <div className="w-full bg-white/5 border border-white/10 rounded-xl overflow-hidden">
-                <div className="bg-white/5 border-b border-white/10 px-4 py-2.5 flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-white/20" />
-                  <span className="w-2.5 h-2.5 rounded-full bg-white/20" />
-                  <span className="w-2.5 h-2.5 rounded-full bg-white/20" />
-                  <span className="flex-1 bg-white/10 rounded px-2 py-0.5 text-[10px] text-white/30 ml-2">ticketvn.vn/dashboard</span>
-                </div>
-                <div className="p-4 space-y-4">
-                  <p className="text-[10px] text-white/30 uppercase tracking-widest">Tổng quan</p>
-                  <div className="grid grid-cols-3 gap-2">
-                    {[
-                      { label: "Vé đã bán", val: "1,284" },
-                      { label: "Doanh thu", val: "₫48.2M" },
-                      { label: "Lượt xem", val: "9,310" },
-                    ].map((s, i) => (
-                      <div key={i} className="bg-white/5 border border-white/10 rounded-lg p-2.5">
-                        <p className="text-sm font-black bg-gradient-to-r from-orange-400 to-purple-400 bg-clip-text text-transparent">{s.val}</p>
-                        <p className="text-[9px] text-white/30 mt-0.5">{s.label}</p>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="flex items-end gap-1 h-12">
-                    {[40,65,50,80,70,90,60,100,75,88,55,95].map((h, i) => (
-                      <div key={i} className="flex-1 flex items-end">
-                        <div className="w-full rounded-t bg-gradient-to-t from-orange-500 to-purple-500 opacity-70" style={{ height: `${h}%` }} />
-                      </div>
-                    ))}
-                  </div>
-                  <div className="space-y-2">
-                    {[
-                      { name: "Đêm nhạc Acoustic", pct: 87 },
-                      { name: "Workshop Nhiếp ảnh", pct: 72 },
-                      { name: "Comedy Night HCM", pct: 70 },
-                    ].map((e, i) => (
-                      <div key={i} className="flex items-center gap-2">
-                        <span className="text-[10px] text-white/40 flex-1 truncate">{e.name}</span>
-                        <div className="w-16 h-1 bg-white/10 rounded-full overflow-hidden">
-                          <div className="h-full bg-gradient-to-r from-orange-500 to-purple-500 rounded-full" style={{ width: `${e.pct}%` }} />
-                        </div>
-                        <span className="text-[9px] text-purple-400 font-bold w-6 text-right">{e.pct}%</span>
-                      </div>
-                    ))}
+      {/* ── FEATURED ORGANIZERS ── */}
+      <div className="relative bg-gray-900 py-16 overflow-hidden">
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-10 right-20 w-72 h-72 bg-orange-500/10 rounded-full blur-3xl" />
+          <div className="absolute bottom-10 left-20 w-96 h-96 bg-purple-400/10 rounded-full blur-3xl" />
+          <div className="absolute inset-0 opacity-5" style={{ backgroundImage: 'linear-gradient(white 1px, transparent 1px), linear-gradient(90deg, white 1px, transparent 1px)', backgroundSize: '60px 60px' }} />
+        </div>
+        <div id="organizers" data-animate className={`max-w-6xl mx-auto px-6 relative z-10 ${anim('organizers')}`}>
+          <div className="text-center mb-10">
+            <h2 className="text-2xl md:text-3xl font-bold mb-3 text-white">Nhà tổ chức nổi tiếng</h2>
+            <p className="text-gray-400 text-sm">Những đơn vị tổ chức uy tín và chuyên nghiệp</p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {FEATURED_ORGANIZERS.map((organizer, index) => (
+              <div key={organizer.id}
+                className="group cursor-pointer bg-white/8 backdrop-blur-sm border border-white/10 rounded-2xl p-6 text-center hover:bg-white/15 hover:border-orange-400/30 transition-all duration-500 hover:-translate-y-2"
+                style={{ animationDelay: `${index * 100}ms` }}>
+                <div className="relative w-24 h-24 mx-auto mb-4">
+                  <div className="absolute inset-0 bg-gradient-to-r from-orange-500 to-purple-500 rounded-full blur-lg opacity-0 group-hover:opacity-60 transition-opacity duration-500" />
+                  <img src={organizer.avatar} alt={organizer.name}
+                    className="relative w-full h-full rounded-full object-cover border-4 border-white/10 group-hover:border-orange-400/50 transition-all duration-500 group-hover:scale-110"
+                    onError={e => { e.target.src = 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=150&auto=format&fit=crop'; }} />
+                  <div className="absolute -bottom-1 -right-1 bg-gradient-to-r from-orange-500 to-purple-600 p-1.5 rounded-full shadow-lg">
+                    <Award className="w-4 h-4 text-white" />
                   </div>
                 </div>
+                <h3 className="text-base font-semibold mb-2 text-white group-hover:text-orange-400 transition-colors">{organizer.name}</h3>
+                <p className="text-sm text-gray-400 mb-4 line-clamp-2">{organizer.description}</p>
+                <div className="flex items-center justify-center gap-4 text-sm text-gray-400 mb-4">
+                  <div className="flex items-center gap-1"><Calendar className="w-4 h-4" /><span>{organizer.totalEvents}</span></div>
+                  <div className="flex items-center gap-1"><Users className="w-4 h-4" /><span>{organizer.followers}</span></div>
+                </div>
+                <button className="w-full bg-white/10 hover:bg-gradient-to-r hover:from-orange-500 hover:to-purple-600 text-white font-medium py-2.5 rounded-full transition-all duration-300 text-sm border border-white/20 hover:border-transparent">
+                  Theo dõi
+                </button>
               </div>
-            </div>
+            ))}
           </div>
         </div>
       </div>
+
+      {/* ── TESTIMONIALS ── */}
+      <div className="relative bg-white py-16 overflow-hidden">
+        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-orange-400 via-pink-400 to-purple-400" />
+        <div className="absolute -top-24 -right-24 w-80 h-80 bg-orange-200/40 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-24 -left-24 w-80 h-80 bg-purple-200/40 rounded-full blur-3xl pointer-events-none" />
+        <div id="testimonials" data-animate className={`max-w-6xl mx-auto px-6 relative z-10 ${anim('testimonials')}`}>
+          <div className="text-center mb-10">
+            <h2 className="text-2xl md:text-3xl font-bold mb-3 text-gray-900">Đánh giá từ người dùng</h2>
+            <p className="text-gray-500 text-base flex items-center justify-center gap-2">
+              <Star className="w-5 h-5 text-yellow-400 fill-current" />
+              Hàng ngàn khách hàng hài lòng đã tin tưởng chúng tôi
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+            {TESTIMONIALS.map((t, index) => (
+              <div key={t.id}
+                className="bg-white rounded-2xl p-6 shadow-md hover:shadow-xl transition-all duration-500 hover:-translate-y-2 border border-orange-100/50"
+                style={{ animationDelay: `${index * 100}ms` }}>
+                <div className="text-5xl font-serif text-orange-200 leading-none mb-2 select-none">"</div>
+                <div className="flex items-center gap-1 mb-3">
+                  {[...Array(t.rating)].map((_, i) => <Star key={i} className="w-4 h-4 text-yellow-400 fill-current" />)}
+                </div>
+                <p className="text-gray-700 mb-6 text-sm leading-relaxed">{t.comment}</p>
+                <div className="flex items-center gap-3 pt-4 border-t border-gray-100">
+                  <img src={t.avatar} alt={t.name}
+                    className="w-11 h-11 rounded-full object-cover border-2 border-orange-200 shadow-sm"
+                    onError={e => { e.target.src = 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop'; }} />
+                  <div>
+                    <h4 className="font-semibold text-gray-900 text-sm">{t.name}</h4>
+                    <p className="text-xs text-gray-500">{t.event}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ── LOCATIONS ── */}
+      <div className="bg-white py-14 border-t border-gray-100">
+        <div id="locations" data-animate className={`max-w-6xl mx-auto px-6 ${anim('locations')}`}>
+          <div className="text-center mb-8">
+            <p className="text-xs font-medium text-orange-500 mb-1 uppercase tracking-widest">Khám phá</p>
+            <h2 className="text-xl md:text-2xl lg:text-3xl font-bold text-gray-900 mb-2">Địa điểm phổ biến</h2>
+            <p className="text-gray-400 text-sm">Tìm sự kiện theo thành phố bạn yêu thích</p>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
+            {[
+              { name: "TP. Hồ Chí Minh", img: "https://images.unsplash.com/photo-1583417319070-4a69db38a482?w=600&auto=format&fit=crop&q=80", count: 120 },
+              { name: "Hà Nội",           img: "https://images.unsplash.com/photo-1509030450996-dd1a26dda07a?w=600&auto=format&fit=crop&q=80", count: 85 },
+              { name: "Đà Nẵng",          img: "https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?w=600&auto=format&fit=crop&q=80", count: 47 },
+              { name: "Nha Trang",        img: "https://images.unsplash.com/photo-1573968694073-5af7d6dfe5e0?w=600&auto=format&fit=crop&q=80", count: 32 },
+              { name: "Phú Quốc",         img: "https://images.unsplash.com/photo-1540541338537-1220059af4dc?w=600&auto=format&fit=crop&q=80", count: 28 },
+              { name: "Cần Thơ",          img: "https://images.unsplash.com/photo-1555400038-63f5ba517a47?w=600&auto=format&fit=crop&q=80", count: 19 },
+            ].map((loc, i) => (
+              <Link key={loc.name} to={`/?location=${encodeURIComponent(loc.name)}`}
+                className={`group relative overflow-hidden rounded-2xl ${i === 0 ? "md:col-span-2 md:row-span-2" : ""}`}>
+                <div className={`relative w-full overflow-hidden ${i === 0 ? "h-[220px] md:h-full md:min-h-[280px]" : "h-[140px] md:h-[130px]"}`}>
+                  <img src={loc.img} alt={loc.name}
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                    onError={e => { e.target.src = "https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=600&h=400&fit=crop"; }} />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+                  <div className="absolute bottom-0 left-0 right-0 p-3 md:p-4">
+                    <div className="flex items-end justify-between">
+                      <div>
+                        <h3 className={`font-bold text-white leading-tight ${i === 0 ? "text-lg md:text-2xl" : "text-sm md:text-base"}`}>{loc.name}</h3>
+                        <p className="text-white/70 text-xs mt-0.5">{loc.count} sự kiện</p>
+                      </div>
+                      <div className="bg-white/20 backdrop-blur-sm border border-white/20 p-1.5 rounded-full group-hover:bg-orange-500 group-hover:border-orange-500 transition-all">
+                        <ChevronRight className="w-3.5 h-3.5 text-white" />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="absolute inset-0 bg-orange-500/0 group-hover:bg-orange-500/10 transition-all duration-300" />
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&display=swap');
+
+        .homepage-root, .homepage-root * {
+          font-family: 'Be Vietnam Pro', sans-serif !important;
+        }
+
+        @keyframes fade-in-up {
+          from { opacity: 0; transform: translateY(24px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in-up { animation: fade-in-up 0.7s ease-out forwards; }
+        .overflow-x-auto::-webkit-scrollbar { display: none; }
+      `}</style>
     </div>
   );
 };
