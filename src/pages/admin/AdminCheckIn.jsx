@@ -41,53 +41,55 @@ const AdminCheckIn = () => {
   const handleScan = async () => {
     const code = scanInput.trim();
     if (!code) {
-        toast.error('Nhập mã vé để xác minh');
-        return;
+      toast.error('Nhập mã vé để xác minh');
+      return;
     }
 
     setVerifying(true);
     setScanResult(null);
 
     try {
-        const config = { headers: { Authorization: `Bearer ${token}` } };
-        
-        // Gửi yêu cầu check-in tới server
-        const res = await axios.post(`http://localhost:8000/api/tickets/check-in`, { qrCode: code }, config);
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      const res = await axios.post(`http://localhost:8000/api/tickets/check-in`, { qrCode: code }, config);
 
-        if (res.data.success) {
-            // 1. Cập nhật trạng thái hiển thị kết quả quét
-            setScanResult({
-                status: 'success',
-                message: 'Check-in thành công!',
-                ticket: res.data.data
-            });
+      if (res.data.success) {
+        const checkedTicket = res.data.data;
+        const checkedId = checkedTicket?._id || checkedTicket?.id;
+        const checkedAt = checkedTicket?.checkedInAt || new Date().toISOString();
 
-            toast.success('Xác minh thành công!');
-            
-            // 2. QUAN TRỌNG: Xóa nội dung trong ô nhập để sẵn sàng cho lượt quét tiếp theo
-            setScanInput(''); 
-
-            // 3. QUAN TRỌNG: Gọi lại loadData để cập nhật các con số thống kê (Tổng vé, Đã check-in)
-            // Việc này giúp cập nhật dữ liệu real-time trên Dashboard mà không cần F5
-            await loadData(); 
-        }
-    } catch (error) {
-        const msg = error.response?.data?.message || 'Lỗi xác minh vé';
-        const isUsed = msg.toLowerCase().includes('đã sử dụng') || msg.toLowerCase().includes('used');
+        // ✅ Cập nhật ngay lập tức vào local state — không cần chờ loadData
+        setAllTickets(prev => prev.map(t =>
+          t.id === checkedId
+            ? { ...t, status: 'used', checkedInAt: checkedAt }
+            : t
+        ));
 
         setScanResult({
-            status: isUsed ? 'used' : 'invalid',
-            message: msg,
-            ticket: error.response?.data?.ticket || null
+          status: 'success',
+          message: 'Check-in thành công!',
+          ticket: checkedTicket
         });
-        toast.error(msg);
-        
-        // Gọi loadData ngay cả khi lỗi (nếu cần thiết) để đảm bảo danh sách đồng bộ
-        await loadData();
+
+        toast.success('Xác minh thành công!');
+        setScanInput('');
+
+        // 🔄 Vẫn gọi loadData để đồng bộ hoàn toàn với server (chạy ngầm)
+        loadData();
+      }
+    } catch (error) {
+      const msg = error.response?.data?.message || 'Lỗi xác minh vé';
+      const isUsed = msg.toLowerCase().includes('đã sử dụng') || msg.toLowerCase().includes('used');
+
+      setScanResult({
+        status: isUsed ? 'used' : 'invalid',
+        message: msg,
+        ticket: error.response?.data?.ticket || null
+      });
+      toast.error(msg);
     } finally {
-        setVerifying(false);
+      setVerifying(false);
     }
-};
+  };
 
   const handleExportCSV = () => {
     const rows = [

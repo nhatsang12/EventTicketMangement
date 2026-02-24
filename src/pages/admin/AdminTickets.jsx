@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Ticket, ToggleLeft, ToggleRight, Save, X, Tag } from 'lucide-react';
+import { Plus, Edit2, Trash2, Ticket, ToggleLeft, ToggleRight, Save, X, Tag, ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
 import axios from 'axios';
 import useAuthStore from '../../store/authStore';
+
+const ITEMS_PER_PAGE = 10; // Số loại vé mỗi trang
 
 const emptyForm = { name: '', price: '', quantity: '', description: '', isActive: true, eventId: '' };
 
@@ -13,13 +15,14 @@ const AdminTickets = () => {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [filterEvent, setFilterEvent] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all'); // all, active, inactive
+  const [sortPrice, setSortPrice] = useState('none'); // none, asc, desc
+  const [searchTicketName, setSearchTicketName] = useState(''); // Tìm theo tên loại vé
   const [loading, setLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
 
-  // Lấy Access Token từ Store
   const { accessToken } = useAuthStore();
 
-  // Cấu hình Axios
- // Cấu hình Axios trỏ thẳng tới Backend
   const apiTickets = axios.create({
     baseURL: 'http://localhost:8000/api/admin/ticket-types',
   });
@@ -28,16 +31,12 @@ const AdminTickets = () => {
     baseURL: 'http://localhost:8000/api/admin/events',
   });
 
-  // 1. TẢI DỮ LIỆU TỪ BACKEND (Phiên bản chống Crash)
- // 1. TẢI DỮ LIỆU TỪ BACKEND
   const fetchData = async () => {
     try {
-      // Ép Token vào config để đảm bảo 100% luôn có thẻ VIP khi gọi API
       const config = {
         headers: { Authorization: `Bearer ${accessToken}` }
       };
 
-      // Gắn config vào các hàm GET
       const evRes = await apiEvents.get('/', config);
       const eventsData = evRes.data?.data || evRes.data || [];
       setEvents(Array.isArray(eventsData) ? eventsData : []);
@@ -46,6 +45,7 @@ const AdminTickets = () => {
       const ticketsData = tcRes.data?.data || tcRes.data || [];
       setTicketTypes(Array.isArray(ticketsData) ? ticketsData : []);
       
+      setCurrentPage(1); // Reset trang khi tải lại
     } catch (error) {
       console.error("Lỗi lấy dữ liệu:", error);
       toast.error('Lỗi khi tải dữ liệu từ server (Xem console)');
@@ -56,7 +56,11 @@ const AdminTickets = () => {
     fetchData();
   }, []);
 
-  // 2. TẠO HOẶC CẬP NHẬT LOẠI VÉ
+  // Reset trang khi thay đổi filter hoặc dữ liệu
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterEvent, statusFilter, sortPrice, searchTicketName, ticketTypes]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.name || !form.price || !form.quantity || !form.eventId) { 
@@ -75,15 +79,14 @@ const AdminTickets = () => {
         isActive: form.isActive
       };
 
-      // Cấu hình nhét Token vào
       const config = { headers: { Authorization: `Bearer ${accessToken}` } };
 
       if (editing !== null) {
         const ticketId = ticketTypes[editing]._id;
-        await apiTickets.put(`/${ticketId}`, payload, config); // 👈 Cập nhật có Token
+        await apiTickets.put(`/${ticketId}`, payload, config);
         toast.success('Cập nhật loại vé thành công!');
       } else {
-        await apiTickets.post('/', payload, config); // 👈 Tạo mới có Token
+        await apiTickets.post('/', payload, config);
         toast.success('Tạo loại vé thành công!');
       }
 
@@ -91,7 +94,6 @@ const AdminTickets = () => {
       setShowForm(false); 
       setEditing(null); 
       setForm(emptyForm);
-
     } catch (error) {
       toast.error(error.response?.data?.message || 'Có lỗi xảy ra khi lưu loại vé');
     } finally {
@@ -99,24 +101,21 @@ const AdminTickets = () => {
     }
   };
 
-  // 3. MỞ FORM CHỈNH SỬA
   const handleEdit = (i) => { 
     setEditing(i); 
     const t = ticketTypes[i];
     setForm({ 
       ...t, 
-      eventId: t.event?._id || t.event // Xử lý trường hợp populate
+      eventId: t.event?._id || t.event 
     }); 
     setShowForm(true); 
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // 4. XÓA LOẠI VÉ
   const handleDelete = async (i) => {
     if (!window.confirm("Bạn có chắc chắn muốn xóa loại vé này?")) return;
     try {
       const ticketId = ticketTypes[i]._id;
-      // Nhét Token vào lúc xóa
       await apiTickets.delete(`/${ticketId}`, {
         headers: { Authorization: `Bearer ${accessToken}` }
       });
@@ -126,14 +125,13 @@ const AdminTickets = () => {
       toast.error('Lỗi khi xóa loại vé');
     }
   };
- // 5. BẬT/TẮT TRẠNG THÁI VÉ
+
   const handleToggle = async (i) => {
     try {
       const ticket = ticketTypes[i];
       const ticketId = ticket._id;
       const newStatus = !ticket.isActive;
       
-      // Nhét Token vào lúc cập nhật trạng thái
       await apiTickets.put(`/${ticketId}`, { isActive: newStatus }, {
         headers: { Authorization: `Bearer ${accessToken}` }
       });
@@ -146,21 +144,56 @@ const AdminTickets = () => {
 
   const formatPrice = (p) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(p);
 
-  // Lọc vé theo sự kiện (Dùng _id)
-  const filtered = filterEvent === 'all' 
-    ? ticketTypes 
-    : ticketTypes.filter(t => (t.event?._id || t.event) === filterEvent);
-    
+  // Filter + Sort + Pagination
+  let processed = ticketTypes;
+
+  // 1. Lọc theo sự kiện
+  if (filterEvent !== 'all') {
+    processed = processed.filter(t => (t.event?._id || t.event) === filterEvent);
+  }
+
+  // 2. Lọc theo trạng thái
+  if (statusFilter !== 'all') {
+    const isActive = statusFilter === 'active';
+    processed = processed.filter(t => t.isActive === isActive);
+  }
+
+  // 3. Lọc theo tên loại vé (search)
+  if (searchTicketName.trim()) {
+    processed = processed.filter(t => 
+      t.name?.toLowerCase().includes(searchTicketName.toLowerCase())
+    );
+  }
+
+  // 4. Sắp xếp theo giá
+  if (sortPrice !== 'none') {
+    processed = [...processed].sort((a, b) => {
+      const priceA = Number(a.price) || 0;
+      const priceB = Number(b.price) || 0;
+      return sortPrice === 'asc' ? priceA - priceB : priceB - priceA;
+    });
+  }
+
+  const totalPages = Math.ceil(processed.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedTickets = processed.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
+  const goToPage = (page) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  };
+
   const getEventName = (eventId) => {
-    const id = eventId?._id || eventId; // Trường hợp API ticket đã populate event
-    return events.find(e => e._id === id)?.title || '—'; // Backend của bạn dùng 'title' thay vì 'name' cho Event
+    const id = eventId?._id || eventId;
+    return events.find(e => e._id === id)?.title || '—';
   };
 
   const typeBadgeColor = (name) => {
-    const safeName = name || ''; // 👈 Thêm dòng này để chống lỗi name bị undefined
-    if (/vip/i.test(name)) return 'bg-yellow-50 text-yellow-700 border-yellow-200';
-    if (/early/i.test(name)) return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-    if (/standard/i.test(name)) return 'bg-blue-50 text-blue-700 border-blue-200';
+    const safeName = name || '';
+    if (/vip/i.test(safeName)) return 'bg-yellow-50 text-yellow-700 border-yellow-200';
+    if (/early/i.test(safeName)) return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+    if (/standard/i.test(safeName)) return 'bg-blue-50 text-blue-700 border-blue-200';
     return 'bg-purple-50 text-purple-700 border-purple-200';
   };
 
@@ -178,6 +211,44 @@ const AdminTickets = () => {
           className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-500 to-purple-600 text-white text-sm font-semibold rounded-xl hover:from-orange-600 hover:to-purple-700 transition-all shadow-md">
           <Plus className="w-4 h-4" /> Thêm loại vé
         </button>
+      </div>
+
+      {/* Bộ lọc */}
+      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center flex-wrap">
+        {/* Tìm kiếm theo tên loại vé */}
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input 
+            type="text" 
+            value={searchTicketName} 
+            onChange={e => setSearchTicketName(e.target.value)} 
+            placeholder="Tìm theo tên loại vé..." 
+            className="w-full pl-9 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:border-orange-400 transition-all" 
+          />
+        </div>
+
+        {/* Lọc theo sự kiện */}
+        <select value={filterEvent} onChange={e => setFilterEvent(e.target.value)}
+          className="px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:border-orange-400 transition-all min-w-[180px]">
+          <option value="all">Tất cả sự kiện</option>
+          {events.map(ev => <option key={ev._id} value={ev._id}>{ev.title}</option>)}
+        </select>
+
+        {/* Lọc theo trạng thái */}
+        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
+          className="px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:border-orange-400 transition-all min-w-[160px]">
+          <option value="all">Tất cả trạng thái</option>
+          <option value="active">Đang bán</option>
+          <option value="inactive">Tắt</option>
+        </select>
+
+        {/* Sắp xếp theo giá */}
+        <select value={sortPrice} onChange={e => setSortPrice(e.target.value)}
+          className="px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:border-orange-400 transition-all min-w-[160px]">
+          <option value="none">Sắp xếp giá</option>
+          <option value="asc">Giá thấp → cao</option>
+          <option value="desc">Giá cao → thấp</option>
+        </select>
       </div>
 
       {/* Form */}
@@ -202,7 +273,6 @@ const AdminTickets = () => {
               <select required value={form.eventId} onChange={e => setForm(f => ({ ...f, eventId: e.target.value }))}
                 className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 focus:outline-none focus:border-orange-400 focus:bg-white transition-all">
                 <option value="">Chọn sự kiện</option>
-                {/* Lấy title và _id từ Backend */}
                 {events.map(ev => <option key={ev._id} value={ev._id}>{ev.title}</option>)}
               </select>
             </div>
@@ -229,7 +299,7 @@ const AdminTickets = () => {
             <div className="flex items-center gap-3">
               <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Trạng thái</label>
               <button type="button" onClick={() => setForm(f => ({ ...f, isActive: !f.isActive }))} className="flex items-center gap-2">
-                {form.isActive !== false // Default true nếu chưa set
+                {form.isActive !== false
                   ? <ToggleRight className="w-6 h-6 text-emerald-500" />
                   : <ToggleLeft className="w-6 h-6 text-gray-300" />}
                 <span className={`text-xs font-semibold ${form.isActive !== false ? 'text-emerald-600' : 'text-gray-400'}`}>
@@ -250,15 +320,8 @@ const AdminTickets = () => {
         </div>
       )}
 
-      {/* Filter */}
-      <select value={filterEvent} onChange={e => setFilterEvent(e.target.value)}
-        className="px-3 py-2 bg-white border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:border-orange-400 transition-all">
-        <option value="all">Tất cả sự kiện</option>
-        {events.map(ev => <option key={ev._id} value={ev._id}>{ev.title}</option>)}
-      </select>
-
-      {/* Table */}
-      {filtered.length === 0 ? (
+      {/* Table + Pagination */}
+      {processed.length === 0 ? (
         <div className="text-center py-16 bg-white border border-gray-200 rounded-2xl">
           <Ticket className="w-12 h-12 text-gray-300 mx-auto mb-3" />
           <p className="text-gray-500 text-sm">Chưa có loại vé nào</p>
@@ -275,10 +338,11 @@ const AdminTickets = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {filtered.map((t, i) => {
+                {paginatedTickets.map((t, i) => {
                   const remaining = t.remaining !== undefined ? t.remaining : (t.quantity - (t.sold || 0));
                   const pct = Math.round(((t.sold || 0) / t.quantity) * 100);
-                  
+                  const globalIndex = startIndex + i;
+
                   return (
                     <tr key={t._id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-3">
@@ -301,7 +365,7 @@ const AdminTickets = () => {
                         <span className={`text-xs font-bold ${remaining > 0 ? 'text-emerald-600' : 'text-red-500'}`}>{remaining}</span>
                       </td>
                       <td className="px-4 py-3">
-                        <button onClick={() => handleToggle(ticketTypes.indexOf(t))} className="flex items-center gap-1.5">
+                        <button onClick={() => handleToggle(globalIndex)} className="flex items-center gap-1.5">
                           {t.isActive !== false
                             ? <><ToggleRight className="w-5 h-5 text-emerald-500" /><span className="text-xs text-emerald-600 font-semibold">Bật</span></>
                             : <><ToggleLeft className="w-5 h-5 text-gray-300" /><span className="text-xs text-gray-400">Tắt</span></>}
@@ -309,11 +373,11 @@ const AdminTickets = () => {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <button onClick={() => handleEdit(ticketTypes.indexOf(t))}
+                          <button onClick={() => handleEdit(globalIndex)}
                             className="p-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">
                             <Edit2 className="w-3 h-3 text-gray-600" />
                           </button>
-                          <button onClick={() => handleDelete(ticketTypes.indexOf(t))}
+                          <button onClick={() => handleDelete(globalIndex)}
                             className="p-1.5 bg-red-50 hover:bg-red-100 rounded-lg transition-colors">
                             <Trash2 className="w-3 h-3 text-red-500" />
                           </button>
@@ -325,6 +389,31 @@ const AdminTickets = () => {
               </tbody>
             </table>
           </div>
+
+          {/* Phân trang */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-3 py-4 border-t border-gray-100">
+              <button
+                onClick={() => goToPage(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="p-2.5 rounded-lg border border-gray-200 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
+              >
+                <ChevronLeft className="w-5 h-5 text-gray-600" />
+              </button>
+
+              <span className="text-sm font-medium px-5 py-2.5 bg-gradient-to-r from-orange-50 to-purple-50 rounded-lg border border-orange-100">
+                Trang {currentPage} / {totalPages}
+              </span>
+
+              <button
+                onClick={() => goToPage(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className="p-2.5 rounded-lg border border-gray-200 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
+              >
+                <ChevronRight className="w-5 h-5 text-gray-600" />
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
