@@ -30,8 +30,6 @@ const EventDetailPage = () => {
   const fetchEventDetails = async () => {
     try {
       setLoading(true);
-      
-      // 1. Lấy danh sách sự kiện Public và tìm sự kiện hiện tại
       const eventRes = await axios.get("http://localhost:8000/api/events");
       const allEvents = eventRes.data?.data || eventRes.data || [];
       const currentEvent = allEvents.find(e => e._id === id);
@@ -42,15 +40,13 @@ const EventDetailPage = () => {
         return;
       }
 
-      // 2. Lấy danh sách vé Public và lọc ra những vé thuộc về sự kiện này
       const ticketRes = await axios.get("http://localhost:8000/api/tickets");
       const allTickets = ticketRes.data?.data || ticketRes.data || [];
       const eventTickets = allTickets.filter(t => (t.event?._id || t.event) === id);
 
       setEventData(currentEvent);
       setTicketTypes(eventTickets);
-      setEvent(currentEvent); // Lưu vào store giỏ hàng
-
+      setEvent(currentEvent);
     } catch (error) {
       console.error('Lỗi tải chi tiết sự kiện:', error);
       toast.error('Không thể tải thông tin sự kiện');
@@ -73,22 +69,19 @@ const EventDetailPage = () => {
       navigate('/login');
       return;
     }
-
     const hasSelectedTickets = Object.values(selectedTickets).some(qty => qty > 0);
     if (!hasSelectedTickets) {
       toast.error('Vui lòng chọn ít nhất một loại vé');
       return;
     }
-
     Object.entries(selectedTickets).forEach(([ticketTypeId, quantity]) => {
       if (quantity > 0) {
         const ticketType = ticketTypes.find(t => t._id === ticketTypeId);
         addItem(ticketType, quantity);
       }
     });
-
     toast.success('Đã thêm vào giỏ hàng');
-    navigate('/checkout'); // Chuyển sang trang thanh toán
+    navigate('/checkout');
   };
 
   const getTotalPrice = () => {
@@ -98,9 +91,8 @@ const EventDetailPage = () => {
     }, 0);
   };
 
-  const formatPrice = (price) => {
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
-  };
+  const formatPrice = (price) =>
+    new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
 
   const formatDate = (dateString) => {
     if (!dateString) return 'Chưa cập nhật';
@@ -121,8 +113,8 @@ const EventDetailPage = () => {
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
           <div className="relative w-16 h-16 mx-auto mb-4">
-            <div className="absolute inset-0 border-4 border-gray-200 rounded-full"></div>
-            <div className="absolute inset-0 border-4 border-t-orange-600 border-r-purple-600 rounded-full animate-spin"></div>
+            <div className="absolute inset-0 border-4 border-gray-200 rounded-full" />
+            <div className="absolute inset-0 border-4 border-t-orange-500 border-r-purple-600 rounded-full animate-spin" />
           </div>
           <p className="text-gray-600 font-medium">Đang tải sự kiện...</p>
         </div>
@@ -134,12 +126,15 @@ const EventDetailPage = () => {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center max-w-md mx-auto p-8">
-          <div className="w-20 h-20 bg-gradient-to-r from-orange-100 to-purple-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <AlertCircle className="w-10 h-10 text-orange-600" />
+          <div className="w-20 h-20 bg-gradient-to-br from-orange-100 to-purple-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <AlertCircle className="w-10 h-10 text-orange-500" />
           </div>
           <h2 className="text-3xl font-bold text-gray-900 mb-3">Không tìm thấy sự kiện</h2>
           <p className="text-gray-600 mb-6">Sự kiện bạn đang tìm kiếm không tồn tại hoặc đã bị xóa.</p>
-          <button onClick={() => navigate('/')} className="bg-gradient-to-r from-orange-600 to-purple-600 text-white font-semibold px-8 py-3 rounded-full shadow-lg hover:scale-105 transition-all">
+          <button
+            onClick={() => navigate('/')}
+            className="bg-gradient-to-r from-orange-500 to-purple-600 text-white font-semibold px-8 py-3 rounded-full shadow-lg hover:opacity-90 transition-all"
+          >
             Về trang chủ
           </button>
         </div>
@@ -151,86 +146,141 @@ const EventDetailPage = () => {
     <div className="min-h-screen bg-white">
       {/* Hero Image */}
       <div className="relative h-[400px] md:h-[500px] bg-gray-900 overflow-hidden">
-        <img src={getImageUrl(event.image)} alt={event.title} className="w-full h-full object-cover" />
+        <img
+          src={getImageUrl(event.image)}
+          alt={event.title}
+          className="w-full h-full object-cover"
+        />
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-r from-orange-500/20 to-purple-500/20 animate-gradient-x" />
+        <div className="absolute inset-0 bg-gradient-to-r from-orange-500/20 to-purple-500/20" />
       </div>
 
       <div className="container-custom -mt-32 relative z-10 pb-16">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          
-          {/* Main Content */}
+
+          {/* ── Main Content ── */}
           <div className="lg:col-span-2 space-y-6">
             <div className="bg-white rounded-3xl shadow-xl p-8 md:p-10 border border-gray-100 space-y-6 animate-fade-in-up">
               <h1 className="text-3xl md:text-5xl font-heading font-bold text-black mb-6 leading-tight">
                 {event.title}
               </h1>
-
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="flex items-start space-x-4 group">
-                  <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center"><Calendar className="w-6 h-6 text-orange-600" /></div>
-                  <div><p className="text-sm text-gray-500 font-medium mb-1">Ngày diễn ra</p><p className="font-semibold text-gray-900 text-lg">{formatDate(event.startDate)}</p></div>
+                <div className="flex items-start space-x-4">
+                  <div className="w-12 h-12 bg-gradient-to-br from-orange-100 to-orange-200 rounded-xl flex items-center justify-center">
+                    <Calendar className="w-6 h-6 text-orange-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 font-medium mb-1">Ngày diễn ra</p>
+                    <p className="font-semibold text-gray-900 text-lg">{formatDate(event.startDate)}</p>
+                  </div>
                 </div>
-                <div className="flex items-start space-x-4 group">
-                  <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center"><Clock className="w-6 h-6 text-purple-600" /></div>
-                  <div><p className="text-sm text-gray-500 font-medium mb-1">Thời gian</p><p className="font-semibold text-gray-900 text-lg">{event.time || '19:00'}</p></div>
+                <div className="flex items-start space-x-4">
+                  <div className="w-12 h-12 bg-gradient-to-br from-purple-100 to-purple-200 rounded-xl flex items-center justify-center">
+                    <Clock className="w-6 h-6 text-purple-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 font-medium mb-1">Thời gian</p>
+                    <p className="font-semibold text-gray-900 text-lg">{event.time || '19:00'}</p>
+                  </div>
                 </div>
-                <div className="flex items-start space-x-4 md:col-span-2 group">
-                  <div className="w-12 h-12 bg-pink-100 rounded-xl flex items-center justify-center"><MapPin className="w-6 h-6 text-pink-600" /></div>
-                  <div><p className="text-sm text-gray-500 font-medium mb-1">Địa điểm</p><p className="font-semibold text-gray-900 text-lg">{event.location}</p></div>
+                <div className="flex items-start space-x-4 md:col-span-2">
+                  <div className="w-12 h-12 bg-gradient-to-br from-pink-100 to-rose-200 rounded-xl flex items-center justify-center">
+                    <MapPin className="w-6 h-6 text-pink-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 font-medium mb-1">Địa điểm</p>
+                    <p className="font-semibold text-gray-900 text-lg">{event.location}</p>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-3xl shadow-xl p-8 md:p-10 border border-gray-100 animate-fade-in-up" style={{ animationDelay: '100ms' }}>
-              <h2 className="text-2xl font-bold flex items-center gap-3 mb-6"><Sparkles className="w-6 h-6 text-orange-500" /> Giới thiệu sự kiện</h2>
+            <div
+              className="bg-white rounded-3xl shadow-xl p-8 md:p-10 border border-gray-100 animate-fade-in-up"
+              style={{ animationDelay: '100ms' }}
+            >
+              <h2 className="text-2xl font-bold flex items-center gap-3 mb-6">
+                <Sparkles className="w-6 h-6 text-orange-500" aria-hidden="true" /> Giới thiệu sự kiện
+              </h2>
               <div className="prose max-w-none text-gray-700 leading-relaxed text-base whitespace-pre-wrap">
                 {event.description || 'Chưa có mô tả chi tiết.'}
               </div>
             </div>
           </div>
 
-          {/* Ticket Selection Sidebar */}
+          {/* ── Ticket Sidebar ── */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-3xl shadow-xl p-6 md:p-8 sticky top-24 space-y-6 border border-gray-100 animate-fade-in-up" style={{ animationDelay: '200ms' }}>
+            <div
+              className="bg-white rounded-3xl shadow-xl p-6 md:p-8 sticky top-24 space-y-6 border border-gray-100 animate-fade-in-up"
+              style={{ animationDelay: '200ms' }}
+            >
               <div className="flex items-center justify-between mb-2">
                 <h2 className="text-2xl font-heading font-bold text-black">Chọn loại vé</h2>
-                <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-purple-600 rounded-full flex items-center justify-center"><ShoppingCart className="w-5 h-5 text-white" /></div>
+                {/* Cart icon với gradient */}
+                <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-purple-600 rounded-full flex items-center justify-center">
+                  <ShoppingCart className="w-5 h-5 text-white" aria-hidden="true" />
+                </div>
               </div>
 
               {ticketTypes.length > 0 ? (
                 <div className="space-y-4">
                   {ticketTypes.map((ticketType) => {
-                    // Cập nhật lại logic remaining (còn lại)
-                    const remaining = ticketType.remaining !== undefined ? ticketType.remaining : (ticketType.quantity - (ticketType.sold || 0));
+                    const remaining = ticketType.remaining !== undefined
+                      ? ticketType.remaining
+                      : (ticketType.quantity - (ticketType.sold || 0));
                     const isAvailable = ticketType.isActive !== false && remaining > 0;
 
                     return (
-                      <div key={ticketType._id} className="border-2 border-gray-200 hover:border-orange-300 rounded-2xl p-5 space-y-4 transition-all">
+                      <div
+                        key={ticketType._id}
+                        className="border-2 border-gray-200 hover:border-orange-300 rounded-2xl p-5 space-y-4 transition-all"
+                      >
                         <div className="flex items-start justify-between">
                           <div>
                             <h3 className="font-bold text-gray-900 text-lg">{ticketType.name}</h3>
                             <p className="text-sm text-gray-600 mt-1">{ticketType.description}</p>
-                            <p className="text-2xl font-bold text-orange-600 mt-2">{formatPrice(ticketType.price)}</p>
+                            {/* Giá → gradient text */}
+                            <p className="text-2xl font-bold mt-2 bg-gradient-to-r from-orange-500 to-purple-600 bg-clip-text text-transparent">
+                              {formatPrice(ticketType.price)}
+                            </p>
                           </div>
                           {isAvailable ? (
                             <span className="px-3 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full">Còn vé</span>
                           ) : (
-                            <span className="px-3 py-1 bg-red-100 text-red-700 text-xs font-bold rounded-full">Hết vé/Đã tắt</span>
+                            <span className="px-3 py-1 bg-red-100 text-red-700 text-xs font-bold rounded-full">Hết vé</span>
                           )}
                         </div>
 
                         <div className="flex items-center gap-2 text-sm text-gray-600">
-                          <Users className="w-4 h-4" /> Còn lại: <span className="font-bold">{remaining}</span> vé
+                          <Users className="w-4 h-4" aria-hidden="true" />
+                          Còn lại: <span className="font-bold">{remaining}</span> vé
                         </div>
 
                         {isAvailable && (
                           <div className="flex items-center justify-between pt-4 border-t-2 border-gray-100">
                             <span className="text-sm font-semibold text-gray-700">Số lượng:</span>
                             <div className="flex items-center space-x-3">
-                              <button onClick={() => handleQuantityChange(ticketType._id, -1)} disabled={!selectedTickets[ticketType._id]} className="w-8 h-8 rounded bg-gray-100 flex items-center justify-center disabled:opacity-50"><Minus className="w-4 h-4" /></button>
-                              <span className="w-8 text-center font-bold text-lg">{selectedTickets[ticketType._id] || 0}</span>
-                              <button onClick={() => handleQuantityChange(ticketType._id, 1)} disabled={(selectedTickets[ticketType._id] || 0) >= remaining} className="w-8 h-8 rounded bg-gray-100 flex items-center justify-center disabled:opacity-50"><Plus className="w-4 h-4" /></button>
+                              {/* Nút – */}
+                              <button
+                                onClick={() => handleQuantityChange(ticketType._id, -1)}
+                                disabled={!selectedTickets[ticketType._id]}
+                                aria-label="Giảm số lượng"
+                                className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-500 to-purple-600 text-white flex items-center justify-center disabled:opacity-30 hover:opacity-90 transition-opacity"
+                              >
+                                <Minus className="w-3.5 h-3.5" />
+                              </button>
+                              <span className="w-8 text-center font-bold text-lg">
+                                {selectedTickets[ticketType._id] || 0}
+                              </span>
+                              {/* Nút + */}
+                              <button
+                                onClick={() => handleQuantityChange(ticketType._id, 1)}
+                                disabled={(selectedTickets[ticketType._id] || 0) >= remaining}
+                                aria-label="Tăng số lượng"
+                                className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-500 to-purple-600 text-white flex items-center justify-center disabled:opacity-30 hover:opacity-90 transition-opacity"
+                              >
+                                <Plus className="w-3.5 h-3.5" />
+                              </button>
                             </div>
                           </div>
                         )}
@@ -240,7 +290,7 @@ const EventDetailPage = () => {
                 </div>
               ) : (
                 <div className="text-center py-12 text-gray-500">
-                  <AlertCircle className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                  <AlertCircle className="w-16 h-16 mx-auto mb-4 text-gray-300" aria-hidden="true" />
                   <p>Sự kiện này chưa mở bán vé.</p>
                 </div>
               )}
@@ -248,11 +298,18 @@ const EventDetailPage = () => {
               {/* Total & Checkout */}
               {ticketTypes.length > 0 && (
                 <div className="space-y-4 pt-6 border-t-2 border-gray-100">
-                  <div className="flex items-center justify-between bg-orange-50 rounded-2xl p-4">
+                  {/* Tổng tiền → gradient text */}
+                  <div className="flex items-center justify-between bg-gradient-to-r from-orange-50 to-purple-50 rounded-2xl p-4 border border-orange-100">
                     <span className="text-gray-700 font-semibold">Tổng cộng:</span>
-                    <span className="text-2xl font-bold text-orange-600">{formatPrice(getTotalPrice())}</span>
+                    <span className="text-2xl font-bold bg-gradient-to-r from-orange-500 to-purple-600 bg-clip-text text-transparent">
+                      {formatPrice(getTotalPrice())}
+                    </span>
                   </div>
-                  <button onClick={handleAddToCart} className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-4 rounded-xl shadow-lg transition-all text-lg">
+                  {/* Nút đặt vé → gradient bg */}
+                  <button
+                    onClick={handleAddToCart}
+                    className="w-full bg-gradient-to-r from-orange-500 to-purple-600 hover:opacity-90 text-white font-bold py-4 rounded-full shadow-lg transition-all text-lg"
+                  >
                     Đặt vé ngay
                   </button>
                 </div>

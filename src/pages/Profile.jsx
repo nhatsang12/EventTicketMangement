@@ -4,11 +4,21 @@ import axios from 'axios';
 import {
   User, Mail, Phone, MapPin, Calendar, Edit3, Save, X,
   Ticket, History, QrCode, LogOut, Camera, Shield,
-  TrendingUp, Star, Award, ChevronRight, Check, Sparkles
+  TrendingUp, Star, Award, ChevronRight, Check, Sparkles,
+  ArrowRight, BadgeCheck, Zap
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import toast from 'react-hot-toast';
+import Navbar from '../components/layout/Navbar';
 
+// ─── HELPERS (đồng bộ với HomePage) ──────────────────────────────────────
+const formatPrice = (price) =>
+  new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
+
+const formatDate = (iso) =>
+  new Date(iso).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+// ─── PROFILE PAGE ─────────────────────────────────────────────────────────
 const ProfilePage = () => {
   const navigate = useNavigate();
   const { user, isAuthenticated, logout, setAuth } = useAuthStore();
@@ -28,13 +38,11 @@ const ProfilePage = () => {
     bio: user?.bio || '',
   });
 
-  // 👇 ĐÂY LÀ ĐOẠN LẤY DỮ LIỆU THẬT TỪ BACKEND ĐÃ ĐƯỢC THÊM VÀO AN TOÀN
   useEffect(() => {
     if (!isAuthenticated) {
       navigate('/login', { state: { from: '/profile' } });
       return;
     }
-
     const savedAvatar = localStorage.getItem(`avatar_${user?.id}`);
     if (savedAvatar) setAvatarPreview(savedAvatar);
 
@@ -42,19 +50,18 @@ const ProfilePage = () => {
       try {
         const config = { headers: { Authorization: `Bearer ${token}` } };
         const res = await axios.get('http://localhost:8000/api/orders/my-orders', config);
-        
         let ordersData = res.data?.data || res.data || [];
-        ordersData = ordersData.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 3);
+        ordersData = ordersData
+          .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+          .slice(0, 3);
         setRecentOrders(ordersData);
       } catch (error) {
-        console.error("Lỗi lấy đơn hàng gần đây:", error);
+        console.error('Lỗi lấy đơn hàng gần đây:', error);
       }
     };
-
     fetchRecentOrders();
   }, [isAuthenticated, navigate, user?.id, token]);
 
-  // 👇 CÁC HÀM NÀY BỊ BẠN LỠ TAY XÓA MẤT NAY ĐÃ ĐƯỢC PHỤC HỒI
   const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
   const handleSave = () => {
@@ -85,49 +92,54 @@ const ProfilePage = () => {
     reader.readAsDataURL(file);
   };
 
-  const formatPrice = (price) =>
-    new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
-
-  const formatDate = (iso) =>
-    new Date(iso).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
-
   const totalSpent = recentOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
   const totalTickets = recentOrders.reduce((sum, o) => sum + (o.tickets?.length || 0), 0);
   const initials = (user?.name || 'U').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
 
   const tabs = [
-    { key: 'info', label: 'Thông tin', icon: User },
-    { key: 'tickets', label: 'Vé gần đây', icon: Ticket },
-    { key: 'security', label: 'Bảo mật', icon: Shield },
+    { key: 'info',     label: 'Thông tin',  icon: User   },
+    { key: 'tickets',  label: 'Vé gần đây', icon: Ticket },
+    { key: 'security', label: 'Bảo mật',    icon: Shield },
   ];
 
   const quickLinks = [
-    { to: '/ticket-history', icon: History, label: 'Lịch sử vé', desc: 'Tất cả đơn hàng & vé' },
-    { to: '/checkin', icon: QrCode, label: 'QR Check-in', desc: 'Mô phỏng vào sự kiện' },
-    { to: '/my-tickets', icon: Ticket, label: 'Vé của tôi', desc: 'Vé đang active' },
+    { to: '/ticket-history', icon: History, label: 'Lịch sử vé',  desc: 'Tất cả đơn hàng & vé' },
+    { to: '/checkin',        icon: QrCode,  label: 'QR Check-in', desc: 'Mô phỏng vào sự kiện'  },
+    { to: '/my-tickets',     icon: Ticket,  label: 'Vé của tôi',  desc: 'Vé đang active'         },
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 pt-[60px]">
+    <div className="profile-root min-h-screen bg-gray-50 pt-[60px]">
+      <Navbar />
 
-      {/* ── COVER BANNER ── */}
-      <div className="relative h-52 md:h-72 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-orange-500 via-rose-500 to-purple-700" />
-        <div className="absolute inset-0 opacity-[0.15]"
-          style={{ backgroundImage: 'radial-gradient(circle, white 1.5px, transparent 1.5px)', backgroundSize: '28px 28px' }} />
-        <div className="absolute -top-10 -left-10 w-72 h-72 bg-orange-400/30 rounded-full blur-3xl" />
-        <div className="absolute -bottom-16 right-1/3 w-80 h-80 bg-purple-400/30 rounded-full blur-3xl" />
-        <div className="absolute top-6 right-10 w-40 h-40 bg-rose-300/20 rounded-full blur-2xl" />
+      {/* ── HERO BANNER — đồng bộ với section hero của HomePage ── */}
+      <section className="relative overflow-hidden bg-gray-900" style={{ height: 'clamp(220px, 30vw, 320px)' }}>
+        <img
+          src="https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=1800&auto=format&fit=crop&q=80"
+          alt="cover"
+          className="absolute inset-0 w-full h-full object-cover opacity-30"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/50 to-transparent" />
+        <div className="absolute -top-10 -left-10 w-72 h-72 bg-orange-500/20 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 right-1/3 w-80 h-80 bg-purple-500/20 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-6 right-10 w-40 h-40 bg-rose-300/15 rounded-full blur-2xl pointer-events-none" />
+        <div
+          className="absolute inset-0 opacity-[0.08]"
+          style={{ backgroundImage: 'radial-gradient(circle, white 1.5px, transparent 1.5px)', backgroundSize: '28px 28px' }}
+        />
         <Sparkles className="absolute top-8 right-24 w-6 h-6 text-white/20" />
         <Sparkles className="absolute bottom-10 left-16 w-4 h-4 text-white/15" />
-        <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-gray-50 to-transparent" />
-      </div>
+        <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-gray-50 to-transparent" />
+        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 inline-flex items-center gap-1.5 bg-white/10 backdrop-blur border border-white/20 text-white/80 text-xs font-medium px-3 py-1.5 rounded-full">
+          <Sparkles className="w-3.5 h-3.5" /> Hồ sơ cá nhân
+        </div>
+      </section>
 
       <div className="max-w-5xl mx-auto px-4">
 
         {/* ── PROFILE CARD overlapping banner ── */}
-        <div className="relative -mt-20 md:-mt-24 mb-8 z-10">
-          <div className="bg-white rounded-3xl shadow-2xl shadow-gray-200/80 border border-gray-100/80 p-6 md:p-8">
+        <div className="relative -mt-16 md:-mt-20 mb-8 z-10">
+          <div className="bg-white rounded-2xl shadow-2xl shadow-gray-200/80 border border-gray-100/80 p-6 md:p-8">
 
             <div className="flex flex-col sm:flex-row items-center sm:items-end gap-5 mb-6">
               {/* Avatar */}
@@ -141,8 +153,10 @@ const ProfilePage = () => {
                 <div className="absolute bottom-2 right-2 w-4 h-4 bg-green-400 rounded-full border-2 border-white shadow-sm" />
                 {editing && (
                   <>
-                    <button onClick={() => fileInputRef.current?.click()}
-                      className="absolute inset-0 rounded-2xl bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="absolute inset-0 rounded-2xl bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
+                    >
                       <Camera className="w-7 h-7 text-white" />
                     </button>
                     <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
@@ -171,22 +185,28 @@ const ProfilePage = () => {
                 </div>
               </div>
 
-              {/* Action buttons */}
+              {/* Action buttons — rounded-full đồng bộ với CTA của HomePage */}
               <div className="flex gap-2 shrink-0 pb-1">
                 {editing ? (
                   <>
-                    <button onClick={handleCancel}
-                      className="flex items-center gap-1.5 px-4 py-2 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-colors font-medium">
+                    <button
+                      onClick={handleCancel}
+                      className="flex items-center gap-1.5 px-4 py-2 border border-gray-200 rounded-full text-sm text-gray-600 hover:bg-gray-50 transition-colors font-medium"
+                    >
                       <X className="w-4 h-4" /> Hủy
                     </button>
-                    <button onClick={handleSave}
-                      className="flex items-center gap-1.5 px-5 py-2 bg-gradient-to-r from-orange-500 to-purple-600 text-white rounded-xl text-sm font-semibold hover:from-orange-600 hover:to-purple-700 transition-all shadow-lg shadow-orange-200">
+                    <button
+                      onClick={handleSave}
+                      className="flex items-center gap-1.5 px-5 py-2 bg-gradient-to-r from-orange-500 to-purple-600 text-white rounded-full text-sm font-semibold hover:opacity-90 transition-opacity shadow-lg shadow-orange-200"
+                    >
                       <Save className="w-4 h-4" /> Lưu
                     </button>
                   </>
                 ) : (
-                  <button onClick={() => setEditing(true)}
-                    className="flex items-center gap-1.5 px-5 py-2 border-2 border-gray-200 rounded-xl text-sm font-semibold text-gray-700 hover:border-orange-400 hover:text-orange-600 hover:bg-orange-50/50 transition-all">
+                  <button
+                    onClick={() => setEditing(true)}
+                    className="flex items-center gap-1.5 px-5 py-2 border-2 border-gray-200 rounded-full text-sm font-semibold text-gray-700 hover:border-orange-400 hover:text-orange-600 hover:bg-orange-50/50 transition-all"
+                  >
                     <Edit3 className="w-4 h-4" /> Chỉnh sửa
                   </button>
                 )}
@@ -196,9 +216,9 @@ const ProfilePage = () => {
             {/* ── STATS STRIP ── */}
             <div className="grid grid-cols-3 gap-3 pt-5 border-t border-gray-100">
               {[
-                { label: 'Đơn hàng', value: recentOrders.length, from: 'from-orange-500', to: 'to-orange-600', bg: 'bg-orange-50', text: 'text-orange-600' },
-                { label: 'Vé đã mua', value: totalTickets, from: 'from-purple-500', to: 'to-purple-600', bg: 'bg-purple-50', text: 'text-purple-600' },
-                { label: 'Đã chi tiêu', value: formatPrice(totalSpent), from: 'from-rose-500', to: 'to-rose-600', bg: 'bg-rose-50', text: 'text-rose-600' },
+                { label: 'Đơn hàng',    value: recentOrders.length,     bg: 'bg-orange-50', text: 'text-orange-600' },
+                { label: 'Vé đã mua',   value: totalTickets,             bg: 'bg-purple-50', text: 'text-purple-600' },
+                { label: 'Đã chi tiêu', value: formatPrice(totalSpent),  bg: 'bg-rose-50',   text: 'text-rose-600'   },
               ].map((s) => (
                 <div key={s.label} className={`${s.bg} rounded-2xl p-4 text-center`}>
                   <p className={`text-xl md:text-2xl font-bold ${s.text} leading-tight`}>{s.value}</p>
@@ -214,12 +234,16 @@ const ProfilePage = () => {
 
           {/* LEFT SIDEBAR */}
           <div className="md:col-span-1 space-y-4">
+
+            {/* Quick links */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
               <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 px-1">Truy cập nhanh</p>
               <div className="space-y-1">
                 {quickLinks.map(({ to, icon: Icon, label, desc }) => (
-                  <Link key={to} to={to}
-                    className="flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-gradient-to-r hover:from-orange-50 hover:to-purple-50 transition-all group">
+                  <Link
+                    key={to} to={to}
+                    className="flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-gradient-to-r hover:from-orange-50 hover:to-purple-50 transition-all group"
+                  >
                     <div className="w-9 h-9 bg-gray-100 group-hover:bg-gradient-to-br group-hover:from-orange-500 group-hover:to-purple-600 rounded-xl flex items-center justify-center transition-all duration-300 shrink-0">
                       <Icon className="w-4 h-4 text-gray-500 group-hover:text-white transition-colors" />
                     </div>
@@ -233,9 +257,18 @@ const ProfilePage = () => {
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-orange-500 via-rose-500 to-purple-600 rounded-2xl p-5 text-white relative overflow-hidden">
-              <div className="absolute -top-4 -right-4 w-24 h-24 bg-white/10 rounded-full blur-2xl" />
-              <div className="absolute bottom-0 left-0 w-32 h-20 bg-white/5 rounded-full blur-xl" />
+            {/* Member card — dark bg + photo overlay đồng bộ với section organizers */}
+            <div className="relative bg-gray-900 rounded-2xl p-5 text-white overflow-hidden">
+              <img
+                src="https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=600&auto=format&fit=crop&q=80"
+                alt=""
+                className="absolute inset-0 w-full h-full object-cover opacity-20"
+              />
+              <div className="absolute inset-0 bg-gradient-to-br from-orange-600/80 via-rose-600/60 to-purple-700/80" />
+              <div
+                className="absolute inset-0 opacity-[0.08]"
+                style={{ backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)', backgroundSize: '18px 18px' }}
+              />
               <div className="relative">
                 <div className="flex items-center gap-2 mb-3">
                   <Award className="w-5 h-5 text-yellow-300" />
@@ -256,22 +289,47 @@ const ProfilePage = () => {
               </div>
             </div>
 
-            <button onClick={() => { logout(); navigate('/login'); }}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-white border border-gray-200 rounded-2xl text-sm font-semibold text-red-500 hover:bg-red-50 hover:border-red-200 transition-all shadow-sm">
+            {/* Benefits mini list — đồng bộ WHY_US của HomePage */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 space-y-3">
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Lợi ích thành viên</p>
+              {[
+                { icon: Zap,        label: 'Đặt vé siêu tốc',    color: 'from-orange-500 to-orange-600' },
+                { icon: Shield,     label: 'Bảo mật tuyệt đối',  color: 'from-purple-500 to-purple-600' },
+                { icon: BadgeCheck, label: 'Vé chính hãng 100%', color: 'from-blue-500 to-blue-600'    },
+              ].map(({ icon: Icon, label, color }) => (
+                <div key={label} className="flex items-center gap-3">
+                  <div className={`w-8 h-8 bg-gradient-to-br ${color} rounded-xl flex items-center justify-center shrink-0 shadow-sm`}>
+                    <Icon className="w-4 h-4 text-white" />
+                  </div>
+                  <span className="text-sm font-medium text-gray-700">{label}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Logout — rounded-full đồng bộ */}
+            <button
+              onClick={() => { logout(); navigate('/login'); }}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-white border border-gray-200 rounded-full text-sm font-semibold text-red-500 hover:bg-red-50 hover:border-red-200 transition-all shadow-sm"
+            >
               <LogOut className="w-4 h-4" /> Đăng xuất
             </button>
           </div>
 
           {/* RIGHT CONTENT */}
           <div className="md:col-span-2">
-            <div className="flex gap-1 bg-white border border-gray-100 shadow-sm p-1.5 rounded-2xl mb-5">
+
+            {/* Tab bar — rounded-full đồng bộ với filter bar của HomePage */}
+            <div className="flex gap-1 bg-white border border-gray-100 shadow-sm p-1.5 rounded-full mb-5">
               {tabs.map(({ key, label, icon: Icon }) => (
-                <button key={key} onClick={() => setActiveTab(key)}
-                  className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-sm font-semibold transition-all duration-200 ${
+                <button
+                  key={key}
+                  onClick={() => setActiveTab(key)}
+                  className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-full text-sm font-semibold transition-all duration-200 ${
                     activeTab === key
                       ? 'bg-gradient-to-r from-orange-500 to-purple-600 text-white shadow-md shadow-orange-200'
                       : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                  }`}>
+                  }`}
+                >
                   <Icon className="w-4 h-4" /> {label}
                 </button>
               ))}
@@ -283,8 +341,10 @@ const ProfilePage = () => {
                 <div className="flex items-center justify-between">
                   <h3 className="font-bold text-gray-900 text-base">Thông tin cá nhân</h3>
                   {!editing && (
-                    <button onClick={() => setEditing(true)}
-                      className="text-xs text-orange-500 hover:text-orange-600 font-semibold flex items-center gap-1">
+                    <button
+                      onClick={() => setEditing(true)}
+                      className="text-xs text-orange-500 hover:text-orange-600 font-semibold flex items-center gap-1"
+                    >
                       <Edit3 className="w-3.5 h-3.5" /> Sửa
                     </button>
                   )}
@@ -292,10 +352,10 @@ const ProfilePage = () => {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {[
-                    { label: 'Họ và tên', name: 'name', icon: User, type: 'text' },
-                    { label: 'Email', name: 'email', icon: Mail, type: 'email' },
-                    { label: 'Số điện thoại', name: 'phone', icon: Phone, type: 'tel', placeholder: 'Chưa cập nhật' },
-                    { label: 'Địa điểm', name: 'location', icon: MapPin, type: 'text' },
+                    { label: 'Họ và tên',     name: 'name',     icon: User,  type: 'text'  },
+                    { label: 'Email',          name: 'email',    icon: Mail,  type: 'email' },
+                    { label: 'Số điện thoại',  name: 'phone',    icon: Phone, type: 'tel',  placeholder: 'Chưa cập nhật' },
+                    { label: 'Địa điểm',       name: 'location', icon: MapPin,type: 'text'  },
                   ].map(({ label, name, icon: Icon, type, placeholder }) => (
                     <div key={name}>
                       <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5">{label}</label>
@@ -338,12 +398,16 @@ const ProfilePage = () => {
 
                 {editing && (
                   <div className="flex gap-3 pt-1">
-                    <button onClick={handleCancel}
-                      className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-colors font-medium">
+                    <button
+                      onClick={handleCancel}
+                      className="flex-1 py-2.5 border border-gray-200 rounded-full text-sm text-gray-600 hover:bg-gray-50 transition-colors font-medium"
+                    >
                       Hủy
                     </button>
-                    <button onClick={handleSave}
-                      className="flex-1 py-2.5 bg-gradient-to-r from-orange-500 to-purple-600 text-white rounded-xl text-sm font-bold hover:from-orange-600 hover:to-purple-700 transition-all shadow-lg shadow-orange-200 flex items-center justify-center gap-2">
+                    <button
+                      onClick={handleSave}
+                      className="flex-1 py-2.5 bg-gradient-to-r from-orange-500 to-purple-600 text-white rounded-full text-sm font-bold hover:opacity-90 transition-opacity shadow-lg shadow-orange-200 flex items-center justify-center gap-2"
+                    >
                       <Check className="w-4 h-4" /> Lưu thay đổi
                     </button>
                   </div>
@@ -356,36 +420,46 @@ const ProfilePage = () => {
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                 <div className="flex items-center justify-between mb-5">
                   <h3 className="font-bold text-gray-900 text-base">Vé gần đây</h3>
-                  <Link to="/ticket-history"
-                    className="text-sm text-orange-500 hover:text-orange-600 font-semibold flex items-center gap-1 group">
-                    Xem tất cả <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                  {/* "Xem tất cả" style đồng bộ với link trong HomePage */}
+                  <Link
+                    to="/ticket-history"
+                    className="text-sm font-medium flex items-center gap-1 bg-gradient-to-r from-orange-500 to-purple-600 bg-clip-text text-transparent hover:opacity-75 transition-opacity group"
+                  >
+                    Xem tất cả <ChevronRight className="w-3.5 h-3.5 text-purple-500 group-hover:translate-x-0.5 transition-transform" />
                   </Link>
                 </div>
 
                 {recentOrders.length === 0 ? (
                   <div className="text-center py-14">
-                    <div className="w-20 h-20 bg-gradient-to-br from-orange-100 to-purple-100 rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-sm">
+                    <div className="w-20 h-20 bg-gradient-to-br from-orange-100 to-purple-100 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm">
                       <Ticket className="w-10 h-10 text-orange-400" />
                     </div>
                     <p className="text-gray-700 font-bold mb-1">Chưa có vé nào</p>
                     <p className="text-gray-400 text-sm mb-5">Hãy đặt vé sự kiện đầu tiên của bạn!</p>
-                    <Link to="/"
-                      className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-orange-500 to-purple-600 text-white text-sm font-semibold rounded-xl shadow-md hover:from-orange-600 hover:to-purple-700 transition-all">
-                      Khám phá sự kiện →
+                    <Link
+                      to="/"
+                      className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-orange-500 to-purple-600 text-white text-sm font-semibold rounded-full shadow-md hover:opacity-90 transition-opacity"
+                    >
+                      Khám phá sự kiện <ArrowRight className="w-4 h-4" />
                     </Link>
                   </div>
                 ) : (
                   <div className="space-y-3">
                     {recentOrders.map((order) => (
-                      <div key={order._id || order.id}
-                        className="flex items-center gap-4 p-4 rounded-2xl border border-gray-100 hover:border-orange-200 hover:bg-orange-50/30 transition-all">
+                      <div
+                        key={order._id || order.id}
+                        className="flex items-center gap-4 p-4 rounded-2xl border border-gray-100 hover:border-orange-200 hover:bg-orange-50/30 transition-all"
+                      >
                         <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-purple-600 rounded-xl flex items-center justify-center shrink-0 shadow-md shadow-orange-100">
                           <Ticket className="w-6 h-6 text-white" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          {/* Hỗ trợ trường title hoặc name tùy backend của bạn */}
-                          <p className="text-sm font-bold text-gray-900 truncate">{order.event?.title || order.event?.name || 'Sự kiện chưa rõ'}</p>
-                          <p className="text-xs text-gray-400 mt-0.5">{order.tickets?.length || 0} vé · {formatDate(order.createdAt)}</p>
+                          <p className="text-sm font-semibold text-gray-900 truncate">
+                            {order.event?.title || order.event?.name || 'Sự kiện chưa rõ'}
+                          </p>
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            {order.tickets?.length || 0} vé · {formatDate(order.createdAt)}
+                          </p>
                         </div>
                         <div className="text-right shrink-0">
                           <p className="text-sm font-bold bg-gradient-to-r from-orange-600 to-purple-600 bg-clip-text text-transparent">
@@ -406,33 +480,34 @@ const ProfilePage = () => {
             {activeTab === 'security' && (
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-3">
                 <h3 className="font-bold text-gray-900 text-base mb-4">Bảo mật tài khoản</h3>
-
                 {[
-                  { label: 'Đổi mật khẩu', desc: 'Cập nhật mật khẩu của bạn', icon: Shield, action: 'Đổi ngay', color: 'from-blue-100 to-blue-200', iconColor: 'text-blue-600' },
-                  { label: 'Xác thực 2 bước', desc: 'Bảo vệ tài khoản với OTP', icon: Star, action: 'Bật', badge: 'Khuyến nghị', color: 'from-orange-100 to-orange-200', iconColor: 'text-orange-600' },
-                  { label: 'Phiên đăng nhập', desc: 'Quản lý thiết bị đang đăng nhập', icon: TrendingUp, action: 'Xem', color: 'from-purple-100 to-purple-200', iconColor: 'text-purple-600' },
+                  { label: 'Đổi mật khẩu',   desc: 'Cập nhật mật khẩu của bạn',       icon: Shield,     action: 'Đổi ngay', color: 'from-blue-100 to-blue-200',     iconColor: 'text-blue-600'   },
+                  { label: 'Xác thực 2 bước', desc: 'Bảo vệ tài khoản với OTP',         icon: Star,       action: 'Bật',      badge: 'Khuyến nghị', color: 'from-orange-100 to-orange-200', iconColor: 'text-orange-600' },
+                  { label: 'Phiên đăng nhập', desc: 'Quản lý thiết bị đang đăng nhập',  icon: TrendingUp, action: 'Xem',      color: 'from-purple-100 to-purple-200', iconColor: 'text-purple-600' },
                 ].map(({ label, desc, icon: Icon, action, badge, color, iconColor }) => (
-                  <div key={label}
-                    className="flex items-center justify-between p-4 rounded-2xl border border-gray-100 hover:border-gray-200 hover:bg-gray-50/50 transition-all group">
+                  <div
+                    key={label}
+                    className="flex items-center justify-between p-4 rounded-2xl border border-gray-100 hover:border-gray-200 hover:bg-gray-50/50 transition-all"
+                  >
                     <div className="flex items-center gap-3">
                       <div className={`w-10 h-10 bg-gradient-to-br ${color} rounded-xl flex items-center justify-center shrink-0`}>
                         <Icon className={`w-5 h-5 ${iconColor}`} />
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <p className="text-sm font-bold text-gray-900">{label}</p>
+                          <p className="text-sm font-semibold text-gray-900">{label}</p>
                           {badge && (
-                            <span className="text-xs px-2 py-0.5 bg-orange-100 text-orange-600 rounded-full font-bold">
-                              {badge}
-                            </span>
+                            <span className="text-xs px-2 py-0.5 bg-orange-100 text-orange-600 rounded-full font-bold">{badge}</span>
                           )}
                         </div>
                         <p className="text-xs text-gray-400 mt-0.5">{desc}</p>
                       </div>
                     </div>
+                    {/* rounded-full buttons đồng bộ */}
                     <button
                       onClick={() => toast('Tính năng đang phát triển 🚧')}
-                      className="text-sm font-bold text-orange-500 hover:text-white hover:bg-gradient-to-r hover:from-orange-500 hover:to-purple-600 px-4 py-1.5 rounded-xl transition-all duration-200 whitespace-nowrap border border-orange-200 hover:border-transparent">
+                      className="text-sm font-semibold text-orange-500 hover:text-white hover:bg-gradient-to-r hover:from-orange-500 hover:to-purple-600 px-4 py-1.5 rounded-full transition-all duration-200 whitespace-nowrap border border-orange-200 hover:border-transparent"
+                    >
                       {action}
                     </button>
                   </div>
@@ -442,6 +517,14 @@ const ProfilePage = () => {
           </div>
         </div>
       </div>
+
+      {/* ── FONT — đồng bộ hoàn toàn với HomePage ── */}
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&display=swap');
+        .profile-root, .profile-root * {
+          font-family: 'Be Vietnam Pro', sans-serif !important;
+        }
+      `}</style>
     </div>
   );
 };

@@ -1,17 +1,14 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
-import { TrendingUp, Ticket, ShoppingBag, Users, ChevronRight, Calendar, ArrowUp, ArrowDown, Loader2 } from 'lucide-react';
+import { TrendingUp, Ticket, ShoppingBag, Calendar, ChevronRight, ArrowUp, Loader2 } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
 import toast from 'react-hot-toast';
 
 const AdminDashboard = () => {
   const [orders, setOrders] = useState([]);
-  const [revenueStats, setRevenueStats] = useState([]);
-  const [ticketStats, setTicketStats] = useState({});
-  const [checkinStats, setCheckinStats] = useState({});
   const [loading, setLoading] = useState(true);
-  
+
   const token = useAuthStore(state => state.accessToken || state.token);
 
   useEffect(() => {
@@ -19,19 +16,12 @@ const AdminDashboard = () => {
       try {
         setLoading(true);
         const config = { headers: { Authorization: `Bearer ${token}` } };
-        
-        const [revenueRes, ticketsRes, checkinsRes, ordersRes] = await Promise.all([
-          axios.get('http://localhost:8000/api/admin/analytics/revenue', config),
-          axios.get('http://localhost:8000/api/admin/analytics/tickets', config),
-          axios.get('http://localhost:8000/api/admin/analytics/checkins', config),
-          axios.get('http://localhost:8000/api/orders', config)
-        ]);
 
-        setRevenueStats(revenueRes.data?.data || revenueRes.data || []);
-        setTicketStats(ticketsRes.data?.data || ticketsRes.data || {});
-        setCheckinStats(checkinsRes.data?.data || checkinsRes.data || {});
-        setOrders(ordersRes.data?.data || ordersRes.data || []);
-        
+        // Chỉ cần 1 nguồn duy nhất: danh sách orders (đã populate event + tickets)
+        const res = await axios.get('http://localhost:8000/api/orders', config);
+        const data = res.data?.data || res.data || [];
+        // Sắp xếp mới nhất lên đầu
+        setOrders(data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
       } catch (error) {
         toast.error("Không thể tải dữ liệu thống kê từ server!");
       } finally {
@@ -39,34 +29,44 @@ const AdminDashboard = () => {
       }
     };
 
-    if (token) {
-      fetchData();
-    }
+    if (token) fetchData();
   }, [token]);
 
-  const totalRevenue = Array.isArray(revenueStats) 
-    ? revenueStats.reduce((sum, item) => sum + (item.revenue || item.totalRevenue || item.total || 0), 0) 
-    : 0;
+  // ── Tất cả KPI tính từ orders (đồng bộ, nhất quán) ─────────────────────
+  const totalRevenue     = orders.reduce((s, o) => s + (o.totalAmount || 0), 0);
+  const totalOrders      = orders.length;
+  const totalTicketsSold = orders.reduce(
+    (s, o) => s + (Array.isArray(o.tickets) ? o.tickets.length : 0), 0
+  );
 
-  const totalTicketsSold = ticketStats.sold || ticketStats.totalSold || orders.reduce((s, o) => s + (o.tickets?.length || 0), 0);
-  const totalOrders = orders.length;
-  const totalEvents = Array.isArray(revenueStats) ? revenueStats.length : 0;
+  // Gom nhóm theo sự kiện để đếm số sự kiện có đơn + tính doanh thu per event
+  const eventMap = {};
+  orders.forEach((o) => {
+    const eventId   = o.event?._id || o.event || 'unknown';
+    const eventName = o.event?.title || o.event?.name || 'Sự kiện';
+    if (!eventMap[eventId]) {
+      eventMap[eventId] = { eventName, revenue: 0, orders: 0, tickets: 0 };
+    }
+    eventMap[eventId].revenue += o.totalAmount || 0;
+    eventMap[eventId].orders  += 1;
+    eventMap[eventId].tickets += Array.isArray(o.tickets) ? o.tickets.length : 0;
+  });
 
-  const formatPrice = (p) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(p || 0);
-  const formatDate = (iso) => new Date(iso).toLocaleDateString('vi-VN');
+  const eventRows = Object.values(eventMap).sort((a, b) => b.revenue - a.revenue);
+  const totalEvents = eventRows.length;
+  const maxRevenue  = eventRows[0]?.revenue || 1;
+
+  const formatPrice = (p) =>
+    new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(p || 0);
+  const formatDate = (iso) =>
+    new Date(iso).toLocaleDateString('vi-VN');
 
   const stats = [
-    { label: 'Tổng doanh thu', value: formatPrice(totalRevenue), icon: TrendingUp, change: '+12%', up: true, from: 'from-orange-500', to: 'to-orange-600' },
-    { label: 'Đơn hàng', value: totalOrders, icon: ShoppingBag, change: '+8%', up: true, from: 'from-purple-500', to: 'to-purple-600' },
-    { label: 'Vé đã bán', value: totalTicketsSold, icon: Ticket, change: '+15%', up: true, from: 'from-blue-500', to: 'to-blue-600' },
-    { label: 'Sự kiện', value: totalEvents, icon: Calendar, change: '0%', up: false, from: 'from-emerald-500', to: 'to-emerald-600' },
+    { label: 'Tổng doanh thu', value: formatPrice(totalRevenue), icon: TrendingUp, from: 'from-orange-500', to: 'to-orange-600' },
+    { label: 'Đơn hàng',       value: totalOrders,               icon: ShoppingBag, from: 'from-purple-500', to: 'to-purple-600' },
+    { label: 'Vé đã bán',      value: totalTicketsSold,          icon: Ticket,      from: 'from-blue-500',   to: 'to-blue-600' },
+    { label: 'Sự kiện có DT',  value: totalEvents,               icon: Calendar,    from: 'from-emerald-500', to: 'to-emerald-600' },
   ];
-
-  const sortedRevenueStats = Array.isArray(revenueStats) 
-    ? [...revenueStats].sort((a, b) => (b.revenue || b.totalRevenue || 0) - (a.revenue || a.totalRevenue || 0)).slice(0, 5)
-    : [];
-
-  const maxRevenue = sortedRevenueStats[0]?.revenue || sortedRevenueStats[0]?.totalRevenue || 1;
 
   if (loading) {
     return (
@@ -79,6 +79,7 @@ const AdminDashboard = () => {
 
   return (
     <div className="space-y-6">
+      {/* KPI cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((s) => (
           <div key={s.label} className="bg-white border border-gray-200 rounded-2xl p-5 hover:border-gray-300 hover:shadow-sm transition-all">
@@ -86,9 +87,8 @@ const AdminDashboard = () => {
               <div className={`w-10 h-10 bg-gradient-to-br ${s.from} ${s.to} rounded-xl flex items-center justify-center shadow-md`}>
                 <s.icon className="w-5 h-5 text-white" />
               </div>
-              <span className={`flex items-center gap-0.5 text-xs font-semibold ${s.up ? 'text-emerald-600' : 'text-gray-400'}`}>
-                {s.up ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
-                {s.change}
+              <span className="flex items-center gap-0.5 text-xs font-semibold text-emerald-600">
+                <ArrowUp className="w-3 h-3" />
               </span>
             </div>
             <p className="text-xl font-bold text-gray-900 leading-none mb-1">{s.value}</p>
@@ -98,6 +98,7 @@ const AdminDashboard = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Doanh thu theo sự kiện */}
         <div className="lg:col-span-2 bg-white border border-gray-200 rounded-2xl p-6">
           <div className="flex items-center justify-between mb-5">
             <h3 className="text-sm font-bold text-gray-900">Doanh thu theo sự kiện</h3>
@@ -105,30 +106,29 @@ const AdminDashboard = () => {
               Chi tiết <ChevronRight className="w-3 h-3" />
             </Link>
           </div>
-          {sortedRevenueStats.length === 0 ? (
+
+          {eventRows.length === 0 ? (
             <div className="text-center py-12 text-gray-400">
               <TrendingUp className="w-10 h-10 mx-auto mb-2 opacity-30" />
               <p className="text-sm">Chưa có dữ liệu</p>
             </div>
           ) : (
             <div className="space-y-4">
-              {sortedRevenueStats.map((data, index) => (
-                <div key={data._id || index}>
+              {eventRows.slice(0, 5).map((e, i) => (
+                <div key={i}>
                   <div className="flex items-center justify-between mb-1.5">
-                    <p className="text-xs text-gray-700 font-medium truncate max-w-[60%]">
-                      {data.eventName || data.event?.title || data.event?.name || 'Sự kiện'}
-                    </p>
-                    <p className="text-xs font-bold text-orange-600">
-                      {formatPrice(data.revenue || data.totalRevenue || data.total)}
-                    </p>
+                    <p className="text-xs text-gray-700 font-medium truncate max-w-[60%]">{e.eventName}</p>
+                    <p className="text-xs font-bold text-orange-600">{formatPrice(e.revenue)}</p>
                   </div>
                   <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-gradient-to-r from-orange-500 to-purple-600 rounded-full transition-all duration-700"
-                      style={{ width: `${((data.revenue || data.totalRevenue || 0) / maxRevenue) * 100}%` }} />
+                    <div
+                      className="h-full bg-gradient-to-r from-orange-500 to-purple-600 rounded-full transition-all duration-700"
+                      style={{ width: `${(e.revenue / maxRevenue) * 100}%` }}
+                    />
                   </div>
                   <div className="flex gap-4 mt-1">
-                    <span className="text-xs text-gray-400">{data.orders || 0} đơn</span>
-                    <span className="text-xs text-gray-400">{data.ticketsSold || data.tickets || 0} vé</span>
+                    <span className="text-xs text-gray-400">{e.orders} đơn</span>
+                    <span className="text-xs text-gray-400">{e.tickets} vé</span>
                   </div>
                 </div>
               ))}
@@ -136,11 +136,13 @@ const AdminDashboard = () => {
           )}
         </div>
 
+        {/* Đơn gần đây */}
         <div className="bg-white border border-gray-200 rounded-2xl p-6">
           <div className="flex items-center justify-between mb-5">
             <h3 className="text-sm font-bold text-gray-900">Đơn gần đây</h3>
             <span className="text-xs text-gray-400">{totalOrders} tổng</span>
           </div>
+
           {orders.length === 0 ? (
             <div className="text-center py-12 text-gray-400">
               <ShoppingBag className="w-10 h-10 mx-auto mb-2 opacity-30" />
@@ -154,7 +156,9 @@ const AdminDashboard = () => {
                     <Ticket className="w-4 h-4 text-orange-500" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-gray-800 truncate">{o.event?.name || o.event?.title || 'Sự kiện'}</p>
+                    <p className="text-xs font-semibold text-gray-800 truncate">
+                      {o.event?.title || o.event?.name || 'Sự kiện'}
+                    </p>
                     <p className="text-xs text-gray-400">{formatDate(o.createdAt)}</p>
                   </div>
                   <p className="text-xs font-bold text-orange-600 shrink-0">{formatPrice(o.totalAmount)}</p>
@@ -165,12 +169,13 @@ const AdminDashboard = () => {
         </div>
       </div>
 
+      {/* Quick actions */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { to: '/admin/events', label: 'Tạo sự kiện', desc: 'Thêm sự kiện mới', color: 'from-orange-500 to-orange-600', bg: 'bg-orange-50 hover:bg-orange-100' },
-          { to: '/admin/tickets', label: 'Loại vé', desc: 'Quản lý ticket types', color: 'from-purple-500 to-purple-600', bg: 'bg-purple-50 hover:bg-purple-100' },
-          { to: '/admin/checkin', label: 'Check-in', desc: 'Quét vé khách', color: 'from-blue-500 to-blue-600', bg: 'bg-blue-50 hover:bg-blue-100' },
-          { to: '/admin/analytics', label: 'Analytics', desc: 'Báo cáo chi tiết', color: 'from-emerald-500 to-emerald-600', bg: 'bg-emerald-50 hover:bg-emerald-100' },
+          { to: '/admin/events',    label: 'Tạo sự kiện', desc: 'Thêm sự kiện mới',    color: 'from-orange-500 to-orange-600',   bg: 'bg-orange-50 hover:bg-orange-100' },
+          { to: '/admin/tickets',   label: 'Loại vé',     desc: 'Quản lý ticket types', color: 'from-purple-500 to-purple-600',   bg: 'bg-purple-50 hover:bg-purple-100' },
+          { to: '/admin/checkin',   label: 'Check-in',    desc: 'Quét vé khách',        color: 'from-blue-500 to-blue-600',       bg: 'bg-blue-50 hover:bg-blue-100' },
+          { to: '/admin/analytics', label: 'Analytics',   desc: 'Báo cáo chi tiết',     color: 'from-emerald-500 to-emerald-600', bg: 'bg-emerald-50 hover:bg-emerald-100' },
         ].map((a) => (
           <Link key={a.to} to={a.to}
             className={`${a.bg} border border-gray-200 rounded-2xl p-4 group transition-all hover:-translate-y-0.5 hover:shadow-sm`}>
