@@ -42,10 +42,15 @@ const CheckoutPage = () => {
 
   const handleCheckout = async (e) => {
     e.preventDefault();
-    if (items.length === 0) { toast.error('Giỏ hàng trống'); return; }
+    if (items.length === 0) {
+      toast.error('Giỏ hàng trống');
+      return;
+    }
 
     try {
       setLoading(true);
+      
+      // 1. Tạo Payload gửi lên Server để tạo đơn hàng trong Database
       const payload = {
         eventId: event._id || event.id,
         tickets: items.map(item => ({
@@ -61,20 +66,63 @@ const CheckoutPage = () => {
       };
 
       const config = {
-        headers: { Authorization: `Bearer ${token}` } 
+        headers: { Authorization: `Bearer ${token}` }
       };
 
-      const res = await axios.post('http://localhost:8000/api/orders/buy', payload, config);  
-
-      const orderData = res.data?.data || res.data;
-      setOrderResponse(orderData);
+      // 2. Gọi API tạo đơn hàng
+      const res = await axios.post('http://localhost:8000/api/orders/buy', payload, config);
       
+      const orderData = res.data?.data || res.data; 
+      const orderId = orderData._id || orderData.id;
+
+      console.log("OrderId vừa tạo:", orderId);
+
+      if (!orderId) {
+        toast.error("Lỗi: Không lấy được mã đơn hàng từ hệ thống");
+        setLoading(false);
+        return;
+      }
+
+      // 3. Xử lý chuyển hướng thanh toán dựa trên phương thức người dùng chọn
+      
+      // TRƯỜNG HỢP A: Thanh toán qua Stripe (Thẻ tín dụng)
+      if (formData.paymentMethod === 'credit_card') {
+        toast.loading('Đang chuyển hướng đến Stripe...');
+        const stripeRes = await axios.post('http://localhost:8000/api/payments/create-checkout-session', {
+          orderId: orderId
+        }, config);
+
+        if (stripeRes.data?.url) {
+          window.location.href = stripeRes.data.url;
+          return; 
+        }
+      }
+
+      // TRƯỜNG HỢP B: Thanh toán qua PayOS (Chuyển khoản Banking hoặc Ví MoMo tự động)
+      if (formData.paymentMethod === 'bank_transfer' || formData.paymentMethod === 'e_wallet') {
+        toast.loading('Đang khởi tạo mã QR thanh toán tự động...');
+        const payosRes = await axios.post('http://localhost:8000/api/payments/create-payos-link', {
+          orderId: orderId
+        }, config);
+
+        if (payosRes.data?.url) {
+          // Chuyển hướng sang cổng thanh toán PayOS để khách quét mã
+          window.location.href = payosRes.data.url;
+          return;
+        }
+      }
+
+      // TRƯỜNG HỢP C: Các phương thức khác (nếu có) hoặc lỗi chuyển hướng
+      // Nếu không chuyển hướng, hiển thị màn hình kết quả tại chỗ
+      setOrderResponse(orderData);
       clearCart();
       setStep(3);
-      toast.success('Đặt vé thành công!');
+      toast.success('Đơn hàng đã được ghi nhận!');
+
     } catch (err) {
-      console.error("Lỗi đặt vé:", err);
-      toast.error(err.response?.data?.message || 'Thanh toán thất bại, vui lòng thử lại');
+      console.error("Lỗi quá trình thanh toán:", err);
+      toast.dismiss(); // Tắt các thông báo loading trước đó
+      toast.error(err.response?.data?.message || 'Không thể khởi tạo thanh toán, vui lòng thử lại');
     } finally {
       setLoading(false);
     }
@@ -245,13 +293,13 @@ const CheckoutPage = () => {
               {/* Payment Info */}
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                 <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                  <Lock className="w-5 h-5 text-green-500" /> Thanh toán bảo mật
+                  <Lock className="w-5 h-5 text-green-500" /> Phương thức thanh toán
                 </h3>
                 <div className="space-y-3 mb-4">
                   {[
-                    { value: 'credit_card', label: '💳 Thẻ tín dụng / Ghi nợ' },
-                    { value: 'bank_transfer', label: '🏦 Chuyển khoản ngân hàng' },
-                    { value: 'e_wallet', label: '📱 Ví điện tử (Momo, ZaloPay)' },
+                    { value: 'credit_card', label: '💳 Thẻ tín dụng (Stripe)' },
+                    { value: 'bank_transfer', label: '🏦 VietQR / Chuyển khoản (Tự động)' },
+                    { value: 'e_wallet', label: '📱 Ví MoMo (Tự động)' },
                   ].map((opt) => (
                     <label key={opt.value} className={`flex items-center gap-3 p-3 border-2 rounded-xl cursor-pointer transition-all ${formData.paymentMethod === opt.value ? 'border-orange-400 bg-orange-50' : 'border-gray-200 hover:border-gray-300'}`}>
                       <input type="radio" name="paymentMethod" value={opt.value} checked={formData.paymentMethod === opt.value} onChange={handleChange} className="text-orange-500" />
@@ -260,17 +308,13 @@ const CheckoutPage = () => {
                   ))}
                 </div>
                 
-                {formData.paymentMethod === 'credit_card' && (
-                  <div className="space-y-3 p-4 bg-gray-50 rounded-xl border border-gray-200 mt-4">
-                    <p className="text-xs text-gray-500 font-medium uppercase tracking-wider">Thông tin thẻ (Mock)</p>
-                    <input type="text" name="cardNumber" value={formData.cardNumber} onChange={handleChange} placeholder="Số thẻ"
-                      className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 text-sm font-mono" />
-                    <div className="grid grid-cols-2 gap-3">
-                      <input type="text" name="cardExpiry" value={formData.cardExpiry} onChange={handleChange} placeholder="MM/YY"
-                        className="px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 text-sm font-mono" />
-                      <input type="text" name="cardCVV" value={formData.cardCVV} onChange={handleChange} placeholder="CVV"
-                        className="px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400 text-sm font-mono" />
-                    </div>
+                {/* Hướng dẫn cho PayOS: Chỉ hiện khi chọn bank hoặc wallet */}
+                {(formData.paymentMethod === 'bank_transfer' || formData.paymentMethod === 'e_wallet') && (
+                  <div className="p-4 bg-blue-50 rounded-xl border border-blue-100 flex gap-3 animate-in fade-in">
+                    <div className="text-blue-500 font-bold">i</div>
+                    <p className="text-xs text-blue-700 leading-relaxed">
+                      Hệ thống sẽ chuyển bạn sang cổng <b>PayOS</b> để quét mã QR. Sau khi thanh toán, vé của bạn sẽ được <b>kích hoạt tự động</b> ngay lập tức.
+                    </p>
                   </div>
                 )}
               </div>

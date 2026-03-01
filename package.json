@@ -11,6 +11,8 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@stripe/react-stripe-js": "^5.6.0",
+    "@stripe/stripe-js": "^8.8.0",
     "axios": "^1.13.5",
     "bcryptjs": "^3.0.3",
     "clsx": "^2.1.1",

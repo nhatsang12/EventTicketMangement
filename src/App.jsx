@@ -20,6 +20,8 @@ import TicketHistoryPage from './pages/TicketHistoryPage';
 import CheckInPage from './pages/CheckInPage.jsx';
 import AuthLayout from './components/layout/AuthLayout.jsx';
 import EventDetailPage from './pages/EventDetailPage.jsx';
+import PaymentSuccessPage from './pages/PaymentSuccessPage';
+import PaymentFail from './pages/PaymentFail';
 function App() {
   return (
     
@@ -34,7 +36,8 @@ function App() {
         <Route path="login" element={<LoginPage />} />
         <Route path="register" element={<RegisterPage />} />
         <Route path="forgot-password" element={<ForgotPasswordPage />} />
-
+        <Route path="/payment-success" element={<PaymentSuccessPage />} />
+        <Route path="/payment-fail" element={<PaymentFail />} />
         <Route
           path="checkout"
           element={
@@ -73,5 +76,6 @@ function App() {
     </Routes>
   )
 }
+
 
 export default App
