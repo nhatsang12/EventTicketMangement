@@ -1,295 +1,295 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { CheckCircle, Loader2, Ticket, ArrowRight, XCircle, Download } from 'lucide-react';
+import {
+  CheckCircle, Ticket, ArrowRight, XCircle, Download,
+  MapPin, Mail, Shield, Zap, BadgeCheck
+} from 'lucide-react';
 import useAuthStore from '../store/authStore';
 
+// ─── HELPERS ──────────────────────────────────────────────────────────────
+const fmtPrice = p =>
+  new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(p || 0);
+
+const generateQRCode = data =>
+  `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(data)}`;
+
+// ─── LOADING ──────────────────────────────────────────────────────────────
+const LoadingScreen = () => (
+  <div style={{ minHeight: '100svh', background: '#060606', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: "'Be Vietnam Pro',sans-serif" }}>
+    <div style={{ position: 'relative', width: 52, height: 52, marginBottom: 18 }}>
+      <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '3px solid rgba(255,255,255,0.05)' }}/>
+      <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '3px solid transparent', borderTopColor: '#f97316', borderRightColor: '#a855f7' }} className="psp-spin"/>
+    </div>
+    <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, fontFamily: "'Be Vietnam Pro',sans-serif", marginBottom: 4 }}>Đang xác nhận thanh toán...</p>
+    <p style={{ color: 'rgba(255,255,255,0.2)', fontSize: 12, fontFamily: "'Be Vietnam Pro',sans-serif" }}>Vui lòng đợi trong giây lát</p>
+    <style>{`@keyframes psp-spin{to{transform:rotate(360deg)}}.psp-spin{animation:psp-spin 0.85s linear infinite}`}</style>
+  </div>
+);
+
+// ─── ERROR ────────────────────────────────────────────────────────────────
+const ErrorScreen = ({ error, navigate }) => (
+  <div style={{ minHeight: '100svh', background: '#060606', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Be Vietnam Pro',sans-serif" }}>
+    <div style={{ textAlign: 'center', maxWidth: 400, padding: '0 24px' }}>
+      <div style={{ width: 72, height: 72, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 22px' }}>
+        <XCircle style={{ width: 32, height: 32, color: '#f87171' }}/>
+      </div>
+      <h1 style={{ fontSize: 'clamp(1.3rem,3vw,1.8rem)', fontWeight: 900, color: 'white', marginBottom: 10, fontFamily: "'Clash Display','Be Vietnam Pro',sans-serif", letterSpacing: '-0.02em' }}>Có lỗi xảy ra</h1>
+      <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 13, marginBottom: 28, lineHeight: 1.7, fontFamily: "'Be Vietnam Pro',sans-serif" }}>{error || 'Không tìm thấy thông tin đơn hàng.'}</p>
+      <div style={{ display: 'flex', gap: 12 }}>
+        <button onClick={() => navigate('/ticket-history')}
+          style={{ flex: 1, padding: '12px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg,#f97316,#a855f7)', color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: "'Be Vietnam Pro',sans-serif", boxShadow: '0 6px 24px rgba(249,115,22,0.25)' }}>
+          Xem lịch sử vé
+        </button>
+        <button onClick={() => navigate('/')}
+          style={{ flex: 1, padding: '12px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: "'Be Vietnam Pro',sans-serif" }}>
+          Về trang chủ
+        </button>
+      </div>
+    </div>
+  </div>
+);
+
+// ─── MAIN ─────────────────────────────────────────────────────────────────
 const PaymentSuccessPage = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const token = useAuthStore(state => state.accessToken || state.token);
 
-  const [loading, setLoading] = useState(true);
-  const [order, setOrder] = useState(null);
-  const [error, setError] = useState(null);
+  const [loading, setLoading]             = useState(true);
+  const [order, setOrder]                 = useState(null);
+  const [error, setError]                 = useState(null);
   const [paymentMethod, setPaymentMethod] = useState('unknown');
 
-  const generateQRCode = (dataString) =>
-    `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(dataString)}`;
-
-  const formatPrice = (price) =>
-    new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
-
   useEffect(() => {
-    const handlePaymentCallback = async () => {
+    (async () => {
       try {
         setLoading(true);
+        const config = { headers: { Authorization: `Bearer ${token}` } };
 
-        // ✅ CASE 1: PayOS callback
-        const payosCode = searchParams.get('code');
+        const payosCode   = searchParams.get('code');
         const payosStatus = searchParams.get('status');
-        
         if (payosCode === '00' && payosStatus === 'PAID') {
-          console.log("✓ Phát hiện PayOS callback thành công");
           setPaymentMethod('payos');
-          
-          const config = { headers: { Authorization: `Bearer ${token}` } };
-          const ordersRes = await axios.get('http://localhost:8000/api/orders/my-orders', config);
-          
-          const orders = ordersRes.data?.data || ordersRes.data || [];
-          const latestOrder = orders[0];
-          
-          if (latestOrder) {
-            setOrder(latestOrder);
-            console.log("✓ Đã load order từ PayOS:", latestOrder._id);
-          }
-          
+          const res = await axios.get('http://localhost:8000/api/orders/my-orders', config);
+          const orders = res.data?.data || res.data || [];
+          if (orders[0]) setOrder(orders[0]);
           setLoading(false);
           return;
         }
 
-        // ✅ CASE 2: Stripe callback
         const stripeSessionId = searchParams.get('session_id');
-        
         if (stripeSessionId) {
-          console.log("✓ Phát hiện Stripe callback, session_id:", stripeSessionId);
           setPaymentMethod('stripe');
-          
-          const config = { headers: { Authorization: `Bearer ${token}` } };
-          
-          console.log("🔄 Đang gọi API verify Stripe session...");
-          
           try {
-            // Verify session và update order
             const verifyRes = await axios.post(
               'http://localhost:8000/api/payments/verify-stripe-session',
-              { session_id: stripeSessionId },
-              config
+              { session_id: stripeSessionId }, config
             );
-            
-            console.log("✓ Response từ verify API:", verifyRes.data);
-            
-            if (verifyRes.data?.success) {
-              setOrder(verifyRes.data.data);
-              console.log("✓ Order đã được verify và update:", verifyRes.data.data._id);
-            } else {
-              throw new Error(verifyRes.data?.message || 'Xác minh thanh toán thất bại');
-            }
-          } catch (apiError) {
-            console.error("❌ Lỗi khi gọi verify API:", apiError);
-            
-            // Fallback: Nếu API verify lỗi, vẫn lấy order mới nhất
-            console.log("⚠️ Fallback: Lấy order mới nhất thay thế...");
-            const ordersRes = await axios.get('http://localhost:8000/api/orders/my-orders', config);
-            const orders = ordersRes.data?.data || ordersRes.data || [];
-            const latestOrder = orders[0];
-            
-            if (latestOrder) {
-              setOrder(latestOrder);
-              console.log("✓ Đã load order (fallback):", latestOrder._id);
-            } else {
-              throw new Error('Không tìm thấy đơn hàng');
-            }
+            if (verifyRes.data?.success) { setOrder(verifyRes.data.data); }
+            else throw new Error(verifyRes.data?.message || 'Xác minh thất bại');
+          } catch {
+            const fallback = await axios.get('http://localhost:8000/api/orders/my-orders', config);
+            const orders = fallback.data?.data || fallback.data || [];
+            if (orders[0]) setOrder(orders[0]);
+            else throw new Error('Không tìm thấy đơn hàng');
           }
-          
           setLoading(false);
           return;
         }
-
         throw new Error('Không tìm thấy thông tin thanh toán');
-
       } catch (err) {
-        console.error("❌ Lỗi xử lý callback:", err);
-        setError(err.message || "Đã có lỗi xảy ra");
+        setError(err.message || 'Đã có lỗi xảy ra');
         setLoading(false);
       }
-    };
-
-    handlePaymentCallback();
+    })();
   }, [searchParams, token]);
 
-  const downloadQRCode = (qrUrl, ticketId) => {
-    const link = document.createElement('a');
-    link.href = qrUrl;
-    link.download = `ticket-${ticketId}.png`;
-    link.click();
+  const downloadQR = (url, id) => {
+    const a = document.createElement('a');
+    a.href = url; a.download = `ticket-${id}.png`; a.click();
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
-        <Loader2 className="w-12 h-12 text-orange-500 animate-spin mb-4" />
-        <p className="text-gray-600 font-medium">Đang xác nhận thanh toán...</p>
-        <p className="text-gray-400 text-sm mt-2">Vui lòng đợi trong giây lát</p>
-      </div>
-    );
-  }
+  if (loading) return <LoadingScreen />;
+  if (error || !order) return <ErrorScreen error={error} navigate={navigate} />;
 
-  if (error || !order) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4">
-        <XCircle className="w-16 h-16 text-red-500 mb-4" />
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Có lỗi xảy ra</h1>
-        <p className="text-gray-600 mb-6 text-center">{error || 'Không tìm thấy thông tin đơn hàng.'}</p>
-        <div className="flex gap-4">
-          <button 
-            onClick={() => navigate('/ticket-history')} 
-            className="bg-orange-600 text-white px-6 py-3 rounded-full font-bold hover:bg-orange-700 transition-all"
-          >
-            Xem lịch sử vé
-          </button>
-          <button 
-            onClick={() => navigate('/')} 
-            className="border-2 border-gray-300 text-gray-700 px-6 py-3 rounded-full font-bold hover:border-orange-500 transition-all"
-          >
-            Về trang chủ
-          </button>
-        </div>
-      </div>
-    );
-  }
+  const paymentLabel = paymentMethod === 'payos'
+    ? { text: 'Thanh toán qua PayOS thành công', color: '#34d399' }
+    : { text: 'Thanh toán qua Stripe thành công', color: '#60a5fa' };
 
   return (
-    <div className="min-h-screen bg-gray-50 pt-20 pb-12">
-      <div className="max-w-3xl mx-auto px-4">
-        {/* Header Success */}
-        <div className="text-center mb-8">
-          <div className="w-20 h-20 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
-            <CheckCircle className="w-10 h-10 text-white" />
+    <div style={{ minHeight: '100svh', background: '#060606', fontFamily: "'Be Vietnam Pro',sans-serif", color: 'white' }}>
+      {/* Ambient glows */}
+      <div style={{ position: 'fixed', top: '20%', left: '50%', transform: 'translateX(-50%)', width: 500, height: 300, background: 'radial-gradient(ellipse,rgba(16,185,129,0.05) 0%,transparent 70%)', pointerEvents: 'none' }}/>
+      <div style={{ position: 'fixed', top: -80, right: -80, width: 380, height: 380, background: 'radial-gradient(circle,rgba(249,115,22,0.04) 0%,transparent 70%)', pointerEvents: 'none' }}/>
+
+      <div style={{ maxWidth: 680, margin: '0 auto', padding: '60px 24px 80px', position: 'relative', zIndex: 1 }}>
+
+        {/* Success header */}
+        <div style={{ textAlign: 'center', marginBottom: 40 }}>
+          <div style={{ width: 72, height: 72, background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(52,211,153,0.25)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px' }}>
+            <CheckCircle style={{ width: 32, height: 32, color: '#34d399' }}/>
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Đặt vé thành công!</h1>
-          <p className="text-gray-600">
-            Mã đơn hàng: <span className="font-bold text-orange-600">#{order._id?.slice(-8).toUpperCase()}</span>
+          <h1 style={{ fontSize: 'clamp(1.5rem,4vw,2.2rem)', fontWeight: 900, color: 'white', marginBottom: 8, fontFamily: "'Clash Display','Be Vietnam Pro',sans-serif", letterSpacing: '-0.02em' }}>Đặt vé thành công!</h1>
+          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.35)', fontFamily: "'Be Vietnam Pro',sans-serif", marginBottom: 6 }}>
+            Mã đơn hàng: <span style={{ fontFamily: "'Space Mono',monospace", color: '#fb923c', fontWeight: 700 }}>#{order._id?.slice(-8).toUpperCase()}</span>
           </p>
-          {paymentMethod === 'payos' && (
-            <p className="text-sm text-green-600 mt-2">✓ Thanh toán qua PayOS thành công</p>
-          )}
-          {paymentMethod === 'stripe' && (
-            <p className="text-sm text-blue-600 mt-2">✓ Thanh toán qua Stripe thành công</p>
+          {paymentMethod !== 'unknown' && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, color: paymentLabel.color, fontFamily: "'Be Vietnam Pro',sans-serif" }}>
+              ✓ {paymentLabel.text}
+            </span>
           )}
         </div>
 
-        {/* Order Summary */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
-          <h2 className="text-lg font-bold text-gray-900 mb-4">Thông tin đơn hàng</h2>
-          <div className="space-y-3">
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600">Sự kiện</span>
-              <span className="font-semibold text-gray-900">{order.event?.title || order.event?.name}</span>
+        {/* Order summary card */}
+        <div style={{ background: 'linear-gradient(180deg,#1e1e20 0%,#18181a 100%)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 20, padding: '22px 24px', marginBottom: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+            <div style={{ width: 3, height: 18, background: 'linear-gradient(180deg,#f97316,#a855f7)', borderRadius: 2 }}/>
+            <h2 style={{ fontSize: 14, fontWeight: 800, color: 'white', fontFamily: "'Clash Display','Be Vietnam Pro',sans-serif" }}>Thông tin đơn hàng</h2>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {[
+              { label: 'Sự kiện',    value: order.event?.title || order.event?.name },
+              { label: 'Địa điểm',  value: order.event?.location },
+              { label: 'Số lượng vé', value: `${order.tickets?.length || 0} vé` },
+            ].map((row, i) => row.value && (
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 16 }}>
+                <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', fontFamily: "'Be Vietnam Pro',sans-serif", flexShrink: 0 }}>{row.label}</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.8)', fontFamily: "'Be Vietnam Pro',sans-serif", textAlign: 'right' }}>{row.value}</span>
+              </div>
+            ))}
+
+            {/* Total */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: 12, marginTop: 2 }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: "'Be Vietnam Pro',sans-serif" }}>Tổng tiền</span>
+              <span style={{ fontSize: 18, fontWeight: 900, background: 'linear-gradient(90deg,#f97316,#a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontFamily: "'Clash Display','Be Vietnam Pro',sans-serif" }}>
+                {fmtPrice(order.totalAmount)}
+              </span>
             </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600">Địa điểm</span>
-              <span className="font-medium text-gray-700">{order.event?.location}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600">Số lượng vé</span>
-              <span className="font-semibold text-gray-900">{order.tickets?.length || 0} vé</span>
-            </div>
-            <div className="flex justify-between text-sm border-t pt-3">
-              <span className="text-gray-600 font-semibold">Tổng tiền</span>
-              <span className="font-bold text-orange-600 text-lg">{formatPrice(order.totalAmount)}</span>
-            </div>
-            <div className="flex justify-between items-center text-sm">
-              <span className="text-gray-600">Trạng thái</span>
-              <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${
-                order.status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
-              }`}>
-                {order.status === 'paid' ? 'ĐÃ THANH TOÁN' : 'ĐANG XỬ LÝ'}
+
+            {/* Status */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', fontFamily: "'Be Vietnam Pro',sans-serif" }}>Trạng thái</span>
+              <span style={{ fontSize: 10, fontWeight: 800, padding: '4px 12px', borderRadius: 999, background: order.status === 'paid' ? 'rgba(52,211,153,0.1)' : 'rgba(245,158,11,0.1)', color: order.status === 'paid' ? '#34d399' : '#fbbf24', border: `1px solid ${order.status === 'paid' ? 'rgba(52,211,153,0.25)' : 'rgba(245,158,11,0.25)'}`, fontFamily: "'Be Vietnam Pro',sans-serif", textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                {order.status === 'paid' ? 'Đã thanh toán' : 'Đang xử lý'}
               </span>
             </div>
           </div>
-          
-          {/* Cảnh báo nếu status vẫn pending */}
+
+          {/* Pending warning */}
           {order.status === 'pending' && (
-            <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
-              <p className="text-sm text-yellow-800 font-medium mb-2">⏳ Đơn hàng đang chờ xác nhận</p>
-              <p className="text-xs text-yellow-700">
-                Thanh toán đã thành công nhưng hệ thống đang cập nhật. Vui lòng kiểm tra lại sau vài phút hoặc liên hệ hỗ trợ nếu vẫn chưa cập nhật.
+            <div style={{ marginTop: 14, padding: '12px 14px', background: 'rgba(245,158,11,0.07)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 12 }}>
+              <p style={{ fontSize: 12, fontWeight: 700, color: '#fbbf24', fontFamily: "'Be Vietnam Pro',sans-serif", marginBottom: 4 }}>⏳ Đơn hàng đang chờ xác nhận</p>
+              <p style={{ fontSize: 11, color: 'rgba(245,158,11,0.7)', fontFamily: "'Be Vietnam Pro',sans-serif", lineHeight: 1.6 }}>
+                Thanh toán đã thành công nhưng hệ thống đang cập nhật. Vui lòng kiểm tra lại sau vài phút.
               </p>
             </div>
           )}
         </div>
 
-        {/* Tickets with QR Codes */}
-        <div className="space-y-4 mb-6">
-          <h2 className="text-lg font-bold text-gray-900">Vé của bạn ({order.tickets?.length || 0})</h2>
-          
+        {/* Ticket cards */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 28 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 3, height: 18, background: 'linear-gradient(180deg,#f97316,#a855f7)', borderRadius: 2 }}/>
+            <h2 style={{ fontSize: 14, fontWeight: 800, color: 'white', fontFamily: "'Clash Display','Be Vietnam Pro',sans-serif" }}>Vé của bạn ({order.tickets?.length || 0})</h2>
+          </div>
+
           {order.tickets?.map((ticket, idx) => (
-            <div key={ticket._id || idx} className="bg-white rounded-2xl shadow-md overflow-hidden border border-gray-100">
-              <div className="bg-gradient-to-r from-orange-600 to-purple-600 px-6 py-4 text-white">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs opacity-80 uppercase tracking-widest">E-Ticket #{idx + 1}</p>
-                    <p className="font-bold text-lg mt-0.5">{order.event?.title || order.event?.name}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs opacity-80">Loại vé</p>
-                    <p className="font-semibold">{ticket.ticketType?.name || 'Standard'}</p>
-                  </div>
+            <div key={ticket._id || idx} style={{ background: 'linear-gradient(180deg,#1e1e20 0%,#18181a 100%)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, overflow: 'hidden', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
+              {/* Gradient header */}
+              <div style={{ background: 'linear-gradient(135deg,#f97316,#a855f7)', padding: '16px 22px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <p style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: '0.12em', fontFamily: "'Be Vietnam Pro',sans-serif", marginBottom: 3 }}>E-Ticket #{idx + 1}</p>
+                  <p style={{ fontSize: 14, fontWeight: 800, color: 'white', fontFamily: "'Clash Display','Be Vietnam Pro',sans-serif" }}>{order.event?.title || order.event?.name}</p>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.7)', fontFamily: "'Be Vietnam Pro',sans-serif", marginBottom: 3 }}>Loại vé</p>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: 'white', fontFamily: "'Be Vietnam Pro',sans-serif" }}>{ticket.ticketType?.name || 'Standard'}</p>
                 </div>
               </div>
 
-              <div className="p-6 flex items-center justify-between gap-6">
-                <div className="flex-1 space-y-2">
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <span className="w-24 text-gray-400 font-medium">Địa điểm</span>
-                    <span className="text-gray-800">{order.event?.location}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <span className="w-24 text-gray-400 font-medium">Email</span>
-                    <span className="text-gray-800 truncate">{order.customerInfo?.email || 'N/A'}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <span className="w-24 text-gray-400 font-medium">Ticket ID</span>
-                    <span className="text-gray-800 font-mono text-xs">{ticket._id?.slice(-12)}</span>
-                  </div>
-                  <div className="inline-flex items-center px-3 py-1 bg-green-100 text-green-700 text-xs font-semibold rounded-full">
-                    ✓ {ticket.status === 'active' ? 'Active' : ticket.status}
-                  </div>
+              {/* Tear line */}
+              <div style={{ height: 1, background: 'repeating-linear-gradient(90deg,rgba(255,255,255,0.08) 0,rgba(255,255,255,0.08) 8px,transparent 8px,transparent 16px)' }}/>
+
+              {/* Body */}
+              <div style={{ padding: '20px 22px', display: 'flex', alignItems: 'center', gap: 20 }}>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {[
+                    { label: 'Địa điểm', value: order.event?.location },
+                    { label: 'Email',    value: order.customerInfo?.email || 'N/A' },
+                    { label: 'Ticket ID',value: ticket._id?.slice(-12), mono: true },
+                  ].map((row, j) => row.value && (
+                    <div key={j} style={{ display: 'flex', gap: 10, alignItems: 'baseline' }}>
+                      <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', fontFamily: "'Be Vietnam Pro',sans-serif", minWidth: 58, fontWeight: 700 }}>{row.label}</span>
+                      <span style={{ fontSize: row.mono ? 10 : 12, color: 'rgba(255,255,255,0.7)', fontFamily: row.mono ? "'Space Mono',monospace" : "'Be Vietnam Pro',sans-serif", overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.value}</span>
+                    </div>
+                  ))}
+                  <span style={{ fontSize: 9, fontWeight: 800, padding: '3px 10px', borderRadius: 999, background: 'rgba(52,211,153,0.1)', color: '#34d399', border: '1px solid rgba(52,211,153,0.25)', width: 'fit-content', fontFamily: "'Be Vietnam Pro',sans-serif", textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                    ✓ {ticket.status === 'active' ? 'Active' : (ticket.status || 'Active')}
+                  </span>
                 </div>
 
-                {/* QR Code */}
-                <div className="shrink-0 text-center">
-                  <img 
-                    src={generateQRCode(ticket.qrCode || ticket._id)} 
-                    alt="QR Code" 
-                    className="w-32 h-32 rounded-lg border-2 border-gray-200 shadow-sm"
-                  />
-                  <button
-                    onClick={() => downloadQRCode(generateQRCode(ticket.qrCode || ticket._id), ticket._id)}
-                    className="mt-2 text-xs text-orange-600 hover:text-orange-700 font-medium flex items-center gap-1 mx-auto"
-                  >
-                    <Download className="w-3 h-3" /> Tải QR
+                {/* QR */}
+                <div style={{ flexShrink: 0, textAlign: 'center' }}>
+                  <div style={{ background: 'white', borderRadius: 12, padding: 6, display: 'inline-block', boxShadow: '0 6px 20px rgba(0,0,0,0.35)' }}>
+                    <img src={generateQRCode(ticket.qrCode || ticket._id)} alt="QR" style={{ width: 100, height: 100, display: 'block', borderRadius: 7 }}/>
+                  </div>
+                  <button onClick={() => downloadQR(generateQRCode(ticket.qrCode || ticket._id), ticket._id)}
+                    style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', color: '#fb923c', fontSize: 10, fontWeight: 700, cursor: 'pointer', fontFamily: "'Be Vietnam Pro',sans-serif", margin: '6px auto 0' }}
+                    className="psp-dl-btn">
+                    <Download style={{ width: 10, height: 10 }}/> Tải QR
                   </button>
-                  <p className="text-xs text-gray-400 mt-1">Quét để check-in</p>
+                  <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)', fontFamily: "'Be Vietnam Pro',sans-serif", marginTop: 2 }}>Quét check-in</p>
                 </div>
               </div>
 
-              <div className="mx-6 border-t-2 border-dashed border-gray-200" />
-              <div className="px-6 py-3 bg-gray-50 flex justify-between text-xs text-gray-500">
-                <span>Giá: <span className="font-bold text-gray-800">{formatPrice(ticket.price || ticket.ticketType?.price)}</span></span>
-                <span>{new Date(ticket.createdAt || Date.now()).toLocaleDateString('vi-VN')}</span>
+              {/* Footer */}
+              <div style={{ padding: '10px 22px', borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(0,0,0,0.15)', display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', fontFamily: "'Be Vietnam Pro',sans-serif" }}>Giá: <span style={{ fontWeight: 800, color: '#fb923c' }}>{fmtPrice(ticket.price || ticket.ticketType?.price)}</span></span>
+                <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', fontFamily: "'Space Mono',monospace" }}>{new Date(ticket.createdAt || Date.now()).toLocaleDateString('vi-VN')}</span>
               </div>
             </div>
           ))}
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex gap-4">
-          <button 
-            onClick={() => navigate('/ticket-history')}
-            className="flex-1 py-4 bg-gradient-to-r from-orange-600 to-purple-600 text-white rounded-2xl font-bold shadow-lg hover:opacity-90 transition-all flex items-center justify-center gap-2"
-          >
-            <Ticket className="w-5 h-5" /> Xem tất cả vé <ArrowRight className="w-4 h-4" />
+        {/* Trust row */}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 20, marginBottom: 28, flexWrap: 'wrap' }}>
+          {[
+            { icon: Shield,    color: '#10b981', text: 'Thanh toán bảo mật' },
+            { icon: BadgeCheck,color: '#a855f7', text: 'Vé chính hãng'      },
+            { icon: Zap,       color: '#f97316', text: 'Kích hoạt tức thì'  },
+          ].map((b, i) => (
+            <span key={i} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'rgba(255,255,255,0.3)', fontFamily: "'Be Vietnam Pro',sans-serif" }}>
+              <b.icon style={{ width: 12, height: 12, color: b.color }}/>{b.text}
+            </span>
+          ))}
+        </div>
+
+        {/* Actions */}
+        <div style={{ display: 'flex', gap: 12 }}>
+          <button onClick={() => navigate('/ticket-history')}
+            style={{ flex: 1, padding: '14px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg,#f97316,#a855f7)', color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: "'Be Vietnam Pro',sans-serif", display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, boxShadow: '0 6px 24px rgba(249,115,22,0.25)', transition: 'all 0.2s' }}
+            className="psp-cta-btn">
+            <Ticket style={{ width: 14, height: 14 }}/> Xem tất cả vé <ArrowRight style={{ width: 13, height: 13 }}/>
           </button>
-          <button 
-            onClick={() => navigate('/')}
-            className="flex-1 py-4 border-2 border-gray-300 text-gray-700 rounded-2xl font-bold hover:border-orange-500 hover:bg-orange-50 transition-all"
-          >
+          <button onClick={() => navigate('/')}
+            style={{ flex: 1, padding: '14px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: "'Be Vietnam Pro',sans-serif", transition: 'all 0.2s' }}
+            className="psp-outline-btn">
             Về trang chủ
           </button>
         </div>
       </div>
+
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap');
+        @import url('https://api.fontshare.com/v2/css?f[]=clash-display@700,800,900&display=swap');
+        @keyframes psp-spin{to{transform:rotate(360deg)}}.psp-spin{animation:psp-spin 0.85s linear infinite}
+        .psp-cta-btn:hover{transform:translateY(-2px);box-shadow:0 10px 32px rgba(249,115,22,0.36) !important}
+        .psp-outline-btn:hover{border-color:rgba(249,115,22,0.25) !important;color:white !important}
+        .psp-dl-btn:hover{opacity:0.75}
+        *{scrollbar-width:none}::-webkit-scrollbar{display:none}
+      `}</style>
     </div>
   );
 };

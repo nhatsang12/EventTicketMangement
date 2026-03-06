@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { 
+import {
   Calendar, MapPin, Clock, Share2, Heart,
-  Minus, Plus, ShoppingCart, AlertCircle, Sparkles, Users
+  Minus, Plus, ShoppingCart, AlertCircle, Sparkles, Users,
+  ArrowLeft, Ticket, Tag, ChevronRight, Timer, Eye,
+  BadgeCheck, Shield, Zap, ArrowRight
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -12,6 +14,69 @@ import useCartStore from '../store/cartStore';
 import useAuthStore from '../store/authStore';
 import toast from 'react-hot-toast';
 
+// ─── HELPERS (same as HomePage) ────────────────────────────────────────────
+const getImageUrl = p =>
+  !p ? 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=1400&auto=format&fit=crop&q=80'
+     : p.startsWith('http') ? p : `http://localhost:8000${p}`;
+
+const fmtPrice = p =>
+  (p === null || p === undefined || p === 0)
+    ? 'Miễn phí'
+    : new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(p);
+
+const fmtDate = d => {
+  if (!d) return 'Chưa cập nhật';
+  try { return format(new Date(d), 'EEEE, dd MMMM yyyy', { locale: vi }); }
+  catch { return 'TBA'; }
+};
+
+const fmtTime = d => {
+  if (!d) return '';
+  try {
+    const dt = new Date(d);
+    return isNaN(dt) ? '' : dt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+  } catch { return ''; }
+};
+
+const getStatusInfo = s => ({
+  published: { label: 'Đang mở bán', color: '#10b981', bg: 'rgba(16,185,129,0.12)' },
+  active:    { label: 'Đang mở bán', color: '#10b981', bg: 'rgba(16,185,129,0.12)' },
+  draft:     { label: 'Sắp mở bán',  color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
+  cancelled: { label: 'Đã huỷ',      color: '#ef4444', bg: 'rgba(239,68,68,0.12)'  },
+  ended:     { label: 'Đã kết thúc', color: '#6b7280', bg: 'rgba(107,114,128,0.12)'},
+}[s] || { label: 'Đang mở bán', color: '#10b981', bg: 'rgba(16,185,129,0.12)' });
+
+// ─── LOADING SKELETON ──────────────────────────────────────────────────────
+const LoadingPage = () => (
+  <div style={{ minHeight: '100svh', background: '#060606', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Be Vietnam Pro',sans-serif" }}>
+    <div style={{ textAlign: 'center' }}>
+      <div style={{ position: 'relative', width: 56, height: 56, margin: '0 auto 18px' }}>
+        <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '3px solid rgba(255,255,255,0.06)' }}/>
+        <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '3px solid transparent', borderTopColor: '#f97316', borderRightColor: '#a855f7' }} className="edp-spin"/>
+      </div>
+      <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13, fontFamily: "'Be Vietnam Pro',sans-serif" }}>Đang tải sự kiện...</p>
+    </div>
+    <style>{`@keyframes edp-spin{to{transform:rotate(360deg)}}.edp-spin{animation:edp-spin 0.85s linear infinite}`}</style>
+  </div>
+);
+
+// ─── NOT FOUND ─────────────────────────────────────────────────────────────
+const NotFoundPage = ({ navigate }) => (
+  <div style={{ minHeight: '100svh', background: '#060606', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Be Vietnam Pro',sans-serif" }}>
+    <div style={{ textAlign: 'center', maxWidth: 400, padding: '0 24px' }}>
+      <div style={{ width: 80, height: 80, background: 'linear-gradient(135deg,rgba(249,115,22,0.1),rgba(168,85,247,0.1))', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
+        <AlertCircle style={{ width: 36, height: 36, color: '#f97316' }}/>
+      </div>
+      <h2 style={{ fontSize: 'clamp(1.5rem,4vw,2rem)', fontWeight: 900, color: 'white', marginBottom: 10, fontFamily: "'Clash Display','Be Vietnam Pro',sans-serif", letterSpacing: '-0.02em' }}>Không tìm thấy sự kiện</h2>
+      <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 13, marginBottom: 28, lineHeight: 1.7, fontFamily: "'Be Vietnam Pro',sans-serif" }}>Sự kiện bạn đang tìm kiếm không tồn tại hoặc đã bị xóa.</p>
+      <button onClick={() => navigate('/')} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'linear-gradient(135deg,#f97316,#a855f7)', color: 'white', fontSize: 13, fontWeight: 800, padding: '12px 28px', borderRadius: 999, border: 'none', cursor: 'pointer', fontFamily: "'Be Vietnam Pro',sans-serif", boxShadow: '0 6px 24px rgba(249,115,22,0.28)' }}>
+        <ArrowLeft style={{ width: 14, height: 14 }}/> Về trang chủ
+      </button>
+    </div>
+  </div>
+);
+
+// ─── MAIN PAGE ─────────────────────────────────────────────────────────────
 const EventDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -22,264 +87,273 @@ const EventDetailPage = () => {
   const [ticketTypes, setTicketTypes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedTickets, setSelectedTickets] = useState({});
+  const [wishlisted, setWishlisted] = useState(false);
 
-  useEffect(() => {
-    fetchEventDetails();
-  }, [id]);
+  useEffect(() => { fetchEventDetails(); }, [id]);
 
   const fetchEventDetails = async () => {
     try {
       setLoading(true);
-      const eventRes = await axios.get("http://localhost:8000/api/events");
+      const eventRes = await axios.get('http://localhost:8000/api/events');
       const allEvents = eventRes.data?.data || eventRes.data || [];
       const currentEvent = allEvents.find(e => e._id === id);
+      if (!currentEvent) { setEventData(null); setLoading(false); return; }
 
-      if (!currentEvent) {
-        setEventData(null);
-        setLoading(false);
-        return;
-      }
-
-      const ticketRes = await axios.get("http://localhost:8000/api/tickets");
+      const ticketRes = await axios.get('http://localhost:8000/api/tickets');
       const allTickets = ticketRes.data?.data || ticketRes.data || [];
       const eventTickets = allTickets.filter(t => (t.event?._id || t.event) === id);
 
       setEventData(currentEvent);
       setTicketTypes(eventTickets);
       setEvent(currentEvent);
-    } catch (error) {
-      console.error('Lỗi tải chi tiết sự kiện:', error);
+    } catch (err) {
+      console.error(err);
       toast.error('Không thể tải thông tin sự kiện');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleQuantityChange = (ticketTypeId, change) => {
-    setSelectedTickets((prev) => {
-      const current = prev[ticketTypeId] || 0;
-      const newQuantity = Math.max(0, current + change);
-      return { ...prev, [ticketTypeId]: newQuantity };
+  const handleQuantityChange = (ticketId, delta) => {
+    setSelectedTickets(prev => {
+      const cur = prev[ticketId] || 0;
+      return { ...prev, [ticketId]: Math.max(0, cur + delta) };
     });
   };
 
   const handleAddToCart = () => {
-    if (!isAuthenticated) {
-      toast.error('Vui lòng đăng nhập để đặt vé');
-      navigate('/login');
-      return;
-    }
-    const hasSelectedTickets = Object.values(selectedTickets).some(qty => qty > 0);
-    if (!hasSelectedTickets) {
-      toast.error('Vui lòng chọn ít nhất một loại vé');
-      return;
-    }
-    Object.entries(selectedTickets).forEach(([ticketTypeId, quantity]) => {
-      if (quantity > 0) {
-        const ticketType = ticketTypes.find(t => t._id === ticketTypeId);
-        addItem(ticketType, quantity);
+    if (!isAuthenticated) { toast.error('Vui lòng đăng nhập để đặt vé'); navigate('/login'); return; }
+    const hasAny = Object.values(selectedTickets).some(q => q > 0);
+    if (!hasAny) { toast.error('Vui lòng chọn ít nhất một loại vé'); return; }
+    Object.entries(selectedTickets).forEach(([tid, qty]) => {
+      if (qty > 0) {
+        const t = ticketTypes.find(t => t._id === tid);
+        addItem(t, qty);
       }
     });
     toast.success('Đã thêm vào giỏ hàng');
     navigate('/checkout');
   };
 
-  const getTotalPrice = () => {
-    return Object.entries(selectedTickets).reduce((total, [ticketTypeId, quantity]) => {
-      const ticketType = ticketTypes.find(t => t._id === ticketTypeId);
-      return total + (ticketType?.price || 0) * quantity;
+  const getTotalPrice = () =>
+    Object.entries(selectedTickets).reduce((sum, [tid, qty]) => {
+      const t = ticketTypes.find(t => t._id === tid);
+      return sum + (t?.price || 0) * qty;
     }, 0);
-  };
 
-  const formatPrice = (price) =>
-    new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
+  const totalSelected = Object.values(selectedTickets).reduce((s, q) => s + q, 0);
 
-  const formatDate = (dateString) => {
-    if (!dateString) return 'Chưa cập nhật';
-    try {
-      return format(new Date(dateString), 'EEEE, dd MMMM yyyy', { locale: vi });
-    } catch {
-      return 'TBA';
-    }
-  };
+  if (loading) return <LoadingPage />;
+  if (!event) return <NotFoundPage navigate={navigate} />;
 
-  const getImageUrl = (imagePath) => {
-    if (!imagePath) return "https://placehold.co/1200x600?text=No+Image";
-    return imagePath.startsWith('http') ? imagePath : `http://localhost:8000${imagePath}`;
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="relative w-16 h-16 mx-auto mb-4">
-            <div className="absolute inset-0 border-4 border-gray-200 rounded-full" />
-            <div className="absolute inset-0 border-4 border-t-orange-500 border-r-purple-600 rounded-full animate-spin" />
-          </div>
-          <p className="text-gray-600 font-medium">Đang tải sự kiện...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!event) {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-center max-w-md mx-auto p-8">
-          <div className="w-20 h-20 bg-gradient-to-br from-orange-100 to-purple-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <AlertCircle className="w-10 h-10 text-orange-500" />
-          </div>
-          <h2 className="text-3xl font-bold text-gray-900 mb-3">Không tìm thấy sự kiện</h2>
-          <p className="text-gray-600 mb-6">Sự kiện bạn đang tìm kiếm không tồn tại hoặc đã bị xóa.</p>
-          <button
-            onClick={() => navigate('/')}
-            className="bg-gradient-to-r from-orange-500 to-purple-600 text-white font-semibold px-8 py-3 rounded-full shadow-lg hover:opacity-90 transition-all"
-          >
-            Về trang chủ
-          </button>
-        </div>
-      </div>
-    );
-  }
+  const status = getStatusInfo(event.status);
+  const heroImg = getImageUrl(event.image);
+  const timeStr = fmtTime(event.startDate);
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Hero Image */}
-      <div className="relative h-[400px] md:h-[500px] bg-gray-900 overflow-hidden">
-        <img
-          src={getImageUrl(event.image)}
-          alt={event.title}
-          className="w-full h-full object-cover"
+    <div style={{ minHeight: '100svh', background: '#060606', fontFamily: "'Be Vietnam Pro',sans-serif", color: 'white' }}>
+
+      {/* ══════════════════════════════════════════
+          HERO — cinematic full-width image
+      ══════════════════════════════════════════ */}
+      <section style={{ position: 'relative', height: 'clamp(420px,55vw,620px)', overflow: 'hidden', background: '#0a0a0a' }}>
+        {/* Background image */}
+        <img src={heroImg} alt={event.title}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center', display: 'block' }}
+          onError={e => { e.target.src = 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1400&auto=format&fit=crop'; }}
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-r from-orange-500/20 to-purple-500/20" />
-      </div>
 
-      <div className="container-custom -mt-32 relative z-10 pb-16">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Layered overlays */}
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top,rgba(6,6,6,1) 0%,rgba(6,6,6,0.55) 40%,rgba(6,6,6,0.1) 80%,transparent 100%)' }}/>
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg,rgba(6,6,6,0.6) 0%,transparent 50%,rgba(168,85,247,0.08) 100%)' }}/>
+        {/* Left diagonal bleed to match page bg */}
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right,rgba(6,6,6,0.4) 0%,transparent 60%)' }}/>
 
-          {/* ── Main Content ── */}
-          <div className="lg:col-span-2 space-y-6">
-            <div className="bg-white rounded-3xl shadow-xl p-8 md:p-10 border border-gray-100 space-y-6 animate-fade-in-up">
-              <h1 className="text-3xl md:text-5xl font-heading font-bold text-black mb-6 leading-tight">
-                {event.title}
-              </h1>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="flex items-start space-x-4">
-                  <div className="w-12 h-12 bg-gradient-to-br from-orange-100 to-orange-200 rounded-xl flex items-center justify-center">
-                    <Calendar className="w-6 h-6 text-orange-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500 font-medium mb-1">Ngày diễn ra</p>
-                    <p className="font-semibold text-gray-900 text-lg">{formatDate(event.startDate)}</p>
-                  </div>
+        {/* Back button */}
+        <button onClick={() => navigate(-1)}
+          style={{ position: 'absolute', top: 50, left: 28, display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.8)', fontSize: 12, fontWeight: 700, padding: '8px 14px', borderRadius: 999, cursor: 'pointer', fontFamily: "'Be Vietnam Pro',sans-serif", transition: 'all 0.2s', zIndex: 10 }}
+          className="edp-back-btn">
+          <ArrowLeft style={{ width: 13, height: 13 }}/> Quay lại
+        </button>
+
+        {/* Share + Wishlist */}
+        <div style={{ position: 'absolute', top: 50, right: 28, display: 'flex', gap: 8, zIndex: 10 }}>
+          <button onClick={() => { navigator.clipboard?.writeText(window.location.href); toast.success('Đã sao chép link!'); }}
+            style={{ width: 38, height: 38, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.7)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}
+            className="edp-icon-btn">
+            <Share2 style={{ width: 14, height: 14 }}/>
+          </button>
+          <button onClick={() => setWishlisted(v => !v)}
+            style={{ width: 38, height: 38, borderRadius: '50%', background: wishlisted ? 'rgba(239,68,68,0.2)' : 'rgba(0,0,0,0.45)', backdropFilter: 'blur(10px)', border: `1px solid ${wishlisted ? 'rgba(239,68,68,0.4)' : 'rgba(255,255,255,0.12)'}`, color: wishlisted ? '#f87171' : 'rgba(255,255,255,0.7)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.25s' }}>
+            <Heart style={{ width: 14, height: 14, fill: wishlisted ? 'currentColor' : 'none' }}/>
+          </button>
+        </div>
+
+        {/* Hero content — bottom overlay */}
+        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: 'clamp(24px,4vw,48px) clamp(20px,5vw,60px)', zIndex: 5 }}>
+          {/* Status + category badges */}
+          <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 10, fontWeight: 800, padding: '4px 12px', borderRadius: 999, background: status.bg, color: status.color, border: `1px solid ${status.color}40`, backdropFilter: 'blur(8px)', fontFamily: "'Be Vietnam Pro',sans-serif", letterSpacing: '0.06em', textTransform: 'uppercase' }}>{status.label}</span>
+            {event.category && <span style={{ fontSize: 10, fontWeight: 700, padding: '4px 12px', borderRadius: 999, background: 'rgba(255,255,255,0.08)', backdropFilter: 'blur(8px)', color: 'rgba(255,255,255,0.85)', border: '1px solid rgba(255,255,255,0.15)', fontFamily: "'Be Vietnam Pro',sans-serif" }}>{event.category}</span>}
+          </div>
+
+          {/* Title */}
+          <h1 style={{ fontSize: 'clamp(1.6rem,4vw,3.2rem)', fontWeight: 900, color: 'white', lineHeight: 1.08, letterSpacing: '-0.03em', fontFamily: "'Clash Display','Be Vietnam Pro',sans-serif", maxWidth: 760, marginBottom: 16, textShadow: '0 2px 20px rgba(0,0,0,0.5)' }}>
+            {event.title}
+          </h1>
+
+          {/* Meta row */}
+          <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', display: 'flex', alignItems: 'center', gap: 6, fontFamily: "'Be Vietnam Pro',sans-serif" }}>
+              <Calendar style={{ width: 13, height: 13, color: '#f97316', flexShrink: 0 }}/>{fmtDate(event.startDate)}
+            </span>
+            {timeStr && <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', display: 'flex', alignItems: 'center', gap: 6, fontFamily: "'Be Vietnam Pro',sans-serif" }}>
+              <Clock style={{ width: 13, height: 13, color: '#a855f7', flexShrink: 0 }}/>{timeStr}
+            </span>}
+            {event.location && <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', display: 'flex', alignItems: 'center', gap: 6, fontFamily: "'Be Vietnam Pro',sans-serif" }}>
+              <MapPin style={{ width: 13, height: 13, color: '#ec4899', flexShrink: 0 }}/>{event.location}
+            </span>}
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════
+          BODY — 2-col layout
+      ══════════════════════════════════════════ */}
+      <div style={{ maxWidth: 1152, margin: '0 auto', padding: '40px 24px 80px', display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 360px', gap: 28, alignItems: 'start' }} className="edp-layout">
+
+        {/* ─── LEFT COLUMN ─── */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+          {/* Info cards row */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }} className="edp-info-grid">
+            {[
+              { icon: Calendar, color: '#f97316', label: 'Ngày diễn ra', value: fmtDate(event.startDate) },
+              { icon: Clock,    color: '#a855f7', label: 'Giờ bắt đầu',  value: timeStr || event.time || '19:00' },
+              { icon: MapPin,   color: '#ec4899', label: 'Địa điểm',     value: event.location || 'Chưa cập nhật' },
+            ].map((item, i) => (
+              <div key={i} style={{ background: 'linear-gradient(180deg,#1e1e20 0%,#18181a 100%)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 10, transition: 'border-color 0.2s' }} className="edp-info-card">
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: `${item.color}18`, border: `1px solid ${item.color}28`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <item.icon style={{ width: 16, height: 16, color: item.color }}/>
                 </div>
-                <div className="flex items-start space-x-4">
-                  <div className="w-12 h-12 bg-gradient-to-br from-purple-100 to-purple-200 rounded-xl flex items-center justify-center">
-                    <Clock className="w-6 h-6 text-purple-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500 font-medium mb-1">Thời gian</p>
-                    <p className="font-semibold text-gray-900 text-lg">{event.time || '19:00'}</p>
-                  </div>
-                </div>
-                <div className="flex items-start space-x-4 md:col-span-2">
-                  <div className="w-12 h-12 bg-gradient-to-br from-pink-100 to-rose-200 rounded-xl flex items-center justify-center">
-                    <MapPin className="w-6 h-6 text-pink-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500 font-medium mb-1">Địa điểm</p>
-                    <p className="font-semibold text-gray-900 text-lg">{event.location}</p>
-                  </div>
+                <div>
+                  <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', fontFamily: "'Be Vietnam Pro',sans-serif", marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>{item.label}</p>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.88)', fontFamily: "'Be Vietnam Pro',sans-serif", lineHeight: 1.4 }}>{item.value}</p>
                 </div>
               </div>
+            ))}
+          </div>
+
+          {/* Description */}
+          <div style={{ background: 'linear-gradient(180deg,#1a1a1c 0%,#161618 100%)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 20, padding: '28px 30px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+              <div style={{ width: 3, height: 20, background: 'linear-gradient(180deg,#f97316,#a855f7)', borderRadius: 2 }}/>
+              <h2 style={{ fontSize: 16, fontWeight: 800, color: 'white', fontFamily: "'Clash Display','Be Vietnam Pro',sans-serif", letterSpacing: '-0.01em' }}>Giới thiệu sự kiện</h2>
+              <Sparkles style={{ width: 14, height: 14, color: '#f97316' }}/>
             </div>
-
-            <div
-              className="bg-white rounded-3xl shadow-xl p-8 md:p-10 border border-gray-100 animate-fade-in-up"
-              style={{ animationDelay: '100ms' }}
-            >
-              <h2 className="text-2xl font-bold flex items-center gap-3 mb-6">
-                <Sparkles className="w-6 h-6 text-orange-500" aria-hidden="true" /> Giới thiệu sự kiện
-              </h2>
-              <div className="prose max-w-none text-gray-700 leading-relaxed text-base whitespace-pre-wrap">
-                {event.description || 'Chưa có mô tả chi tiết.'}
-              </div>
+            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', lineHeight: 1.85, whiteSpace: 'pre-wrap', fontFamily: "'Be Vietnam Pro',sans-serif" }}>
+              {event.description || 'Chưa có mô tả chi tiết cho sự kiện này.'}
             </div>
           </div>
 
-          {/* ── Ticket Sidebar ── */}
-          <div className="lg:col-span-1">
-            <div
-              className="bg-white rounded-3xl shadow-xl p-6 md:p-8 sticky top-24 space-y-6 border border-gray-100 animate-fade-in-up"
-              style={{ animationDelay: '200ms' }}
-            >
-              <div className="flex items-center justify-between mb-2">
-                <h2 className="text-2xl font-heading font-bold text-black">Chọn loại vé</h2>
-                {/* Cart icon với gradient */}
-                <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-purple-600 rounded-full flex items-center justify-center">
-                  <ShoppingCart className="w-5 h-5 text-white" aria-hidden="true" />
+          {/* Trust badges */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }} className="edp-badge-grid">
+            {[
+              { icon: Shield,    color: '#10b981', title: 'Vé chính hãng',  desc: 'Mã QR độc nhất, chống giả mạo' },
+              { icon: Zap,       color: '#f97316', title: 'Đặt vé siêu tốc', desc: 'Nhận vé điện tử ngay lập tức' },
+              { icon: BadgeCheck,color: '#a855f7', title: 'Hoàn tiền 100%',  desc: 'Nếu sự kiện bị huỷ' },
+            ].map((b, i) => (
+              <div key={i} style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 14, padding: '16px 18px', display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                <div style={{ width: 32, height: 32, borderRadius: 9, background: `${b.color}14`, border: `1px solid ${b.color}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <b.icon style={{ width: 14, height: 14, color: b.color }}/>
+                </div>
+                <div>
+                  <p style={{ fontSize: 12, fontWeight: 800, color: 'white', fontFamily: "'Be Vietnam Pro',sans-serif", marginBottom: 3 }}>{b.title}</p>
+                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', lineHeight: 1.5, fontFamily: "'Be Vietnam Pro',sans-serif" }}>{b.desc}</p>
                 </div>
               </div>
+            ))}
+          </div>
+        </div>
 
+        {/* ─── RIGHT COLUMN — TICKET SIDEBAR ─── */}
+        <div style={{ position: 'sticky', top: 24 }}>
+          <div style={{ background: 'linear-gradient(180deg,#1c1c1e 0%,#171719 100%)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 22, overflow: 'hidden', boxShadow: '0 24px 64px rgba(0,0,0,0.6), 0 1px 0 rgba(255,255,255,0.05) inset' }}>
+
+            {/* Sidebar header */}
+            <div style={{ padding: '22px 24px 18px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 3, height: 20, background: 'linear-gradient(180deg,#f97316,#a855f7)', borderRadius: 2 }}/>
+                <h2 style={{ fontSize: 15, fontWeight: 800, color: 'white', fontFamily: "'Clash Display','Be Vietnam Pro',sans-serif", letterSpacing: '-0.01em' }}>Chọn loại vé</h2>
+              </div>
+              <div style={{ width: 34, height: 34, background: 'linear-gradient(135deg,#f97316,#a855f7)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <ShoppingCart style={{ width: 15, height: 15, color: 'white' }}/>
+              </div>
+            </div>
+
+            <div style={{ padding: '18px 22px 22px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+              {/* Ticket list */}
               {ticketTypes.length > 0 ? (
-                <div className="space-y-4">
-                  {ticketTypes.map((ticketType) => {
-                    const remaining = ticketType.remaining !== undefined
-                      ? ticketType.remaining
-                      : (ticketType.quantity - (ticketType.sold || 0));
-                    const isAvailable = ticketType.isActive !== false && remaining > 0;
+                <>
+                  {ticketTypes.map(ticket => {
+                    const remaining = ticket.remaining !== undefined
+                      ? ticket.remaining
+                      : (ticket.quantity - (ticket.sold || 0));
+                    const isAvailable = ticket.isActive !== false && remaining > 0;
+                    const qty = selectedTickets[ticket._id] || 0;
+                    const pct = ticket.quantity ? Math.min(100, Math.round(((ticket.quantity - remaining) / ticket.quantity) * 100)) : 0;
 
                     return (
-                      <div
-                        key={ticketType._id}
-                        className="border-2 border-gray-200 hover:border-orange-300 rounded-2xl p-5 space-y-4 transition-all"
-                      >
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <h3 className="font-bold text-gray-900 text-lg">{ticketType.name}</h3>
-                            <p className="text-sm text-gray-600 mt-1">{ticketType.description}</p>
-                            {/* Giá → gradient text */}
-                            <p className="text-2xl font-bold mt-2 bg-gradient-to-r from-orange-500 to-purple-600 bg-clip-text text-transparent">
-                              {formatPrice(ticketType.price)}
+                      <div key={ticket._id}
+                        style={{ background: qty > 0 ? 'rgba(249,115,22,0.06)' : 'rgba(255,255,255,0.03)', border: `1px solid ${qty > 0 ? 'rgba(249,115,22,0.35)' : 'rgba(255,255,255,0.08)'}`, borderRadius: 16, padding: '16px 18px', transition: 'all 0.25s', boxShadow: qty > 0 ? '0 0 0 1px rgba(249,115,22,0.1)' : 'none' }}>
+
+                        {/* Ticket header */}
+                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                              <Ticket style={{ width: 12, height: 12, color: '#f97316', flexShrink: 0 }}/>
+                              <h3 style={{ fontSize: 13, fontWeight: 800, color: 'white', fontFamily: "'Clash Display','Be Vietnam Pro',sans-serif", overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ticket.name}</h3>
+                            </div>
+                            {ticket.description && <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', fontFamily: "'Be Vietnam Pro',sans-serif", lineHeight: 1.5, marginBottom: 6 }}>{ticket.description}</p>}
+                            <p style={{ fontSize: 18, fontWeight: 900, background: 'linear-gradient(90deg,#f97316,#a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontFamily: "'Clash Display','Be Vietnam Pro',sans-serif", letterSpacing: '-0.01em' }}>
+                              {fmtPrice(ticket.price)}
                             </p>
                           </div>
-                          {isAvailable ? (
-                            <span className="px-3 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full">Còn vé</span>
-                          ) : (
-                            <span className="px-3 py-1 bg-red-100 text-red-700 text-xs font-bold rounded-full">Hết vé</span>
-                          )}
+                          {/* Availability badge */}
+                          <span style={{ fontSize: 9, fontWeight: 800, padding: '3px 9px', borderRadius: 999, background: isAvailable ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)', color: isAvailable ? '#34d399' : '#f87171', border: `1px solid ${isAvailable ? 'rgba(52,211,153,0.25)' : 'rgba(248,113,113,0.25)'}`, fontFamily: "'Be Vietnam Pro',sans-serif", flexShrink: 0, marginLeft: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            {isAvailable ? 'Còn vé' : 'Hết vé'}
+                          </span>
                         </div>
 
-                        <div className="flex items-center gap-2 text-sm text-gray-600">
-                          <Users className="w-4 h-4" aria-hidden="true" />
-                          Còn lại: <span className="font-bold">{remaining}</span> vé
-                        </div>
+                        {/* Progress bar */}
+                        {ticket.quantity > 0 && (
+                          <div style={{ marginBottom: 12 }}>
+                            <div style={{ height: 3, background: 'rgba(255,255,255,0.07)', borderRadius: 3, overflow: 'hidden', marginBottom: 4 }}>
+                              <div style={{ height: '100%', width: `${pct}%`, background: pct >= 80 ? 'linear-gradient(90deg,#ef4444,#f97316)' : 'linear-gradient(90deg,#f97316,#a855f7)', borderRadius: 3, transition: 'width 0.6s ease' }}/>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', fontFamily: "'Space Mono',monospace" }}>{remaining} vé còn lại</span>
+                              <span style={{ fontSize: 10, fontWeight: 700, color: pct >= 80 ? '#f87171' : 'rgba(255,255,255,0.25)', fontFamily: "'Space Mono',monospace" }}>{pct}% đã bán</span>
+                            </div>
+                          </div>
+                        )}
 
+                        {/* Quantity control */}
                         {isAvailable && (
-                          <div className="flex items-center justify-between pt-4 border-t-2 border-gray-100">
-                            <span className="text-sm font-semibold text-gray-700">Số lượng:</span>
-                            <div className="flex items-center space-x-3">
-                              {/* Nút – */}
-                              <button
-                                onClick={() => handleQuantityChange(ticketType._id, -1)}
-                                disabled={!selectedTickets[ticketType._id]}
-                                aria-label="Giảm số lượng"
-                                className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-500 to-purple-600 text-white flex items-center justify-center disabled:opacity-30 hover:opacity-90 transition-opacity"
-                              >
-                                <Minus className="w-3.5 h-3.5" />
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+                            <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', fontFamily: "'Be Vietnam Pro',sans-serif", fontWeight: 600 }}>Số lượng</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 0, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, overflow: 'hidden' }}>
+                              <button onClick={() => handleQuantityChange(ticket._id, -1)} disabled={qty === 0}
+                                style={{ width: 34, height: 34, border: 'none', background: 'transparent', color: qty === 0 ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.7)', cursor: qty === 0 ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s', fontSize: 16, fontWeight: 700 }}>
+                                <Minus style={{ width: 12, height: 12 }}/>
                               </button>
-                              <span className="w-8 text-center font-bold text-lg">
-                                {selectedTickets[ticketType._id] || 0}
+                              <span style={{ width: 36, textAlign: 'center', fontSize: 14, fontWeight: 800, color: qty > 0 ? '#fb923c' : 'rgba(255,255,255,0.6)', fontFamily: "'Space Mono',monospace", borderLeft: '1px solid rgba(255,255,255,0.08)', borderRight: '1px solid rgba(255,255,255,0.08)', lineHeight: '34px' }}>
+                                {qty}
                               </span>
-                              {/* Nút + */}
-                              <button
-                                onClick={() => handleQuantityChange(ticketType._id, 1)}
-                                disabled={(selectedTickets[ticketType._id] || 0) >= remaining}
-                                aria-label="Tăng số lượng"
-                                className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-500 to-purple-600 text-white flex items-center justify-center disabled:opacity-30 hover:opacity-90 transition-opacity"
-                              >
-                                <Plus className="w-3.5 h-3.5" />
+                              <button onClick={() => handleQuantityChange(ticket._id, 1)} disabled={qty >= remaining}
+                                style={{ width: 34, height: 34, border: 'none', background: 'transparent', color: qty >= remaining ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.7)', cursor: qty >= remaining ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>
+                                <Plus style={{ width: 12, height: 12 }}/>
                               </button>
                             </div>
                           </div>
@@ -287,37 +361,75 @@ const EventDetailPage = () => {
                       </div>
                     );
                   })}
-                </div>
-              ) : (
-                <div className="text-center py-12 text-gray-500">
-                  <AlertCircle className="w-16 h-16 mx-auto mb-4 text-gray-300" aria-hidden="true" />
-                  <p>Sự kiện này chưa mở bán vé.</p>
-                </div>
-              )}
 
-              {/* Total & Checkout */}
-              {ticketTypes.length > 0 && (
-                <div className="space-y-4 pt-6 border-t-2 border-gray-100">
-                  {/* Tổng tiền → gradient text */}
-                  <div className="flex items-center justify-between bg-gradient-to-r from-orange-50 to-purple-50 rounded-2xl p-4 border border-orange-100">
-                    <span className="text-gray-700 font-semibold">Tổng cộng:</span>
-                    <span className="text-2xl font-bold bg-gradient-to-r from-orange-500 to-purple-600 bg-clip-text text-transparent">
-                      {formatPrice(getTotalPrice())}
-                    </span>
+                  {/* Total + CTA */}
+                  <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    {/* Total */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(249,115,22,0.06)', border: '1px solid rgba(249,115,22,0.15)', borderRadius: 12, padding: '12px 16px' }}>
+                      <div>
+                        <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', fontFamily: "'Be Vietnam Pro',sans-serif", marginBottom: 2, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Tổng cộng</p>
+                        {totalSelected > 0 && <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', fontFamily: "'Be Vietnam Pro',sans-serif" }}>{totalSelected} vé đã chọn</p>}
+                      </div>
+                      <span style={{ fontSize: 20, fontWeight: 900, background: 'linear-gradient(90deg,#f97316,#a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontFamily: "'Clash Display','Be Vietnam Pro',sans-serif", letterSpacing: '-0.01em' }}>
+                        {fmtPrice(getTotalPrice())}
+                      </span>
+                    </div>
+
+                    {/* CTA button */}
+                    <button onClick={handleAddToCart}
+                      style={{ width: '100%', padding: '14px', borderRadius: 12, background: 'linear-gradient(135deg,#f97316,#a855f7)', border: 'none', cursor: 'pointer', color: 'white', fontSize: 14, fontWeight: 800, fontFamily: "'Be Vietnam Pro',sans-serif", display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 6px 28px rgba(249,115,22,0.28)', transition: 'all 0.25s' }}
+                      className="edp-cta-btn">
+                      Đặt vé ngay <ArrowRight style={{ width: 15, height: 15 }}/>
+                    </button>
+
+                    {/* Reassurance line */}
+                    <p style={{ textAlign: 'center', fontSize: 10, color: 'rgba(255,255,255,0.2)', fontFamily: "'Be Vietnam Pro',sans-serif", display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                      <Shield style={{ width: 10, height: 10 }}/> Thanh toán bảo mật · Hoàn tiền nếu sự kiện huỷ
+                    </p>
                   </div>
-                  {/* Nút đặt vé → gradient bg */}
-                  <button
-                    onClick={handleAddToCart}
-                    className="w-full bg-gradient-to-r from-orange-500 to-purple-600 hover:opacity-90 text-white font-bold py-4 rounded-full shadow-lg transition-all text-lg"
-                  >
-                    Đặt vé ngay
-                  </button>
+                </>
+              ) : (
+                /* No tickets state */
+                <div style={{ textAlign: 'center', padding: '32px 20px' }}>
+                  <div style={{ width: 52, height: 52, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
+                    <AlertCircle style={{ width: 22, height: 22, color: 'rgba(255,255,255,0.15)' }}/>
+                  </div>
+                  <p style={{ fontWeight: 700, color: 'rgba(255,255,255,0.4)', fontSize: 13, fontFamily: "'Be Vietnam Pro',sans-serif", marginBottom: 4 }}>Chưa mở bán vé</p>
+                  <p style={{ color: 'rgba(255,255,255,0.2)', fontSize: 11, fontFamily: "'Be Vietnam Pro',sans-serif" }}>Sự kiện này chưa có thông tin vé.</p>
                 </div>
               )}
             </div>
           </div>
         </div>
       </div>
+
+      {/* ── Shared styles ── */}
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap');
+        @import url('https://api.fontshare.com/v2/css?f[]=clash-display@700,800,900&display=swap');
+
+        @keyframes edp-spin { to { transform:rotate(360deg) } }
+        .edp-spin { animation: edp-spin 0.85s linear infinite; }
+
+        .edp-back-btn:hover { background:rgba(249,115,22,0.18) !important; border-color:rgba(249,115,22,0.4) !important; color:white !important; }
+        .edp-icon-btn:hover { background:rgba(255,255,255,0.12) !important; border-color:rgba(255,255,255,0.2) !important; }
+        .edp-info-card:hover { border-color:rgba(255,255,255,0.14) !important; }
+        .edp-cta-btn:hover { transform:translateY(-2px); box-shadow:0 10px 36px rgba(249,115,22,0.38) !important; }
+        .edp-cta-btn:active { transform:translateY(0); }
+
+        /* Responsive layout */
+        @media (max-width:860px) {
+          .edp-layout { grid-template-columns:1fr !important; }
+          .edp-info-grid { grid-template-columns:1fr 1fr !important; }
+          .edp-badge-grid { grid-template-columns:1fr !important; }
+        }
+        @media (max-width:520px) {
+          .edp-info-grid { grid-template-columns:1fr !important; }
+        }
+
+        * { scrollbar-width:none; }
+        ::-webkit-scrollbar { display:none; }
+      `}</style>
     </div>
   );
 };

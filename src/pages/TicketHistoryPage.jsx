@@ -1,246 +1,266 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Ticket, Calendar, MapPin, QrCode, ChevronDown, ChevronUp, ShoppingBag, ArrowLeft, Loader2, CheckCircle2 } from 'lucide-react';
+import {
+  Ticket, Calendar, MapPin, QrCode, ChevronDown, ChevronUp,
+  ShoppingBag, ArrowLeft, CheckCircle2, ArrowRight, XCircle
+} from 'lucide-react';
 import useAuthStore from '../store/authStore';
 
+// ─── HELPERS ──────────────────────────────────────────────────────────────
+const fmtPrice = p =>
+  new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(p || 0);
+
+const fmtDate = iso => {
+  if (!iso) return 'N/A';
+  return new Date(iso).toLocaleDateString('vi-VN', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  });
+};
+
+const getQRCodeImage = qr => {
+  if (!qr) return '';
+  if (qr.startsWith('http')) return qr;
+  return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qr)}`;
+};
+
+const isTicketCheckedIn = t =>
+  t.status === 'used' || t.status === 'checked' ||
+  t.isCheckedIn === true || t.checkedIn === true || !!t.checkedInAt;
+
+const orderStatusConfig = s => ({
+  paid:      { label: 'Đã thanh toán', color: '#34d399', bg: 'rgba(52,211,153,0.1)',  border: 'rgba(52,211,153,0.25)'  },
+  confirmed: { label: 'Đã xác nhận',   color: '#34d399', bg: 'rgba(52,211,153,0.1)',  border: 'rgba(52,211,153,0.25)'  },
+  active:    { label: 'Đang hoạt động',color: '#34d399', bg: 'rgba(52,211,153,0.1)',  border: 'rgba(52,211,153,0.25)'  },
+  used:      { label: 'Đã sử dụng',    color: 'rgba(255,255,255,0.3)', bg: 'rgba(255,255,255,0.05)', border: 'rgba(255,255,255,0.09)' },
+  cancelled: { label: 'Đã huỷ',        color: '#f87171', bg: 'rgba(248,113,113,0.1)', border: 'rgba(248,113,113,0.25)' },
+}[s] || { label: s || 'Đang xử lý', color: '#60a5fa', bg: 'rgba(96,165,250,0.1)', border: 'rgba(96,165,250,0.25)' });
+
+// ─── LOADING ──────────────────────────────────────────────────────────────
+const LoadingScreen = () => (
+  <div style={{ minHeight: '100svh', background: '#060606', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <div style={{ position: 'relative', width: 52, height: 52 }}>
+      <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '3px solid rgba(255,255,255,0.05)' }}/>
+      <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '3px solid transparent', borderTopColor: '#f97316', borderRightColor: '#a855f7' }} className="thp-spin"/>
+    </div>
+    <style>{`@keyframes thp-spin{to{transform:rotate(360deg)}}.thp-spin{animation:thp-spin 0.85s linear infinite}`}</style>
+  </div>
+);
+
+// ─── EMPTY ────────────────────────────────────────────────────────────────
+const EmptyState = ({ navigate }) => (
+  <div style={{ minHeight: '100svh', background: '#060606', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Be Vietnam Pro',sans-serif" }}>
+    <div style={{ textAlign: 'center', maxWidth: 360, padding: '0 24px' }}>
+      <div style={{ width: 72, height: 72, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 22px' }}>
+        <Ticket style={{ width: 30, height: 30, color: 'rgba(255,255,255,0.12)' }}/>
+      </div>
+      <h2 style={{ fontSize: 'clamp(1.3rem,3vw,1.8rem)', fontWeight: 900, color: 'white', marginBottom: 10, fontFamily: "'Clash Display','Be Vietnam Pro',sans-serif", letterSpacing: '-0.02em' }}>Chưa có vé nào</h2>
+      <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 13, marginBottom: 28, lineHeight: 1.7, fontFamily: "'Be Vietnam Pro',sans-serif" }}>Bạn chưa đặt vé sự kiện nào. Hãy khám phá ngay!</p>
+      <button onClick={() => navigate('/')} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'linear-gradient(135deg,#f97316,#a855f7)', color: 'white', fontSize: 13, fontWeight: 800, padding: '12px 28px', borderRadius: 999, border: 'none', cursor: 'pointer', fontFamily: "'Be Vietnam Pro',sans-serif", boxShadow: '0 6px 24px rgba(249,115,22,0.28)' }}>
+        Khám phá sự kiện <ArrowRight style={{ width: 14, height: 14 }}/>
+      </button>
+    </div>
+  </div>
+);
+
+// ─── MAIN ─────────────────────────────────────────────────────────────────
 const TicketHistoryPage = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuthStore();
   const token = useAuthStore(state => state.accessToken || state.token);
 
-  const [orders, setOrders] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [expandedOrder, setExpandedOrder] = useState(null);
+  const [orders, setOrders]                 = useState([]);
+  const [loading, setLoading]               = useState(true);
+  const [expandedOrder, setExpandedOrder]   = useState(null);
   const [expandedTicket, setExpandedTicket] = useState(null);
 
   useEffect(() => {
-    if (!isAuthenticated) {
-      navigate('/login', { state: { from: '/ticket-history' } });
-      return;
-    }
-
-    const fetchOrders = async () => {
+    if (!isAuthenticated) { navigate('/login', { state: { from: '/ticket-history' } }); return; }
+    (async () => {
       try {
         setLoading(true);
         const res = await axios.get('http://localhost:8000/api/orders/my-orders', {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${token}` },
         });
-        let ordersData = res.data?.data || res.data || [];
-        ordersData = ordersData.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-        setOrders(ordersData);
-      } catch (error) {
-        console.error('Lỗi lấy lịch sử vé:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchOrders();
+        let data = res.data?.data || res.data || [];
+        data = data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        setOrders(data);
+      } catch { /* silent */ }
+      finally { setLoading(false); }
+    })();
   }, [isAuthenticated, navigate, token]);
 
-  const formatPrice = (price) =>
-    new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
-
-  const formatDate = (iso) => {
-    if (!iso) return 'N/A';
-    return new Date(iso).toLocaleDateString('vi-VN', {
-      day: '2-digit', month: '2-digit', year: 'numeric',
-      hour: '2-digit', minute: '2-digit'
-    });
-  };
-
-  const orderStatusStyle = (status) => ({
-    paid:      'bg-green-100 text-green-700 border-green-200',
-    confirmed: 'bg-green-100 text-green-700 border-green-200',
-    used:      'bg-gray-100 text-gray-600 border-gray-200',
-    cancelled: 'bg-red-100 text-red-600 border-red-200',
-    active:    'bg-green-100 text-green-700 border-green-200',
-  }[status] || 'bg-blue-100 text-blue-700 border-blue-200');
-
-  // ── Kiểm tra vé đã check-in chưa (hỗ trợ nhiều cấu trúc backend) ──────────
-  const isTicketCheckedIn = (ticket) =>
-    ticket.status === 'used' ||
-    ticket.status === 'checked' ||
-    ticket.isCheckedIn === true ||
-    ticket.checkedIn === true ||
-    !!ticket.checkedInAt;
-
-  const getQRCodeImage = (qrString) => {
-    if (!qrString) return '';
-    if (qrString.startsWith('http')) return qrString;
-    return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrString)}`;
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 pt-20 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-10 h-10 text-orange-500 animate-spin mx-auto mb-4" />
-          <p className="text-gray-600 font-medium">Đang tải lịch sử vé...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (orders.length === 0) {
-    return (
-      <div className="min-h-screen bg-gray-50 pt-20 flex items-center justify-center">
-        <div className="text-center px-4">
-          <div className="w-20 h-20 bg-gradient-to-r from-orange-100 to-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Ticket className="w-10 h-10 text-orange-500" />
-          </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Chưa có vé nào</h2>
-          <p className="text-gray-600 mb-6">Bạn chưa đặt vé sự kiện nào. Hãy khám phá ngay!</p>
-          <button onClick={() => navigate('/')}
-            className="bg-gradient-to-r from-orange-600 to-purple-600 text-white px-8 py-3 rounded-full font-semibold hover:from-orange-700 hover:to-purple-700 transition-all">
-            Khám phá sự kiện
-          </button>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <LoadingScreen />;
+  if (orders.length === 0) return <EmptyState navigate={navigate} />;
 
   return (
-    <div className="min-h-screen bg-gray-50 pt-20 pb-12">
-      <div className="max-w-3xl mx-auto px-4">
+    <div style={{ minHeight: '100svh', background: '#060606', fontFamily: "'Be Vietnam Pro',sans-serif", color: 'white' }}>
+      {/* Ambient glows */}
+      <div style={{ position: 'fixed', top: -80, right: -80, width: 380, height: 380, background: 'radial-gradient(circle,rgba(249,115,22,0.04) 0%,transparent 70%)', pointerEvents: 'none' }}/>
+      <div style={{ position: 'fixed', bottom: -80, left: -80, width: 340, height: 340, background: 'radial-gradient(circle,rgba(168,85,247,0.05) 0%,transparent 70%)', pointerEvents: 'none' }}/>
+
+      <div style={{ maxWidth: 720, margin: '0 auto', padding: '52px 24px 80px', position: 'relative', zIndex: 1 }}>
+
+        {/* Back */}
         <button onClick={() => navigate(-1)}
-          className="flex items-center gap-2 text-gray-600 hover:text-orange-600 transition-colors mb-6 text-sm font-medium">
-          <ArrowLeft className="w-4 h-4" /> Quay lại
+          style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: 'rgba(255,255,255,0.35)', fontSize: 12, fontWeight: 700, cursor: 'pointer', marginBottom: 32, padding: 0, fontFamily: "'Be Vietnam Pro',sans-serif", transition: 'color 0.2s' }}
+          className="thp-back-btn">
+          <ArrowLeft style={{ width: 13, height: 13 }}/> Quay lại
         </button>
 
-        <div className="flex items-center justify-between mb-6">
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28 }}>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Lịch sử vé</h1>
-            <p className="text-sm text-gray-500 mt-1">{orders.length} đơn hàng</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+              <div style={{ width: 3, height: 22, background: 'linear-gradient(180deg,#f97316,#a855f7)', borderRadius: 2 }}/>
+              <h1 style={{ fontSize: 'clamp(1.2rem,3vw,1.6rem)', fontWeight: 900, color: 'white', fontFamily: "'Clash Display','Be Vietnam Pro',sans-serif", letterSpacing: '-0.02em' }}>Lịch sử vé</h1>
+            </div>
+            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', fontFamily: "'Space Mono',monospace", marginLeft: 13 }}>{orders.length} đơn hàng</p>
           </div>
-          <div className="w-10 h-10 bg-gradient-to-r from-orange-500 to-purple-600 rounded-full flex items-center justify-center">
-            <ShoppingBag className="w-5 h-5 text-white" />
+          <div style={{ width: 44, height: 44, background: 'linear-gradient(135deg,#f97316,#a855f7)', borderRadius: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 20px rgba(249,115,22,0.28)' }}>
+            <ShoppingBag style={{ width: 20, height: 20, color: 'white' }}/>
           </div>
         </div>
 
-        <div className="space-y-4">
-          {orders.map((order) => (
-            <div key={order._id} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow">
-              {/* Order header */}
-              <div className="px-6 py-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs font-mono text-gray-400 bg-gray-100 px-2 py-0.5 rounded">
-                        {order._id.substring(0, 10).toUpperCase()}...
-                      </span>
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${orderStatusStyle(order.status)}`}>
-                        {order.status === 'paid' || order.status === 'confirmed' ? '✓ Đã thanh toán' : order.status}
-                      </span>
-                    </div>
-                    <h3 className="font-bold text-gray-900 text-base truncate">
-                      {order.event?.title || order.event?.name || 'Sự kiện không xác định'}
-                    </h3>
-                    <div className="flex items-center gap-4 mt-1">
-                      <span className="flex items-center gap-1 text-xs text-gray-500">
-                        <MapPin className="w-3 h-3" />{order.event?.location || 'Đang cập nhật'}
-                      </span>
-                      <span className="flex items-center gap-1 text-xs text-gray-500">
-                        <Calendar className="w-3 h-3" />{formatDate(order.createdAt)}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="text-right ml-4 shrink-0">
-                    <p className="font-bold text-lg bg-gradient-to-r from-orange-600 to-purple-600 bg-clip-text text-transparent">
-                      {formatPrice(order.totalAmount)}
-                    </p>
-                    <p className="text-xs text-gray-500">{order.tickets?.length || 0} vé</p>
-                  </div>
-                </div>
+        {/* Order list */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {orders.map(order => {
+            const sc = orderStatusConfig(order.status);
+            const isOpen = expandedOrder === order._id;
 
-                <button
-                  onClick={() => setExpandedOrder(expandedOrder === order._id ? null : order._id)}
-                  className="mt-3 flex items-center gap-1 text-sm font-medium text-orange-600 hover:text-orange-700 transition-colors">
-                  {expandedOrder === order._id
-                    ? <><ChevronUp className="w-4 h-4" /> Ẩn vé</>
-                    : <><ChevronDown className="w-4 h-4" /> Xem vé ({order.tickets?.length})</>}
-                </button>
-              </div>
+            return (
+              <div key={order._id}
+                style={{ background: 'linear-gradient(180deg,#1e1e20 0%,#18181a 100%)', border: `1px solid ${isOpen ? 'rgba(249,115,22,0.3)' : 'rgba(255,255,255,0.08)'}`, borderRadius: 20, overflow: 'hidden', boxShadow: isOpen ? '0 8px 32px rgba(249,115,22,0.1)' : '0 4px 20px rgba(0,0,0,0.4)', transition: 'all 0.25s' }}>
 
-              {/* Tickets */}
-              {expandedOrder === order._id && (
-                <div className="border-t border-gray-100 divide-y divide-gray-100 bg-gray-50/50">
-                  {order.tickets?.map((ticket, idx) => {
-                    const checkedIn = isTicketCheckedIn(ticket);
-
-                    return (
-                      <div key={ticket._id} className="px-6 py-4">
-                        <div className="flex items-center justify-between mb-3">
-                          <div>
-                            <p className="font-semibold text-gray-900 text-sm">
-                              E-Ticket #{idx + 1} — {ticket.ticketType?.name}
-                            </p>
-                            <p className="text-xs font-mono text-gray-400 mt-0.5">ID: {ticket._id}</p>
-                          </div>
-
-                          <div className="flex items-center gap-2">
-                            {/* Badge trạng thái check-in */}
-                            {checkedIn ? (
-                              <span className="flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border bg-gray-100 text-gray-500 border-gray-200">
-                                <CheckCircle2 className="w-3 h-3 text-gray-400" /> Đã sử dụng
-                              </span>
-                            ) : (
-                              <span className="flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border bg-green-100 text-green-700 border-green-200">
-                                ✓ Có hiệu lực
-                              </span>
-                            )}
-
-                            {/* Nút QR — disable nếu đã check-in */}
-                            <button
-                              onClick={() => !checkedIn && setExpandedTicket(expandedTicket === ticket._id ? null : ticket._id)}
-                              disabled={checkedIn}
-                              title={checkedIn ? 'Vé này đã được sử dụng' : 'Xem mã QR'}
-                              className={`p-1.5 rounded-lg transition-colors shadow-sm ${
-                                checkedIn
-                                  ? 'bg-gray-100 cursor-not-allowed opacity-40'
-                                  : 'bg-gradient-to-r from-orange-100 to-purple-100 hover:from-orange-200 hover:to-purple-200'
-                              }`}
-                            >
-                              <QrCode className={`w-4 h-4 ${checkedIn ? 'text-gray-400' : 'text-orange-600'}`} />
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Thời gian check-in nếu đã dùng */}
-                        {checkedIn && ticket.checkedInAt && (
-                          <p className="text-[11px] text-gray-400 mb-2 flex items-center gap-1">
-                            <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                            Đã check-in lúc {formatDate(ticket.checkedInAt)}
-                          </p>
-                        )}
-
-                        {/* QR Code — chỉ hiện nếu chưa check-in */}
-                        {!checkedIn && expandedTicket === ticket._id && (
-                          <div className="flex flex-col items-center py-5 bg-white rounded-xl border border-orange-100 shadow-sm mt-2">
-                            <p className="text-xs text-gray-500 mb-3 font-medium uppercase tracking-wider">Mã QR Check-in</p>
-                            <img
-                              src={getQRCodeImage(ticket.qrCode)}
-                              alt="QR Code"
-                              className="w-40 h-40 rounded-xl border-2 border-white shadow-md"
-                            />
-                            <p className="text-xs text-gray-500 mt-3 font-mono text-center px-4 break-all bg-gray-100 py-1 rounded">
-                              Mã vé: {ticket.qrCode}
-                            </p>
-                            <p className="text-xs text-orange-600 mt-2 font-medium">
-                              Xuất trình QR này khi vào cổng
-                            </p>
-                          </div>
-                        )}
+                {/* Order header */}
+                <div style={{ padding: '18px 22px' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 10 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      {/* ID + status */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 7, flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: 10, fontFamily: "'Space Mono',monospace", color: 'rgba(255,255,255,0.25)', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', padding: '2px 8px', borderRadius: 6 }}>
+                          {order._id.substring(0, 10).toUpperCase()}...
+                        </span>
+                        <span style={{ fontSize: 9, fontWeight: 800, padding: '3px 9px', borderRadius: 999, background: sc.bg, color: sc.color, border: `1px solid ${sc.border}`, fontFamily: "'Be Vietnam Pro',sans-serif", textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                          {sc.label}
+                        </span>
                       </div>
-                    );
-                  })}
+
+                      <h3 style={{ fontSize: 14, fontWeight: 800, color: 'white', fontFamily: "'Clash Display','Be Vietnam Pro',sans-serif", overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 7 }}>
+                        {order.event?.title || order.event?.name || 'Sự kiện không xác định'}
+                      </h3>
+
+                      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+                        {order.event?.location && (
+                          <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', display: 'flex', alignItems: 'center', gap: 4, fontFamily: "'Be Vietnam Pro',sans-serif" }}>
+                            <MapPin style={{ width: 10, height: 10, color: '#a855f7' }}/>{order.event.location}
+                          </span>
+                        )}
+                        <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', display: 'flex', alignItems: 'center', gap: 4, fontFamily: "'Be Vietnam Pro',sans-serif" }}>
+                          <Calendar style={{ width: 10, height: 10, color: '#f97316' }}/>{fmtDate(order.createdAt)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Price + ticket count */}
+                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                      <p style={{ fontSize: 16, fontWeight: 900, background: 'linear-gradient(90deg,#f97316,#a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontFamily: "'Clash Display','Be Vietnam Pro',sans-serif", letterSpacing: '-0.01em' }}>
+                        {fmtPrice(order.totalAmount)}
+                      </p>
+                      <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', fontFamily: "'Be Vietnam Pro',sans-serif", marginTop: 2 }}>{order.tickets?.length || 0} vé</p>
+                    </div>
+                  </div>
+
+                  {/* Expand toggle */}
+                  <button onClick={() => setExpandedOrder(isOpen ? null : order._id)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', color: '#fb923c', fontSize: 12, fontWeight: 700, cursor: 'pointer', padding: 0, fontFamily: "'Be Vietnam Pro',sans-serif", transition: 'opacity 0.2s' }}
+                    className="thp-expand-btn">
+                    {isOpen
+                      ? <><ChevronUp style={{ width: 13, height: 13 }}/> Ẩn vé</>
+                      : <><ChevronDown style={{ width: 13, height: 13 }}/> Xem vé ({order.tickets?.length})</>}
+                  </button>
                 </div>
-              )}
-            </div>
-          ))}
+
+                {/* Tickets expanded */}
+                {isOpen && (
+                  <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(0,0,0,0.12)' }}>
+                    {order.tickets?.map((ticket, idx) => {
+                      const checkedIn = isTicketCheckedIn(ticket);
+                      const qrOpen = expandedTicket === ticket._id;
+
+                      return (
+                        <div key={ticket._id}
+                          style={{ padding: '16px 22px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+
+                          {/* Ticket row */}
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: checkedIn && ticket.checkedInAt ? 8 : 0 }}>
+                            <div style={{ minWidth: 0 }}>
+                              <p style={{ fontSize: 13, fontWeight: 700, color: 'white', fontFamily: "'Be Vietnam Pro',sans-serif", marginBottom: 3 }}>
+                                E-Ticket #{idx + 1} — {ticket.ticketType?.name}
+                              </p>
+                              <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)', fontFamily: "'Space Mono',monospace" }}>ID: {ticket._id}</p>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                              {/* Status badge */}
+                              <span style={{ fontSize: 9, fontWeight: 800, padding: '3px 9px', borderRadius: 999, background: checkedIn ? 'rgba(255,255,255,0.05)' : 'rgba(52,211,153,0.1)', color: checkedIn ? 'rgba(255,255,255,0.3)' : '#34d399', border: `1px solid ${checkedIn ? 'rgba(255,255,255,0.08)' : 'rgba(52,211,153,0.25)'}`, fontFamily: "'Be Vietnam Pro',sans-serif", textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                <CheckCircle2 style={{ width: 10, height: 10 }}/>
+                                {checkedIn ? 'Đã dùng' : 'Có hiệu lực'}
+                              </span>
+
+                              {/* QR toggle button */}
+                              <button
+                                onClick={() => !checkedIn && setExpandedTicket(qrOpen ? null : ticket._id)}
+                                disabled={checkedIn}
+                                style={{ width: 32, height: 32, borderRadius: 9, background: checkedIn ? 'rgba(255,255,255,0.03)' : 'rgba(249,115,22,0.1)', border: `1px solid ${checkedIn ? 'rgba(255,255,255,0.06)' : 'rgba(249,115,22,0.25)'}`, color: checkedIn ? 'rgba(255,255,255,0.15)' : '#f97316', cursor: checkedIn ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}
+                                className={checkedIn ? '' : 'thp-qr-btn'}>
+                                <QrCode style={{ width: 14, height: 14 }}/>
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Check-in time */}
+                          {checkedIn && ticket.checkedInAt && (
+                            <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', fontFamily: "'Be Vietnam Pro',sans-serif", display: 'flex', alignItems: 'center', gap: 5, marginBottom: 2 }}>
+                              <CheckCircle2 style={{ width: 10, height: 10, color: '#34d399' }}/> Đã check-in lúc {fmtDate(ticket.checkedInAt)}
+                            </p>
+                          )}
+
+                          {/* QR expanded */}
+                          {!checkedIn && qrOpen && (
+                            <div style={{ marginTop: 14, padding: '20px', background: 'rgba(249,115,22,0.04)', border: '1px solid rgba(249,115,22,0.12)', borderRadius: 14, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }} className="thp-fade-in">
+                              <p style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.12em', fontFamily: "'Be Vietnam Pro',sans-serif" }}>Mã QR Check-in</p>
+                              <div style={{ background: 'white', borderRadius: 14, padding: 8, boxShadow: '0 8px 28px rgba(0,0,0,0.4)' }}>
+                                <img src={getQRCodeImage(ticket.qrCode)} alt="QR" style={{ width: 140, height: 140, display: 'block', borderRadius: 8 }}/>
+                              </div>
+                              <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)', fontFamily: "'Space Mono',monospace", textAlign: 'center', wordBreak: 'break-all' }}>
+                                {ticket.qrCode}
+                              </p>
+                              <p style={{ fontSize: 11, color: '#fb923c', fontWeight: 700, fontFamily: "'Be Vietnam Pro',sans-serif" }}>Xuất trình QR này khi vào cổng</p>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
+
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap');
+        @import url('https://api.fontshare.com/v2/css?f[]=clash-display@700,800,900&display=swap');
+        @keyframes thp-spin{to{transform:rotate(360deg)}}.thp-spin{animation:thp-spin 0.85s linear infinite}
+        @keyframes thp-fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}.thp-fade-in{animation:thp-fade 0.3s ease-out}
+        .thp-back-btn:hover{color:white !important}
+        .thp-expand-btn:hover{opacity:0.75}
+        .thp-qr-btn:hover{background:rgba(249,115,22,0.2) !important;border-color:rgba(249,115,22,0.4) !important}
+        *{scrollbar-width:none}::-webkit-scrollbar{display:none}
+      `}</style>
     </div>
   );
 };

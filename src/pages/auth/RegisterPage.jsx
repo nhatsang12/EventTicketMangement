@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, User } from 'lucide-react';
-import axios from 'axios'; // Import axios để gọi API
+import { Mail, Lock, User, ArrowRight, Eye, EyeOff } from 'lucide-react';
+import axios from 'axios';
 import useAuthStore from '../../store/authStore';
 import toast from 'react-hot-toast';
 
@@ -9,10 +9,12 @@ const RegisterPage = () => {
   const navigate = useNavigate();
   const { setAuth } = useAuthStore();
   const [loading, setLoading] = useState(false);
+  const [showPass, setShowPass] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [focused, setFocused] = useState('');
 
-  // Backend cần 'username', nên mình đổi fullname -> username cho khớp
   const [formData, setFormData] = useState({
-    username: '', 
+    username: '',
     email: '',
     password: '',
     confirmPassword: '',
@@ -25,7 +27,6 @@ const RegisterPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // 1. Validate phía Client
     if (formData.password !== formData.confirmPassword) {
       toast.error('Mật khẩu xác nhận không khớp!');
       return;
@@ -37,28 +38,19 @@ const RegisterPage = () => {
 
     try {
       setLoading(true);
-
-      // 2. Gọi API Đăng ký (Đã cấu hình Proxy nên chỉ cần gõ ngắn gọn)
       const response = await axios.post('/api/auth/register', {
-        username: formData.username, // Mapping dữ liệu đúng với Backend yêu cầu
+        username: formData.username,
         email: formData.email,
         password: formData.password,
       });
 
-      // 3. Xử lý kết quả trả về từ Backend
-      // Cấu trúc trả về: { status, message, accessToken, refreshToken, data: { user } }
       const { accessToken, refreshToken, data } = response.data;
       const user = data.user;
-
-      // 4. Lưu vào Store (Đăng ký xong tự đăng nhập luôn)
       setAuth(user, accessToken, refreshToken);
-
       toast.success('Đăng ký thành công! Chào mừng bạn.');
-      navigate('/'); // Chuyển hướng về trang chủ
-
+      navigate('/');
     } catch (error) {
       console.error(error);
-      // Lấy thông báo lỗi từ Backend (ví dụ: Email đã tồn tại)
       const message = error.response?.data?.message || 'Đăng ký thất bại. Vui lòng thử lại!';
       toast.error(message);
     } finally {
@@ -66,116 +58,203 @@ const RegisterPage = () => {
     }
   };
 
+  const fieldAccent = (field) => {
+    if (field === 'password' || field === 'confirmPassword') return 'rgba(168,85,247,0.5)';
+    return 'rgba(249,115,22,0.5)';
+  };
+
+  const fieldGlow = (field) => {
+    if (field === 'password' || field === 'confirmPassword') return 'rgba(168,85,247,0.1)';
+    return 'rgba(249,115,22,0.1)';
+  };
+
+  const iconColor = (field) => {
+    if (focused !== field) return 'rgba(255,255,255,0.25)';
+    return field === 'password' || field === 'confirmPassword' ? '#a855f7' : '#f97316';
+  };
+
+  const inputStyle = (field, extra = {}) => ({
+    width: '100%',
+    padding: '14px 14px 14px 42px',
+    ...extra,
+    background: focused === field ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.04)',
+    border: focused === field
+      ? `1px solid ${fieldAccent(field)}`
+      : '1px solid rgba(255,255,255,0.09)',
+    borderRadius: 12,
+    fontSize: 14,
+    color: 'white',
+    outline: 'none',
+    transition: 'all 0.2s',
+    fontFamily: "'Be Vietnam Pro',sans-serif",
+    boxShadow: focused === field ? `0 0 0 3px ${fieldGlow(field)}` : 'none',
+    boxSizing: 'border-box',
+  });
+
   return (
-    <div className="min-h-screen relative flex items-center justify-center px-4 font-body">
-      {/* Background */}
-      <div className="absolute inset-0">
+    <div style={{ minHeight: '100svh', display: 'flex', fontFamily: "'Be Vietnam Pro',sans-serif", background: '#060606', position: 'relative', overflow: 'hidden' }}>
+
+      {/* ── LEFT: Hero image panel ── */}
+      <div style={{ flex: '0 0 52%', position: 'relative', display: 'flex' }} className="rp-hero-panel">
         <img
-          src="https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=1600"
-          alt="Background"
-          className="w-full h-full object-cover brightness-50"
+          src="https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=1400&auto=format&fit=crop&q=80"
+          alt="event"
+          style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }}
         />
-        <div className="absolute inset-0 bg-black/40" />
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg,rgba(6,6,6,0.55) 0%,rgba(0,0,0,0.2) 50%,rgba(168,85,247,0.08) 100%)' }} />
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right,rgba(6,6,6,0) 60%,rgba(6,6,6,0.96) 100%)' }} />
       </div>
 
-      {/* Card */}
-      <div className="relative z-10 w-full max-w-md bg-white rounded-lg shadow-2xl p-8">
-        {/* Title */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-600 mb-2">
-            Create account
-          </h1>
-          <h2 className="text-4xl font-bold text-gray-600">
-            Join us today
-          </h2>
+      {/* ── RIGHT: Form panel ── */}
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 48px', background: '#060606', position: 'relative', overflow: 'hidden' }}>
+
+        {/* Ambient glow */}
+        <div style={{ position: 'absolute', top: -100, right: -100, width: 400, height: 400, background: 'radial-gradient(circle,rgba(249,115,22,0.05) 0%,transparent 70%)', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', bottom: -80, left: -80, width: 350, height: 350, background: 'radial-gradient(circle,rgba(168,85,247,0.06) 0%,transparent 70%)', pointerEvents: 'none' }} />
+
+        <div style={{ width: '100%', maxWidth: 380, position: 'relative' }}>
+
+          {/* Header */}
+          <div style={{ marginBottom: 28 }}>
+            <p style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.25)', textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: 10, fontFamily: "'Be Vietnam Pro',sans-serif" }}>
+              Đăng ký
+            </p>
+            <h1 style={{ fontSize: 'clamp(1.8rem,3vw,2.4rem)', fontWeight: 900, color: 'white', lineHeight: 1.1, letterSpacing: '-0.03em', fontFamily: "'Clash Display','Be Vietnam Pro',sans-serif", marginBottom: 8 }}>
+              Tạo tài khoản<br />
+              <span style={{ background: 'linear-gradient(90deg,#f97316,#a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                tham gia ngay!
+              </span>
+            </h1>
+          </div>
+
+          {/* Form */}
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+            {/* Username */}
+            <div style={{ position: 'relative' }}>
+              <User style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', width: 15, height: 15, color: iconColor('username'), transition: 'color 0.2s', zIndex: 1 }} />
+              <input
+                type="text" name="username" value={formData.username}
+                onChange={handleChange}
+                onFocus={() => setFocused('username')} onBlur={() => setFocused('')}
+                required placeholder="Username"
+                style={inputStyle('username')}
+              />
+            </div>
+
+            {/* Email */}
+            <div style={{ position: 'relative' }}>
+              <Mail style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', width: 15, height: 15, color: iconColor('email'), transition: 'color 0.2s', zIndex: 1 }} />
+              <input
+                type="email" name="email" value={formData.email}
+                onChange={handleChange}
+                onFocus={() => setFocused('email')} onBlur={() => setFocused('')}
+                required placeholder="Email"
+                style={inputStyle('email')}
+              />
+            </div>
+
+            {/* Password */}
+            <div style={{ position: 'relative' }}>
+              <Lock style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', width: 15, height: 15, color: iconColor('password'), transition: 'color 0.2s', zIndex: 1 }} />
+              <input
+                type={showPass ? 'text' : 'password'} name="password" value={formData.password}
+                onChange={handleChange}
+                onFocus={() => setFocused('password')} onBlur={() => setFocused('')}
+                required placeholder="Mật khẩu (tối thiểu 6 ký tự)"
+                style={inputStyle('password', { paddingRight: 44 })}
+              />
+              <button type="button" onClick={() => setShowPass(v => !v)}
+                style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.28)', padding: 0, display: 'flex' }}>
+                {showPass ? <EyeOff style={{ width: 15, height: 15 }} /> : <Eye style={{ width: 15, height: 15 }} />}
+              </button>
+            </div>
+
+            {/* Confirm Password */}
+            <div style={{ position: 'relative' }}>
+              <Lock style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', width: 15, height: 15, color: iconColor('confirmPassword'), transition: 'color 0.2s', zIndex: 1 }} />
+              <input
+                type={showConfirm ? 'text' : 'password'} name="confirmPassword" value={formData.confirmPassword}
+                onChange={handleChange}
+                onFocus={() => setFocused('confirmPassword')} onBlur={() => setFocused('')}
+                required placeholder="Xác nhận mật khẩu"
+                style={inputStyle('confirmPassword', { paddingRight: 44 })}
+              />
+              <button type="button" onClick={() => setShowConfirm(v => !v)}
+                style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.28)', padding: 0, display: 'flex' }}>
+                {showConfirm ? <EyeOff style={{ width: 15, height: 15 }} /> : <Eye style={{ width: 15, height: 15 }} />}
+              </button>
+            </div>
+
+            {/* Submit */}
+            <button type="submit" disabled={loading}
+              style={{
+                width: '100%', padding: '15px', borderRadius: 12,
+                background: loading ? 'rgba(255,255,255,0.06)' : 'linear-gradient(135deg,#f97316,#a855f7)',
+                border: 'none', cursor: loading ? 'not-allowed' : 'pointer',
+                color: 'white', fontSize: 15, fontWeight: 800,
+                fontFamily: "'Be Vietnam Pro',sans-serif",
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                transition: 'all 0.25s',
+                boxShadow: loading ? 'none' : '0 6px 28px rgba(249,115,22,0.28)',
+                opacity: loading ? 0.7 : 1,
+                marginTop: 4,
+              }} className="rp-submit">
+              {loading ? (
+                <><span style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: 'white', borderRadius: '50%', display: 'inline-block' }} className="rp-spin" /> Đang xử lý...</>
+              ) : (
+                <>Tạo tài khoản <ArrowRight style={{ width: 16, height: 16 }} /></>
+              )}
+            </button>
+          </form>
+
+          {/* Divider */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, margin: '24px 0' }}>
+            <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.07)' }} />
+            <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', fontFamily: "'Be Vietnam Pro',sans-serif", whiteSpace: 'nowrap' }}>Hoặc đăng ký với</span>
+            <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.07)' }} />
+          </div>
+
+          {/* Social buttons */}
+          <div style={{ display: 'flex', gap: 12 }}>
+            {['apple', 'google', 'facebook'].map((p) => (
+              <button key={p}
+                style={{ flex: 1, height: 48, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s' }}
+                className="rp-social">
+                <img src={`https://cdn.jsdelivr.net/gh/devicons/devicon/icons/${p}/${p}-original.svg`} alt={p} style={{ width: 20, height: 20 }} />
+              </button>
+            ))}
+          </div>
+
+          {/* Login link */}
+          <p style={{ textAlign: 'center', fontSize: 13, color: 'rgba(255,255,255,0.35)', marginTop: 24, fontFamily: "'Be Vietnam Pro',sans-serif" }}>
+            Đã có tài khoản?{' '}
+            <Link to="/login"
+              style={{ fontWeight: 700, background: 'linear-gradient(90deg,#f97316,#a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', textDecoration: 'none' }}>
+              Đăng nhập ngay
+            </Link>
+          </p>
         </div>
-
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-6">
-          
-          {/* Username Input */}
-          <div className="relative">
-            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input
-              type="text"
-              name="username" // Đã sửa thành username
-              value={formData.username}
-              onChange={handleChange}
-              required
-              placeholder="Username" // Đổi placeholder cho hợp lý
-              className="w-full pl-10 px-3 py-3 text-sm border border-gray-300 rounded-md
-                          focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all"
-            />
-          </div>
-
-          {/* Email Input */}
-          <div className="relative">
-            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              required
-              placeholder="Email"
-              className="w-full pl-10 px-3 py-3 text-sm border border-gray-300 rounded-md
-                          focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all"
-            />
-          </div>
-
-          {/* Password Input */}
-          <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input
-              type="password"
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              required
-              placeholder="Password (min 6 chars)"
-              className="w-full pl-10 px-3 py-3 text-sm border border-gray-300 rounded-md
-                          focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all"
-            />
-          </div>
-
-          {/* Confirm Password Input */}
-          <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input
-              type="password"
-              name="confirmPassword"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              required
-              placeholder="Confirm password"
-              className="w-full pl-10 px-3 py-3 text-sm border border-gray-300 rounded-md
-                          focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500 transition-all"
-            />
-          </div>
-
-          {/* Submit Button */}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-3 text-lg font-semibold text-white
-                       bg-gradient-to-r from-orange-600 to-purple-600 hover:from-orange-700 hover:to-purple-700
-                       disabled:opacity-50 rounded-md transition-all duration-300"
-          >
-            {loading ? 'Processing...' : 'Create Account'}
-          </button>
-        </form>
-
-        {/* Login Link */}
-        <p className="text-center text-sm text-gray-600 mt-6">
-          Đã có tài khoản?{' '}
-          <Link
-            to="/login"
-            className="bg-gradient-to-r from-orange-600 to-purple-600 bg-clip-text text-transparent font-medium hover:from-orange-700 hover:to-purple-700 transition-all"
-          >
-            Đăng nhập ngay
-          </Link>
-        </p>
       </div>
+
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800;900&display=swap');
+        @import url('https://api.fontshare.com/v2/css?f[]=clash-display@700,800,900&display=swap');
+
+        input::placeholder { color: rgba(255,255,255,0.25); }
+        input:-webkit-autofill { -webkit-box-shadow: 0 0 0 100px #111 inset !important; -webkit-text-fill-color: white !important; }
+
+        @keyframes rp-spin { to { transform: rotate(360deg); } }
+        .rp-spin { animation: rp-spin 0.8s linear infinite; }
+
+        .rp-submit:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 10px 36px rgba(249,115,22,0.38) !important; }
+        .rp-submit:active:not(:disabled) { transform: translateY(0); }
+        .rp-social:hover { background: rgba(255,255,255,0.08) !important; border-color: rgba(255,255,255,0.18) !important; transform: translateY(-1px); }
+
+        @media (max-width: 768px) {
+          .rp-hero-panel { display: none !important; }
+        }
+      `}</style>
     </div>
   );
 };
