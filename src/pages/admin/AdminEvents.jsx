@@ -60,10 +60,7 @@ const AdminEvents = () => {
   const fileRef = useRef();
   const { accessToken } = useAuthStore();
 
-  const api = axios.create({
-    baseURL: `${API_URL}/api/admin/events`,
-    headers: { Authorization: `Bearer ${accessToken}` }
-  });
+  const authConfig = { headers: { Authorization: `Bearer ${accessToken}` } };
 
   const fetchEvents = async () => {
     try {

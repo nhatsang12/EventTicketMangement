@@ -21,24 +21,19 @@ const AdminTickets = () => {
   const [searchTicketName, setSearchTicketName] = useState('');
   const [loading, setLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-
-  // ── Fill quantity modal ──
-  const [fillModal, setFillModal] = useState(null); // { index, ticket }
+  const [fillModal, setFillModal] = useState(null);
   const [fillAmount, setFillAmount] = useState('');
   const [fillLoading, setFillLoading] = useState(false);
 
   const { accessToken } = useAuthStore();
 
-  const apiTickets = axios.create({ baseURL: `${API_URL}/api/admin/ticket-types` });
-  const apiEvents  = axios.create({ baseURL: `${API_URL}/api/admin/events` });
-
   const fetchData = async () => {
     try {
       const config = { headers: { Authorization: `Bearer ${accessToken}` } };
-      const evRes = await apiEvents.get('/', config);
-      setEvents(Array.isArray(evRes.data?.data ?? evRes.data) ? (evRes.data?.data ?? evRes.data) : []);
-      const tcRes = await apiTickets.get('/', config);
-      setTicketTypes(Array.isArray(tcRes.data?.data ?? tcRes.data) ? (tcRes.data?.data ?? tcRes.data) : []);
+      const evRes = await axios.get(`${API_URL}/api/admin/events/`, config);
+      setEvents(Array.isArray(evRes.data?.data) ? evRes.data.data : evRes.data || []);
+      const tcRes = await axios.get(`${API_URL}/api/admin/ticket-types/`, config);
+      setTicketTypes(Array.isArray(tcRes.data?.data) ? tcRes.data.data : tcRes.data || []);
       setCurrentPage(1);
     } catch {
       toast.error('Lỗi khi tải dữ liệu từ server');
@@ -56,6 +51,7 @@ const AdminTickets = () => {
     }
     try {
       setLoading(true);
+      const config = { headers: { Authorization: `Bearer ${accessToken}` } };
       const payload = {
         event: form.eventId,
         name: form.name,
@@ -64,12 +60,11 @@ const AdminTickets = () => {
         description: form.description,
         isActive: form.isActive,
       };
-      const config = { headers: { Authorization: `Bearer ${accessToken}` } };
       if (editing !== null) {
-        await apiTickets.put(`/${ticketTypes[editing]._id}`, payload, config);
+        await axios.put(`${API_URL}/api/admin/ticket-types/${ticketTypes[editing]._id}`, payload, config);
         toast.success('Cập nhật loại vé thành công!');
       } else {
-        await apiTickets.post('/', payload, config);
+        await axios.post(`${API_URL}/api/admin/ticket-types/`, payload, config);
         toast.success('Tạo loại vé thành công!');
       }
       fetchData();
@@ -94,7 +89,8 @@ const AdminTickets = () => {
   const handleDelete = async (i) => {
     if (!window.confirm('Bạn có chắc chắn muốn xóa loại vé này?')) return;
     try {
-      await apiTickets.delete(`/${ticketTypes[i]._id}`, { headers: { Authorization: `Bearer ${accessToken}` } });
+      const config = { headers: { Authorization: `Bearer ${accessToken}` } };
+      await axios.delete(`${API_URL}/api/admin/ticket-types/${ticketTypes[i]._id}`, config);
       toast.success('Đã xóa loại vé');
       fetchData();
     } catch {
@@ -104,9 +100,10 @@ const AdminTickets = () => {
 
   const handleToggle = async (i) => {
     try {
+      const config = { headers: { Authorization: `Bearer ${accessToken}` } };
       const ticket = ticketTypes[i];
       const newStatus = !ticket.isActive;
-      await apiTickets.put(`/${ticket._id}`, { isActive: newStatus }, { headers: { Authorization: `Bearer ${accessToken}` } });
+      await axios.put(`${API_URL}/api/admin/ticket-types/${ticket._id}`, { isActive: newStatus }, config);
       toast.success(newStatus ? 'Đã bật loại vé' : 'Đã tắt loại vé');
       fetchData();
     } catch {
@@ -114,7 +111,6 @@ const AdminTickets = () => {
     }
   };
 
-  // ── Fill quantity handler ──
   const openFillModal = (globalIndex) => {
     setFillModal({ index: globalIndex, ticket: ticketTypes[globalIndex] });
     setFillAmount('');
@@ -133,17 +129,17 @@ const AdminTickets = () => {
     }
     try {
       setFillLoading(true);
+      const config = { headers: { Authorization: `Bearer ${accessToken}` } };
       const ticket = fillModal.ticket;
       const newQuantity = ticket.quantity + amount;
       const currentRemaining = ticket.remaining !== undefined
         ? ticket.remaining
         : ticket.quantity - (ticket.sold || 0);
       const newRemaining = currentRemaining + amount;
-
-      await apiTickets.put(
-        `/${ticket._id}`,
+      await axios.put(
+        `${API_URL}/api/admin/ticket-types/${ticket._id}`,
         { quantity: newQuantity, remaining: newRemaining },
-        { headers: { Authorization: `Bearer ${accessToken}` } }
+        config
       );
       toast.success(`Đã thêm ${amount} vé vào "${ticket.name}"`);
       fetchData();
@@ -157,7 +153,6 @@ const AdminTickets = () => {
 
   const formatPrice = (p) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(p);
 
-  // Filter + Sort
   let processed = ticketTypes;
   if (filterEvent !== 'all') processed = processed.filter(t => (t.event?._id || t.event) === filterEvent);
   if (statusFilter !== 'all') processed = processed.filter(t => t.isActive === (statusFilter === 'active'));
@@ -181,8 +176,8 @@ const AdminTickets = () => {
 
   const typeBadgeColor = (name) => {
     const s = name || '';
-    if (/vip/i.test(s))    return 'bg-yellow-50 text-yellow-700 border-yellow-200';
-    if (/early/i.test(s))  return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+    if (/vip/i.test(s))      return 'bg-yellow-50 text-yellow-700 border-yellow-200';
+    if (/early/i.test(s))    return 'bg-emerald-50 text-emerald-700 border-emerald-200';
     if (/standard/i.test(s)) return 'bg-blue-50 text-blue-700 border-blue-200';
     return 'bg-purple-50 text-purple-700 border-purple-200';
   };
@@ -230,7 +225,7 @@ const AdminTickets = () => {
         </select>
       </div>
 
-      {/* Form tạo/sửa vé */}
+      {/* Form */}
       {showForm && (
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
           <div className="flex items-center justify-between mb-5">
@@ -315,7 +310,6 @@ const AdminTickets = () => {
                   const remaining = t.remaining !== undefined ? t.remaining : (t.quantity - (t.sold || 0));
                   const pct = Math.round(((t.sold || 0) / t.quantity) * 100);
                   const globalIndex = startIndex + i;
-
                   return (
                     <tr key={t._id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-3">
@@ -346,11 +340,8 @@ const AdminTickets = () => {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => openFillModal(globalIndex)}
-                            title="Thêm số lượng vé"
-                            className="p-1.5 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors"
-                          >
+                          <button onClick={() => openFillModal(globalIndex)} title="Thêm số lượng vé"
+                            className="p-1.5 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors">
                             <PlusCircle className="w-3 h-3 text-emerald-600" />
                           </button>
                           <button onClick={() => handleEdit(globalIndex)}
@@ -369,8 +360,6 @@ const AdminTickets = () => {
               </tbody>
             </table>
           </div>
-
-          {/* Phân trang */}
           {totalPages > 1 && (
             <div className="flex items-center justify-center gap-3 py-4 border-t border-gray-100">
               <button onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1}
@@ -389,7 +378,7 @@ const AdminTickets = () => {
         </div>
       )}
 
-      {/* ── Modal fill số lượng vé ── */}
+      {/* Modal fill số lượng vé */}
       {fillModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
           <div className="bg-white border border-gray-200 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
@@ -400,8 +389,7 @@ const AdminTickets = () => {
               </button>
             </div>
             <p className="text-xs text-gray-500 mb-4">
-              Loại vé:&nbsp;
-              <span className="font-semibold text-gray-800">{fillModal.ticket.name}</span>
+              Loại vé: <span className="font-semibold text-gray-800">{fillModal.ticket.name}</span>
             </p>
             <div className="flex gap-3 mb-4">
               <div className="flex-1 bg-gray-50 rounded-xl px-3 py-2.5 text-center">
@@ -426,24 +414,14 @@ const AdminTickets = () => {
               </div>
             </div>
             <div className="mb-5">
-              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">
-                Số lượng cần thêm *
-              </label>
-              <input
-                type="number"
-                min="1"
-                value={fillAmount}
-                onChange={e => setFillAmount(e.target.value)}
-                placeholder="Nhập số lượng..."
-                autoFocus
-                className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-orange-400 focus:bg-white transition-all"
-              />
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Số lượng cần thêm *</label>
+              <input type="number" min="1" value={fillAmount} onChange={e => setFillAmount(e.target.value)}
+                placeholder="Nhập số lượng..." autoFocus
+                className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-orange-400 focus:bg-white transition-all" />
             </div>
             <div className="flex gap-3">
               <button onClick={closeFillModal} disabled={fillLoading}
-                className="flex-1 py-2.5 border border-gray-200 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors">
-                Hủy
-              </button>
+                className="flex-1 py-2.5 border border-gray-200 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors">Hủy</button>
               <button onClick={handleFillSubmit} disabled={fillLoading}
                 className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl text-sm font-bold hover:from-emerald-600 hover:to-teal-600 transition-all shadow-md disabled:opacity-60 disabled:cursor-not-allowed">
                 <PlusCircle className="w-4 h-4" />
