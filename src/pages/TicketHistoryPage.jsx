@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
   Ticket, Calendar, MapPin, QrCode, ChevronDown, ChevronUp,
-  ShoppingBag, ArrowLeft, CheckCircle2, ArrowRight, XCircle
+  ShoppingBag, ArrowLeft, CheckCircle2, ArrowRight, XCircle, Clock
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 
@@ -28,6 +28,52 @@ const getQRCodeImage = qr => {
 const isTicketCheckedIn = t =>
   t.status === 'used' || t.status === 'checked' ||
   t.isCheckedIn === true || t.checkedIn === true || !!t.checkedInAt;
+
+// Kiểm tra vé đã hết hạn chưa — dựa vào ngày kết thúc sự kiện hoặc expiresAt của vé
+const isTicketExpired = (ticket, order) => {
+  // Ưu tiên: expiresAt của vé
+  if (ticket.expiresAt) return new Date(ticket.expiresAt) < new Date();
+  // Hoặc: ngày kết thúc sự kiện (endDate)
+  if (order?.event?.endDate) return new Date(order.event.endDate) < new Date();
+  // Hoặc: ngày bắt đầu sự kiện đã qua (nếu không có endDate)
+  if (order?.event?.startDate) return new Date(order.event.startDate) < new Date();
+  return false;
+};
+
+// Trả về trạng thái + config hiển thị của vé
+const getTicketStatus = (ticket, order) => {
+  if (isTicketCheckedIn(ticket)) {
+    return {
+      key: 'used',
+      label: 'Đã sử dụng',
+      color: 'rgba(255,255,255,0.3)',
+      bg: 'rgba(255,255,255,0.05)',
+      border: 'rgba(255,255,255,0.08)',
+      icon: CheckCircle2,
+      canShowQR: false,
+    };
+  }
+  if (isTicketExpired(ticket, order)) {
+    return {
+      key: 'expired',
+      label: 'Không còn hiệu lực',
+      color: '#f87171',
+      bg: 'rgba(248,113,113,0.08)',
+      border: 'rgba(248,113,113,0.2)',
+      icon: XCircle,
+      canShowQR: false,
+    };
+  }
+  return {
+    key: 'valid',
+    label: 'Có hiệu lực',
+    color: '#34d399',
+    bg: 'rgba(52,211,153,0.1)',
+    border: 'rgba(52,211,153,0.25)',
+    icon: CheckCircle2,
+    canShowQR: true,
+  };
+};
 
 const orderStatusConfig = s => ({
   paid:      { label: 'Đã thanh toán', color: '#34d399', bg: 'rgba(52,211,153,0.1)',  border: 'rgba(52,211,153,0.25)'  },
@@ -186,7 +232,8 @@ const TicketHistoryPage = () => {
                 {isOpen && (
                   <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(0,0,0,0.12)' }}>
                     {order.tickets?.map((ticket, idx) => {
-                      const checkedIn = isTicketCheckedIn(ticket);
+                      const ticketStatus = getTicketStatus(ticket, order);
+                      const StatusIcon = ticketStatus.icon;
                       const qrOpen = expandedTicket === ticket._id;
 
                       return (
@@ -194,9 +241,9 @@ const TicketHistoryPage = () => {
                           style={{ padding: '16px 22px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
 
                           {/* Ticket row */}
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: checkedIn && ticket.checkedInAt ? 8 : 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: ticketStatus.key === 'used' && ticket.checkedInAt ? 8 : 0 }}>
                             <div style={{ minWidth: 0 }}>
-                              <p style={{ fontSize: 13, fontWeight: 700, color: 'white', fontFamily: "'Be Vietnam Pro',sans-serif", marginBottom: 3 }}>
+                              <p style={{ fontSize: 13, fontWeight: 700, color: ticketStatus.key === 'expired' ? 'rgba(255,255,255,0.4)' : 'white', fontFamily: "'Be Vietnam Pro',sans-serif", marginBottom: 3, textDecoration: ticketStatus.key === 'expired' ? 'line-through' : 'none' }}>
                                 E-Ticket #{idx + 1} — {ticket.ticketType?.name}
                               </p>
                               <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)', fontFamily: "'Space Mono',monospace" }}>ID: {ticket._id}</p>
@@ -204,31 +251,55 @@ const TicketHistoryPage = () => {
 
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                               {/* Status badge */}
-                              <span style={{ fontSize: 9, fontWeight: 800, padding: '3px 9px', borderRadius: 999, background: checkedIn ? 'rgba(255,255,255,0.05)' : 'rgba(52,211,153,0.1)', color: checkedIn ? 'rgba(255,255,255,0.3)' : '#34d399', border: `1px solid ${checkedIn ? 'rgba(255,255,255,0.08)' : 'rgba(52,211,153,0.25)'}`, fontFamily: "'Be Vietnam Pro',sans-serif", textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: 4 }}>
-                                <CheckCircle2 style={{ width: 10, height: 10 }}/>
-                                {checkedIn ? 'Đã dùng' : 'Có hiệu lực'}
+                              <span style={{
+                                fontSize: 9, fontWeight: 800, padding: '3px 9px', borderRadius: 999,
+                                background: ticketStatus.bg,
+                                color: ticketStatus.color,
+                                border: `1px solid ${ticketStatus.border}`,
+                                fontFamily: "'Be Vietnam Pro',sans-serif",
+                                textTransform: 'uppercase', letterSpacing: '0.05em',
+                                display: 'flex', alignItems: 'center', gap: 4,
+                              }}>
+                                <StatusIcon style={{ width: 10, height: 10 }}/>
+                                {ticketStatus.label}
                               </span>
 
                               {/* QR toggle button */}
                               <button
-                                onClick={() => !checkedIn && setExpandedTicket(qrOpen ? null : ticket._id)}
-                                disabled={checkedIn}
-                                style={{ width: 32, height: 32, borderRadius: 9, background: checkedIn ? 'rgba(255,255,255,0.03)' : 'rgba(249,115,22,0.1)', border: `1px solid ${checkedIn ? 'rgba(255,255,255,0.06)' : 'rgba(249,115,22,0.25)'}`, color: checkedIn ? 'rgba(255,255,255,0.15)' : '#f97316', cursor: checkedIn ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}
-                                className={checkedIn ? '' : 'thp-qr-btn'}>
+                                onClick={() => ticketStatus.canShowQR && setExpandedTicket(qrOpen ? null : ticket._id)}
+                                disabled={!ticketStatus.canShowQR}
+                                title={!ticketStatus.canShowQR ? (ticketStatus.key === 'expired' ? 'Vé không còn hiệu lực' : 'Vé đã được sử dụng') : 'Xem mã QR'}
+                                style={{
+                                  width: 32, height: 32, borderRadius: 9,
+                                  background: ticketStatus.canShowQR ? 'rgba(249,115,22,0.1)' : 'rgba(255,255,255,0.03)',
+                                  border: `1px solid ${ticketStatus.canShowQR ? 'rgba(249,115,22,0.25)' : 'rgba(255,255,255,0.06)'}`,
+                                  color: ticketStatus.canShowQR ? '#f97316' : 'rgba(255,255,255,0.15)',
+                                  cursor: ticketStatus.canShowQR ? 'pointer' : 'not-allowed',
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                  transition: 'all 0.2s',
+                                }}
+                                className={ticketStatus.canShowQR ? 'thp-qr-btn' : ''}>
                                 <QrCode style={{ width: 14, height: 14 }}/>
                               </button>
                             </div>
                           </div>
 
                           {/* Check-in time */}
-                          {checkedIn && ticket.checkedInAt && (
-                            <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', fontFamily: "'Be Vietnam Pro',sans-serif", display: 'flex', alignItems: 'center', gap: 5, marginBottom: 2 }}>
+                          {ticketStatus.key === 'used' && ticket.checkedInAt && (
+                            <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', fontFamily: "'Be Vietnam Pro',sans-serif", display: 'flex', alignItems: 'center', gap: 5, marginTop: 6 }}>
                               <CheckCircle2 style={{ width: 10, height: 10, color: '#34d399' }}/> Đã check-in lúc {fmtDate(ticket.checkedInAt)}
                             </p>
                           )}
 
+                          {/* Expired notice */}
+                          {ticketStatus.key === 'expired' && (
+                            <p style={{ fontSize: 10, color: '#f87171', fontFamily: "'Be Vietnam Pro',sans-serif", display: 'flex', alignItems: 'center', gap: 5, marginTop: 6, opacity: 0.7 }}>
+                              <Clock style={{ width: 10, height: 10 }}/> Sự kiện đã kết thúc — vé không còn hiệu lực
+                            </p>
+                          )}
+
                           {/* QR expanded */}
-                          {!checkedIn && qrOpen && (
+                          {ticketStatus.canShowQR && qrOpen && (
                             <div style={{ marginTop: 14, padding: '20px', background: 'rgba(249,115,22,0.04)', border: '1px solid rgba(249,115,22,0.12)', borderRadius: 14, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }} className="thp-fade-in">
                               <p style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.12em', fontFamily: "'Be Vietnam Pro',sans-serif" }}>Mã QR Check-in</p>
                               <div style={{ background: 'white', borderRadius: 14, padding: 8, boxShadow: '0 8px 28px rgba(0,0,0,0.4)' }}>
