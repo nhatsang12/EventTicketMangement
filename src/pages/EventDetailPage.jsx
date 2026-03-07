@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import API_URL from '../config/api';
 import {
   Calendar, MapPin, Clock, Share2, Heart,
   Minus, Plus, ShoppingCart, AlertCircle, Sparkles, Users,
@@ -17,7 +18,7 @@ import toast from 'react-hot-toast';
 // ─── HELPERS (same as HomePage) ────────────────────────────────────────────
 const getImageUrl = p =>
   !p ? 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=1400&auto=format&fit=crop&q=80'
-     : p.startsWith('http') ? p : `http://localhost:8000${p}`;
+     : p.startsWith('http') ? p : `${API_URL}${p}`;
 
 const fmtPrice = p =>
   (p === null || p === undefined || p === 0)
@@ -94,12 +95,12 @@ const EventDetailPage = () => {
   const fetchEventDetails = async () => {
     try {
       setLoading(true);
-      const eventRes = await axios.get('http://localhost:8000/api/events');
+      const eventRes = await axios.get(`${API_URL}/api/events`);
       const allEvents = eventRes.data?.data || eventRes.data || [];
       const currentEvent = allEvents.find(e => e._id === id);
       if (!currentEvent) { setEventData(null); setLoading(false); return; }
 
-      const ticketRes = await axios.get('http://localhost:8000/api/tickets');
+      const ticketRes = await axios.get(`${API_URL}/api/tickets`);
       const allTickets = ticketRes.data?.data || ticketRes.data || [];
       const eventTickets = allTickets.filter(t => (t.event?._id || t.event) === id);
 
@@ -166,7 +167,6 @@ const EventDetailPage = () => {
         {/* Layered overlays */}
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top,rgba(6,6,6,1) 0%,rgba(6,6,6,0.55) 40%,rgba(6,6,6,0.1) 80%,transparent 100%)' }}/>
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg,rgba(6,6,6,0.6) 0%,transparent 50%,rgba(168,85,247,0.08) 100%)' }}/>
-        {/* Left diagonal bleed to match page bg */}
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right,rgba(6,6,6,0.4) 0%,transparent 60%)' }}/>
 
         {/* Back button */}
@@ -191,18 +191,13 @@ const EventDetailPage = () => {
 
         {/* Hero content — bottom overlay */}
         <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: 'clamp(24px,4vw,48px) clamp(20px,5vw,60px)', zIndex: 5 }}>
-          {/* Status + category badges */}
           <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 10, fontWeight: 800, padding: '4px 12px', borderRadius: 999, background: status.bg, color: status.color, border: `1px solid ${status.color}40`, backdropFilter: 'blur(8px)', fontFamily: "'Be Vietnam Pro',sans-serif", letterSpacing: '0.06em', textTransform: 'uppercase' }}>{status.label}</span>
             {event.category && <span style={{ fontSize: 10, fontWeight: 700, padding: '4px 12px', borderRadius: 999, background: 'rgba(255,255,255,0.08)', backdropFilter: 'blur(8px)', color: 'rgba(255,255,255,0.85)', border: '1px solid rgba(255,255,255,0.15)', fontFamily: "'Be Vietnam Pro',sans-serif" }}>{event.category}</span>}
           </div>
-
-          {/* Title */}
           <h1 style={{ fontSize: 'clamp(1.6rem,4vw,3.2rem)', fontWeight: 900, color: 'white', lineHeight: 1.08, letterSpacing: '-0.03em', fontFamily: "'Clash Display','Be Vietnam Pro',sans-serif", maxWidth: 760, marginBottom: 16, textShadow: '0 2px 20px rgba(0,0,0,0.5)' }}>
             {event.title}
           </h1>
-
-          {/* Meta row */}
           <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', display: 'flex', alignItems: 'center', gap: 6, fontFamily: "'Be Vietnam Pro',sans-serif" }}>
               <Calendar style={{ width: 13, height: 13, color: '#f97316', flexShrink: 0 }}/>{fmtDate(event.startDate)}
@@ -280,7 +275,6 @@ const EventDetailPage = () => {
         <div style={{ position: 'sticky', top: 24 }}>
           <div style={{ background: 'linear-gradient(180deg,#1c1c1e 0%,#171719 100%)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 22, overflow: 'hidden', boxShadow: '0 24px 64px rgba(0,0,0,0.6), 0 1px 0 rgba(255,255,255,0.05) inset' }}>
 
-            {/* Sidebar header */}
             <div style={{ padding: '22px 24px 18px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <div style={{ width: 3, height: 20, background: 'linear-gradient(180deg,#f97316,#a855f7)', borderRadius: 2 }}/>
@@ -292,8 +286,6 @@ const EventDetailPage = () => {
             </div>
 
             <div style={{ padding: '18px 22px 22px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-
-              {/* Ticket list */}
               {ticketTypes.length > 0 ? (
                 <>
                   {ticketTypes.map(ticket => {
@@ -307,8 +299,6 @@ const EventDetailPage = () => {
                     return (
                       <div key={ticket._id}
                         style={{ background: qty > 0 ? 'rgba(249,115,22,0.06)' : 'rgba(255,255,255,0.03)', border: `1px solid ${qty > 0 ? 'rgba(249,115,22,0.35)' : 'rgba(255,255,255,0.08)'}`, borderRadius: 16, padding: '16px 18px', transition: 'all 0.25s', boxShadow: qty > 0 ? '0 0 0 1px rgba(249,115,22,0.1)' : 'none' }}>
-
-                        {/* Ticket header */}
                         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
@@ -320,13 +310,11 @@ const EventDetailPage = () => {
                               {fmtPrice(ticket.price)}
                             </p>
                           </div>
-                          {/* Availability badge */}
                           <span style={{ fontSize: 9, fontWeight: 800, padding: '3px 9px', borderRadius: 999, background: isAvailable ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)', color: isAvailable ? '#34d399' : '#f87171', border: `1px solid ${isAvailable ? 'rgba(52,211,153,0.25)' : 'rgba(248,113,113,0.25)'}`, fontFamily: "'Be Vietnam Pro',sans-serif", flexShrink: 0, marginLeft: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                             {isAvailable ? 'Còn vé' : 'Hết vé'}
                           </span>
                         </div>
 
-                        {/* Progress bar */}
                         {ticket.quantity > 0 && (
                           <div style={{ marginBottom: 12 }}>
                             <div style={{ height: 3, background: 'rgba(255,255,255,0.07)', borderRadius: 3, overflow: 'hidden', marginBottom: 4 }}>
@@ -339,7 +327,6 @@ const EventDetailPage = () => {
                           </div>
                         )}
 
-                        {/* Quantity control */}
                         {isAvailable && (
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.07)' }}>
                             <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', fontFamily: "'Be Vietnam Pro',sans-serif", fontWeight: 600 }}>Số lượng</span>
@@ -362,9 +349,7 @@ const EventDetailPage = () => {
                     );
                   })}
 
-                  {/* Total + CTA */}
                   <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
-                    {/* Total */}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(249,115,22,0.06)', border: '1px solid rgba(249,115,22,0.15)', borderRadius: 12, padding: '12px 16px' }}>
                       <div>
                         <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', fontFamily: "'Be Vietnam Pro',sans-serif", marginBottom: 2, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Tổng cộng</p>
@@ -375,21 +360,18 @@ const EventDetailPage = () => {
                       </span>
                     </div>
 
-                    {/* CTA button */}
                     <button onClick={handleAddToCart}
                       style={{ width: '100%', padding: '14px', borderRadius: 12, background: 'linear-gradient(135deg,#f97316,#a855f7)', border: 'none', cursor: 'pointer', color: 'white', fontSize: 14, fontWeight: 800, fontFamily: "'Be Vietnam Pro',sans-serif", display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 6px 28px rgba(249,115,22,0.28)', transition: 'all 0.25s' }}
                       className="edp-cta-btn">
                       Đặt vé ngay <ArrowRight style={{ width: 15, height: 15 }}/>
                     </button>
 
-                    {/* Reassurance line */}
                     <p style={{ textAlign: 'center', fontSize: 10, color: 'rgba(255,255,255,0.2)', fontFamily: "'Be Vietnam Pro',sans-serif", display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
                       <Shield style={{ width: 10, height: 10 }}/> Thanh toán bảo mật · Hoàn tiền nếu sự kiện huỷ
                     </p>
                   </div>
                 </>
               ) : (
-                /* No tickets state */
                 <div style={{ textAlign: 'center', padding: '32px 20px' }}>
                   <div style={{ width: 52, height: 52, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
                     <AlertCircle style={{ width: 22, height: 22, color: 'rgba(255,255,255,0.15)' }}/>
@@ -403,7 +385,6 @@ const EventDetailPage = () => {
         </div>
       </div>
 
-      {/* ── Shared styles ── */}
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap');
         @import url('https://api.fontshare.com/v2/css?f[]=clash-display@700,800,900&display=swap');
@@ -417,7 +398,6 @@ const EventDetailPage = () => {
         .edp-cta-btn:hover { transform:translateY(-2px); box-shadow:0 10px 36px rgba(249,115,22,0.38) !important; }
         .edp-cta-btn:active { transform:translateY(0); }
 
-        /* Responsive layout */
         @media (max-width:860px) {
           .edp-layout { grid-template-columns:1fr !important; }
           .edp-info-grid { grid-template-columns:1fr 1fr !important; }

@@ -3,6 +3,7 @@ import { Plus, Edit2, Trash2, Image as ImageIcon, Calendar, MapPin, Search, X, S
 import toast from 'react-hot-toast';
 import axios from 'axios';
 import useAuthStore from '../../store/authStore';
+import API_URL from '../../config/api';
 
 const ITEMS_PER_PAGE = 6;
 
@@ -60,7 +61,7 @@ const AdminEvents = () => {
   const { accessToken } = useAuthStore();
 
   const api = axios.create({
-    baseURL: 'http://localhost:8000/api/admin/events',
+    baseURL: `${API_URL}/api/admin/events`,
     headers: { Authorization: `Bearer ${accessToken}` }
   });
 
@@ -165,11 +166,10 @@ const AdminEvents = () => {
       date: dateStr,
       time: timeStr,
       imageFile: null,
-      // ✅ FIX: Tránh double prefix URL
       imagePreview: ev.image
         ? ev.image.startsWith("http")
           ? ev.image
-          : `http://localhost:8000${ev.image}`
+          : `${API_URL}${ev.image}`
         : ''
     });
     setShowForm(true);
@@ -194,7 +194,6 @@ const AdminEvents = () => {
     setForm(emptyForm); 
   };
 
-  // Filter + Pagination
   const filtered = events.filter(e => {
     const matchSearch = e.title?.toLowerCase().includes(search.toLowerCase());
     const matchCategory = categoryFilter === 'all' || e.category === categoryFilter;
@@ -261,78 +260,42 @@ const AdminEvents = () => {
 
       {/* Bộ lọc */}
       <div className="flex flex-col gap-3">
-        {/* Hàng 1: Tìm kiếm + Danh mục + Trạng thái */}
         <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center flex-wrap">
           <div className="relative flex-1 min-w-[200px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input 
-              type="text" 
-              value={search} 
-              onChange={e => setSearch(e.target.value)} 
+            <input type="text" value={search} onChange={e => setSearch(e.target.value)} 
               placeholder="Tìm theo tên sự kiện..." 
-              className="w-full pl-9 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:border-orange-400 transition-all" 
-            />
+              className="w-full pl-9 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:border-orange-400 transition-all" />
           </div>
-
-          <select 
-            value={categoryFilter} 
-            onChange={e => setCategoryFilter(e.target.value)}
-            className="px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:border-orange-400 transition-all min-w-[160px]"
-          >
+          <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}
+            className="px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:border-orange-400 transition-all min-w-[160px]">
             <option value="all">Tất cả danh mục</option>
             {categories.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
-
-          <select 
-            value={statusFilter} 
-            onChange={e => setStatusFilter(e.target.value)}
-            className="px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:border-orange-400 transition-all min-w-[160px]"
-          >
-            {statusOptions.map(opt => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
+          <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
+            className="px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:border-orange-400 transition-all min-w-[160px]">
+            {statusOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
           </select>
         </div>
-
-        {/* Hàng 2: Lọc ngày + Địa điểm */}
         <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center flex-wrap">
-          <select 
-            value={dateFilter} 
-            onChange={e => setDateFilter(e.target.value)}
-            className="px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:border-orange-400 transition-all min-w-[160px]"
-          >
-            {dateFilterOptions.map(opt => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
+          <select value={dateFilter} onChange={e => setDateFilter(e.target.value)}
+            className="px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:border-orange-400 transition-all min-w-[160px]">
+            {dateFilterOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
           </select>
-
           {dateFilter === 'custom' && (
             <div className="flex flex-col sm:flex-row gap-2 items-center">
-              <input 
-                type="date" 
-                value={customStartDate} 
-                onChange={e => setCustomStartDate(e.target.value)}
-                className="px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:border-orange-400 transition-all"
-              />
+              <input type="date" value={customStartDate} onChange={e => setCustomStartDate(e.target.value)}
+                className="px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:border-orange-400 transition-all"/>
               <span className="text-gray-500">đến</span>
-              <input 
-                type="date" 
-                value={customEndDate} 
-                onChange={e => setCustomEndDate(e.target.value)}
-                className="px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:border-orange-400 transition-all"
-              />
+              <input type="date" value={customEndDate} onChange={e => setCustomEndDate(e.target.value)}
+                className="px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:border-orange-400 transition-all"/>
             </div>
           )}
-
           <div className="relative flex-1 min-w-[200px]">
             <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input 
-              type="text" 
-              value={locationFilter} 
-              onChange={e => setLocationFilter(e.target.value)} 
+            <input type="text" value={locationFilter} onChange={e => setLocationFilter(e.target.value)} 
               placeholder="Lọc theo địa điểm..." 
-              className="w-full pl-9 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:border-orange-400 transition-all" 
-            />
+              className="w-full pl-9 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:border-orange-400 transition-all" />
           </div>
         </div>
       </div>
@@ -345,21 +308,13 @@ const AdminEvents = () => {
             <button onClick={closeForm} className="text-gray-400 hover:text-gray-600 transition-colors"><X className="w-4 h-4" /></button>
           </div>
           <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            
-            {/* Image */}
             <div className="md:col-span-2">
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Ảnh sự kiện</label>
-              <div 
-                onClick={() => !loading && fileRef.current?.click()}
-                className={`relative h-48 border-2 border-dashed rounded-xl overflow-hidden transition-all group bg-gray-50 cursor-pointer hover:border-orange-400 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
+              <div onClick={() => !loading && fileRef.current?.click()}
+                className={`relative h-48 border-2 border-dashed rounded-xl overflow-hidden transition-all group bg-gray-50 cursor-pointer hover:border-orange-400 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}>
                 {form.imagePreview ? (
                   <>
-                    <img 
-                      src={form.imagePreview} 
-                      alt="Preview" 
-                      className="w-full h-full object-cover" 
-                    />
+                    <img src={form.imagePreview} alt="Preview" className="w-full h-full object-cover" />
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                       <p className="text-white text-xs font-semibold">Đổi ảnh</p>
                     </div>
@@ -370,102 +325,46 @@ const AdminEvents = () => {
                     <p className="text-xs font-medium">Click để tải ảnh lên (tối đa 5MB)</p>
                   </div>
                 )}
-                <input 
-                  ref={fileRef} 
-                  type="file" 
-                  accept="image/*" 
-                  className="hidden" 
-                  onChange={handleImageChange} 
-                />
+                <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
               </div>
             </div>
-
-            {/* Tên */}
             <div className="md:col-span-2">
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Tên sự kiện <span className="text-red-400">*</span></label>
-              <input 
-                required 
-                type="text" 
-                value={form.title} 
-                onChange={e => setForm(f => ({ ...f, title: e.target.value }))} 
-                placeholder="Nhập tên sự kiện..." 
-                className={inputCls} 
-              />
+              <input required type="text" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="Nhập tên sự kiện..." className={inputCls} />
             </div>
-
-            {/* Mô tả */}
             <div className="md:col-span-2">
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Mô tả</label>
-              <textarea 
-                value={form.description} 
-                onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                placeholder="Mô tả sự kiện..." 
-                rows={3} 
-                className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-orange-400 focus:bg-white resize-none transition-all" 
-              />
+              <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                placeholder="Mô tả sự kiện..." rows={3} 
+                className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-orange-400 focus:bg-white resize-none transition-all" />
             </div>
-
-            {/* Ngày và Giờ */}
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Ngày tổ chức <span className="text-red-400">*</span></label>
-              <input 
-                required 
-                type="date" 
-                value={form.date} 
-                min={todayStr()}
-                onChange={e => setForm(f => ({ ...f, date: e.target.value }))} 
-                className={inputCls} 
-              />
+              <input required type="date" value={form.date} min={todayStr()} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} className={inputCls} />
             </div>
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Giờ bắt đầu</label>
-              <input 
-                type="time" 
-                value={form.time} 
-                onChange={e => setForm(f => ({ ...f, time: e.target.value }))} 
-                className={inputCls} 
-              />
+              <input type="time" value={form.time} onChange={e => setForm(f => ({ ...f, time: e.target.value }))} className={inputCls} />
             </div>
-
-            {/* Địa điểm và Danh mục */}
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Địa điểm <span className="text-red-400">*</span></label>
-              <input 
-                required 
-                type="text" 
-                value={form.location} 
-                onChange={e => setForm(f => ({ ...f, location: e.target.value }))}
-                placeholder="Địa điểm tổ chức..." 
-                className={inputCls} 
-              />
+              <input required type="text" value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} placeholder="Địa điểm tổ chức..." className={inputCls} />
             </div>
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Danh mục</label>
-              <select 
-                value={form.category} 
-                onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
-                className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 focus:outline-none focus:border-orange-400 focus:bg-white transition-all"
-              >
+              <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
+                className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 focus:outline-none focus:border-orange-400 focus:bg-white transition-all">
                 <option value="">Chọn danh mục</option>
                 {categories.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
-
-            {/* Buttons */}
             <div className="md:col-span-2 flex gap-3 pt-2">
-              <button 
-                type="button" 
-                onClick={closeForm} 
-                disabled={loading}
-                className="flex-1 py-2.5 border border-gray-200 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors"
-              >
+              <button type="button" onClick={closeForm} disabled={loading}
+                className="flex-1 py-2.5 border border-gray-200 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors">
                 Hủy
               </button>
-              <button 
-                type="submit" 
-                disabled={loading}
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-orange-500 to-purple-600 text-white rounded-xl text-sm font-bold hover:from-orange-600 hover:to-purple-700 transition-all shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
-              >
+              <button type="submit" disabled={loading}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-orange-500 to-purple-600 text-white rounded-xl text-sm font-bold hover:from-orange-600 hover:to-purple-700 transition-all shadow-md disabled:opacity-60 disabled:cursor-not-allowed">
                 <Save className="w-4 h-4" />
                 {loading ? 'Đang lưu...' : editing !== null ? 'Cập nhật' : 'Tạo sự kiện'}
               </button>
@@ -491,22 +390,17 @@ const AdminEvents = () => {
               const displayDate = d.toLocaleDateString('vi-VN');
               const displayTime = d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
 
-              // ✅ FIX: Xử lý URL ảnh trong card
               const imageUrl = event.image
                 ? event.image.startsWith("http")
                   ? event.image
-                  : `http://localhost:8000${event.image}`
+                  : `${API_URL}${event.image}`
                 : null;
 
               return (
                 <div key={event._id} className="bg-white border border-gray-200 rounded-2xl overflow-hidden hover:border-orange-300 hover:shadow-md transition-all group">
                   <div className="relative h-36 bg-gray-100">
                     {imageUrl ? (
-                      <img 
-                        src={imageUrl}
-                        alt={event.title} 
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
-                      />
+                      <img src={imageUrl} alt={event.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
                         <ImageIcon className="w-10 h-10 text-gray-300" />
@@ -527,17 +421,12 @@ const AdminEvents = () => {
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      {/* ✅ FIX: Xóa <img> nhét nhầm trong nút Sửa */}
-                      <button 
-                        onClick={() => handleEdit(globalIndex)}
-                        className="flex-1 flex items-center justify-center gap-1.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-medium rounded-lg transition-colors"
-                      >
+                      <button onClick={() => handleEdit(globalIndex)}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-medium rounded-lg transition-colors">
                         <Edit2 className="w-3 h-3" /> Sửa
                       </button>
-                      <button 
-                        onClick={() => setDeleteConfirm(globalIndex)}
-                        className="flex-1 flex items-center justify-center gap-1.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-medium rounded-lg transition-colors"
-                      >
+                      <button onClick={() => setDeleteConfirm(globalIndex)}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-medium rounded-lg transition-colors">
                         <Trash2 className="w-3 h-3" /> Xóa
                       </button>
                     </div>
@@ -547,26 +436,17 @@ const AdminEvents = () => {
             })}
           </div>
 
-          {/* Phân trang */}
           {totalPages > 1 && (
             <div className="flex items-center justify-center gap-3 mt-8">
-              <button
-                onClick={() => goToPage(currentPage - 1)}
-                disabled={currentPage === 1}
-                className="p-2.5 rounded-lg border border-gray-200 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
-              >
+              <button onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1}
+                className="p-2.5 rounded-lg border border-gray-200 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors">
                 <ChevronLeft className="w-5 h-5 text-gray-600" />
               </button>
-
               <span className="text-sm font-medium px-5 py-2.5 bg-gradient-to-r from-orange-50 to-purple-50 rounded-lg border border-orange-100">
                 Trang {currentPage} / {totalPages}
               </span>
-
-              <button
-                onClick={() => goToPage(currentPage + 1)}
-                disabled={currentPage === totalPages}
-                className="p-2.5 rounded-lg border border-gray-200 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
-              >
+              <button onClick={() => goToPage(currentPage + 1)} disabled={currentPage === totalPages}
+                className="p-2.5 rounded-lg border border-gray-200 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors">
                 <ChevronRight className="w-5 h-5 text-gray-600" />
               </button>
             </div>
@@ -574,7 +454,6 @@ const AdminEvents = () => {
         </>
       )}
 
-      {/* Delete confirm Modal */}
       {deleteConfirm !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
           <div className="bg-white border border-gray-200 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
@@ -583,16 +462,12 @@ const AdminEvents = () => {
               Bạn có chắc muốn xóa sự kiện <span className="text-gray-900 font-semibold">"{events[deleteConfirm]?.title}"</span>?
             </p>
             <div className="flex gap-3">
-              <button 
-                onClick={() => setDeleteConfirm(null)} 
-                className="flex-1 py-2 border border-gray-200 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors"
-              >
+              <button onClick={() => setDeleteConfirm(null)} 
+                className="flex-1 py-2 border border-gray-200 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors">
                 Hủy
               </button>
-              <button 
-                onClick={() => handleDelete(deleteConfirm)} 
-                className="flex-1 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl text-sm font-semibold transition-colors"
-              >
+              <button onClick={() => handleDelete(deleteConfirm)} 
+                className="flex-1 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl text-sm font-semibold transition-colors">
                 Xóa
               </button>
             </div>

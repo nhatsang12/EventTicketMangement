@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import API_URL from '../config/api';
 import {
   QrCode, CheckCircle, XCircle, Ticket, ArrowLeft, RefreshCw,
   Clock, AlertTriangle, MapPin, Calendar, ArrowRight, Shield, Zap
@@ -55,7 +56,7 @@ const CheckInPage = () => {
     try {
       setLoading(true);
       const config = { headers: { Authorization: `Bearer ${token}` } };
-      const res = await axios.get('http://localhost:8000/api/orders/my-orders', config);
+      const res = await axios.get(`${API_URL}/api/orders/my-orders`, config);
       const orders = res.data?.data || res.data || [];
       const allTickets = orders.flatMap(o =>
         (o.tickets || []).map(t => ({
@@ -97,7 +98,7 @@ const CheckInPage = () => {
     try {
       const config  = { headers: { Authorization: `Bearer ${token}` } };
       const payload = { qrCode: ticket.qrCode || ticket._id };
-      const res = await axios.post('http://localhost:8000/api/admin/ticket-types/checkin', payload, config);
+      const res = await axios.post(`${API_URL}/api/admin/ticket-types/checkin`, payload, config);
       if (res.data.success) {
         setScanResult('success');
         setScanMessage(res.data.message);
@@ -117,7 +118,6 @@ const CheckInPage = () => {
 
   if (loading) return <LoadingScreen />;
 
-  // ── date status badge config ─────────────────────────────────────────────
   const dateBadge = status => ({
     today:   { label: 'Hôm nay',    color: '#34d399', bg: 'rgba(52,211,153,0.1)',  border: 'rgba(52,211,153,0.25)',  Icon: CheckCircle },
     expired: { label: 'Đã qua',     color: '#f87171', bg: 'rgba(248,113,113,0.1)', border: 'rgba(248,113,113,0.25)', Icon: XCircle     },
@@ -125,7 +125,6 @@ const CheckInPage = () => {
     unknown: { label: 'Không rõ',   color: 'rgba(255,255,255,0.3)', bg: 'rgba(255,255,255,0.04)', border: 'rgba(255,255,255,0.08)', Icon: Calendar },
   }[status] || {});
 
-  // ── ticket status badge ──────────────────────────────────────────────────
   const ticketBadge = (ticket, dateStatus) => {
     if (ticket.isCheckedIn) return { label: 'Đã dùng', color: 'rgba(255,255,255,0.3)', bg: 'rgba(255,255,255,0.05)', border: 'rgba(255,255,255,0.09)' };
     if (dateStatus === 'expired')  return { label: 'Hết hạn',  color: '#f87171', bg: 'rgba(248,113,113,0.1)', border: 'rgba(248,113,113,0.25)' };
@@ -135,20 +134,17 @@ const CheckInPage = () => {
 
   return (
     <div style={{ minHeight: '100svh', background: '#060606', fontFamily: "'Be Vietnam Pro',sans-serif", color: 'white' }}>
-      {/* Ambient glows */}
       <div style={{ position: 'fixed', top: -80, right: -80, width: 380, height: 380, background: 'radial-gradient(circle,rgba(249,115,22,0.05) 0%,transparent 70%)', pointerEvents: 'none' }}/>
       <div style={{ position: 'fixed', bottom: -80, left: -80, width: 340, height: 340, background: 'radial-gradient(circle,rgba(168,85,247,0.06) 0%,transparent 70%)', pointerEvents: 'none' }}/>
 
       <div style={{ maxWidth: 640, margin: '0 auto', padding: '52px 24px 80px', position: 'relative', zIndex: 1 }}>
 
-        {/* Back */}
         <button onClick={() => navigate(-1)}
           style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: 'rgba(255,255,255,0.35)', fontSize: 12, fontWeight: 700, cursor: 'pointer', marginBottom: 32, padding: 0, fontFamily: "'Be Vietnam Pro',sans-serif", transition: 'color 0.2s' }}
           className="cip-back-btn">
           <ArrowLeft style={{ width: 13, height: 13 }}/> Quay lại
         </button>
 
-        {/* Page header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 32 }}>
           <div style={{ width: 48, height: 48, background: 'linear-gradient(135deg,#f97316,#a855f7)', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 6px 20px rgba(249,115,22,0.28)' }}>
             <QrCode style={{ width: 22, height: 22, color: 'white' }}/>
@@ -159,7 +155,6 @@ const CheckInPage = () => {
           </div>
         </div>
 
-        {/* ── SCAN RESULT ── */}
         {scanResult && (
           <div style={{
             marginBottom: 24, borderRadius: 20, overflow: 'hidden',
@@ -198,7 +193,6 @@ const CheckInPage = () => {
                   <p style={{ fontSize: 12, color: '#f87171', fontFamily: "'Be Vietnam Pro',sans-serif" }}>{scanMessage}</p>
                 </>
               )}
-
               <button onClick={resetScan}
                 style={{ marginTop: 20, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 20px', borderRadius: 999, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.6)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: "'Be Vietnam Pro',sans-serif", transition: 'all 0.2s' }}
                 className="cip-reset-btn">
@@ -208,7 +202,6 @@ const CheckInPage = () => {
           </div>
         )}
 
-        {/* ── TICKET LIST ── */}
         {!scanResult && (
           <>
             {tickets.length === 0 ? (
@@ -225,7 +218,6 @@ const CheckInPage = () => {
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {/* Hint */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: 'rgba(249,115,22,0.06)', border: '1px solid rgba(249,115,22,0.15)', borderRadius: 12, marginBottom: 4 }}>
                   <Zap style={{ width: 12, height: 12, color: '#f97316', flexShrink: 0 }}/>
                   <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', fontFamily: "'Be Vietnam Pro',sans-serif" }}>Chọn một vé bên dưới để giả lập máy quét QR của bảo vệ</p>
@@ -250,14 +242,11 @@ const CheckInPage = () => {
                       }}
                       className="cip-ticket-card">
 
-                      {/* Card row */}
                       <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px' }}>
-                        {/* Mini QR */}
                         <div style={{ width: 52, height: 52, borderRadius: 12, background: 'white', padding: 4, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           <img src={getQRCodeImage(ticket.qrCode || ticket._id)} alt="QR" style={{ width: '100%', height: '100%', borderRadius: 8, display: 'block' }}/>
                         </div>
 
-                        {/* Info */}
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <p style={{ fontSize: 13, fontWeight: 800, color: 'white', fontFamily: "'Clash Display','Be Vietnam Pro',sans-serif", overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 4 }}>
                             {ticket.eventName || 'Sự kiện chưa rõ'}
@@ -265,8 +254,6 @@ const CheckInPage = () => {
                           <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', fontFamily: "'Be Vietnam Pro',sans-serif", overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 6 }}>
                             {ticket.ticketType?.name}{ticket.eventLocation && ` — ${ticket.eventLocation}`}
                           </p>
-
-                          {/* Date badge */}
                           {ticket.eventDate && db.Icon && (
                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: db.bg, color: db.color, border: `1px solid ${db.border}`, fontFamily: "'Be Vietnam Pro',sans-serif" }}>
                               <db.Icon style={{ width: 10, height: 10 }}/> {db.label} · {fmtDate(ticket.eventDate)}
@@ -274,21 +261,17 @@ const CheckInPage = () => {
                           )}
                         </div>
 
-                        {/* Status badge */}
                         <span style={{ fontSize: 10, fontWeight: 800, padding: '4px 10px', borderRadius: 999, background: tb.bg, color: tb.color, border: `1px solid ${tb.border}`, fontFamily: "'Be Vietnam Pro',sans-serif", flexShrink: 0, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                           {tb.label}
                         </span>
                       </div>
 
-                      {/* ── EXPANDED — selected & not checked in ── */}
                       {isSelected && !ticket.isCheckedIn && (
                         <div style={{ borderTop: '1px solid rgba(249,115,22,0.15)', background: 'rgba(249,115,22,0.03)', padding: '24px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
-                          {/* Large QR */}
                           <div style={{ background: 'white', borderRadius: 16, padding: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.4)', display: 'inline-block' }}>
                             <img src={getQRCodeImage(ticket.qrCode || ticket._id)} alt="QR" style={{ width: 160, height: 160, display: 'block', borderRadius: 8 }}/>
                           </div>
 
-                          {/* Date warning */}
                           {dateStatus === 'upcoming' && (
                             <div style={{ padding: '12px 16px', background: 'rgba(96,165,250,0.08)', border: '1px solid rgba(96,165,250,0.2)', borderRadius: 12, textAlign: 'center', maxWidth: 280 }}>
                               <Clock style={{ width: 16, height: 16, color: '#60a5fa', margin: '0 auto 6px' }}/>
@@ -304,7 +287,6 @@ const CheckInPage = () => {
                             </div>
                           )}
 
-                          {/* CTA button */}
                           <button
                             onClick={e => { e.stopPropagation(); handleSimulateScan(ticket); }}
                             disabled={scanning || dateStatus !== 'today'}
@@ -313,9 +295,7 @@ const CheckInPage = () => {
                               padding: '13px 28px', borderRadius: 999, border: 'none',
                               cursor: scanning || dateStatus !== 'today' ? 'not-allowed' : 'pointer',
                               fontSize: 13, fontWeight: 800, fontFamily: "'Be Vietnam Pro',sans-serif",
-                              background: canCheckIn && !scanning
-                                ? 'linear-gradient(135deg,#f97316,#a855f7)'
-                                : 'rgba(255,255,255,0.06)',
+                              background: canCheckIn && !scanning ? 'linear-gradient(135deg,#f97316,#a855f7)' : 'rgba(255,255,255,0.06)',
                               color: canCheckIn && !scanning ? 'white' : 'rgba(255,255,255,0.25)',
                               boxShadow: canCheckIn && !scanning ? '0 6px 24px rgba(249,115,22,0.28)' : 'none',
                               transition: 'all 0.25s',
@@ -330,13 +310,10 @@ const CheckInPage = () => {
                               <><QrCode style={{ width: 14, height: 14 }}/> Bấm để Check-in vé này</>
                             )}
                           </button>
-
-                          {/* Ticket ID */}
                           <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.15)', fontFamily: "'Space Mono',monospace" }}>ID: {ticket._id}</p>
                         </div>
                       )}
 
-                      {/* ── EXPANDED — already used ── */}
                       {isSelected && ticket.isCheckedIn && (
                         <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: 'rgba(0,0,0,0.1)' }}>
                           <XCircle style={{ width: 14, height: 14, color: 'rgba(255,255,255,0.2)' }}/>
@@ -347,7 +324,6 @@ const CheckInPage = () => {
                   );
                 })}
 
-                {/* Footer note */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 16px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 12, marginTop: 4 }}>
                   <Shield style={{ width: 12, height: 12, color: 'rgba(255,255,255,0.2)', flexShrink: 0 }}/>
                   <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.2)', fontFamily: "'Be Vietnam Pro',sans-serif" }}>Mỗi vé chỉ được quét một lần duy nhất. Mã QR có chữ ký số chống giả mạo.</p>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import API_URL from '../config/api';
 import {
   ShoppingCart, Trash2, CreditCard, CheckCircle, Lock,
   ArrowLeft, ArrowRight, Ticket, MapPin, Calendar, User,
@@ -68,11 +69,8 @@ const EmptyCart = ({ navigate }) => (
 // ─── SUCCESS SCREEN ───────────────────────────────────────────────────────
 const SuccessScreen = ({ orderResponse, formData, event, navigate }) => (
   <div style={{ minHeight: '100svh', background: '#060606', fontFamily: "'Be Vietnam Pro',sans-serif", padding: '60px 24px' }}>
-    {/* Ambient glow */}
     <div style={{ position: 'fixed', top: '30%', left: '50%', transform: 'translateX(-50%)', width: 500, height: 300, background: 'radial-gradient(ellipse,rgba(16,185,129,0.06) 0%,transparent 70%)', pointerEvents: 'none' }}/>
-
     <div style={{ maxWidth: 600, margin: '0 auto', position: 'relative' }}>
-      {/* Success header */}
       <div style={{ textAlign: 'center', marginBottom: 36 }}>
         <div style={{ width: 72, height: 72, background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(52,211,153,0.25)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
           <CheckCircle style={{ width: 32, height: 32, color: '#34d399' }}/>
@@ -83,11 +81,9 @@ const SuccessScreen = ({ orderResponse, formData, event, navigate }) => (
         </p>
       </div>
 
-      {/* Tickets */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 28 }}>
         {orderResponse.tickets?.map((ticket, idx) => (
           <div key={ticket._id || idx} style={{ background: 'linear-gradient(180deg,#1e1e20 0%,#18181a 100%)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, overflow: 'hidden', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
-            {/* Ticket header band */}
             <div style={{ background: 'linear-gradient(135deg,#f97316,#a855f7)', padding: '16px 22px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <p style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: '0.12em', fontFamily: "'Be Vietnam Pro',sans-serif", marginBottom: 3 }}>E-Ticket #{idx + 1}</p>
@@ -98,11 +94,7 @@ const SuccessScreen = ({ orderResponse, formData, event, navigate }) => (
                 <p style={{ fontSize: 13, fontWeight: 700, color: 'white', fontFamily: "'Be Vietnam Pro',sans-serif" }}>{ticket.ticketType?.name}</p>
               </div>
             </div>
-
-            {/* Tear line */}
             <div style={{ height: 1, background: 'repeating-linear-gradient(90deg,rgba(255,255,255,0.08) 0,rgba(255,255,255,0.08) 8px,transparent 8px,transparent 16px)' }}/>
-
-            {/* Ticket body */}
             <div style={{ padding: '20px 22px', display: 'flex', alignItems: 'center', gap: 20 }}>
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {[
@@ -117,7 +109,6 @@ const SuccessScreen = ({ orderResponse, formData, event, navigate }) => (
                 ))}
                 <span style={{ fontSize: 9, fontWeight: 800, padding: '3px 10px', borderRadius: 999, background: 'rgba(16,185,129,0.12)', color: '#34d399', border: '1px solid rgba(52,211,153,0.25)', width: 'fit-content', fontFamily: "'Be Vietnam Pro',sans-serif", textTransform: 'uppercase', letterSpacing: '0.06em' }}>✓ Active</span>
               </div>
-
               <div style={{ flexShrink: 0, textAlign: 'center' }}>
                 <div style={{ background: 'white', borderRadius: 12, padding: 6, display: 'inline-block' }}>
                   <img src={generateQRCode(ticket.qrCode || ticket._id)} alt="QR" style={{ width: 88, height: 88, display: 'block', borderRadius: 6 }}/>
@@ -125,8 +116,6 @@ const SuccessScreen = ({ orderResponse, formData, event, navigate }) => (
                 <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', marginTop: 6, fontFamily: "'Be Vietnam Pro',sans-serif" }}>Quét check-in</p>
               </div>
             </div>
-
-            {/* Footer */}
             <div style={{ padding: '10px 22px', borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(0,0,0,0.15)', display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', fontFamily: "'Be Vietnam Pro',sans-serif" }}>Giá: <span style={{ fontWeight: 800, color: '#fb923c' }}>{fmtPrice(ticket.price || ticket.ticketType?.price)}</span></span>
               <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', fontFamily: "'Space Mono',monospace" }}>{new Date(orderResponse.createdAt || Date.now()).toLocaleDateString('vi-VN')}</span>
@@ -135,7 +124,6 @@ const SuccessScreen = ({ orderResponse, formData, event, navigate }) => (
         ))}
       </div>
 
-      {/* Action buttons */}
       <div style={{ display: 'flex', gap: 12 }}>
         <button onClick={() => navigate('/ticket-history')}
           style={{ flex: 1, padding: '13px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.65)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: "'Be Vietnam Pro',sans-serif", transition: 'all 0.2s' }}
@@ -189,19 +177,19 @@ const CheckoutPage = () => {
         paymentMethod: formData.paymentMethod,
       };
       const config = { headers: { Authorization: `Bearer ${token}` } };
-      const res = await axios.post('http://localhost:8000/api/orders/buy', payload, config);
+      const res = await axios.post(`${API_URL}/api/orders/buy`, payload, config);
       const orderData = res.data?.data || res.data;
       const orderId = orderData._id || orderData.id;
       if (!orderId) { toast.error('Không lấy được mã đơn hàng'); setLoading(false); return; }
 
       if (formData.paymentMethod === 'credit_card') {
         toast.loading('Đang chuyển hướng đến Stripe...');
-        const stripeRes = await axios.post('http://localhost:8000/api/payments/create-checkout-session', { orderId }, config);
+        const stripeRes = await axios.post(`${API_URL}/api/payments/create-checkout-session`, { orderId }, config);
         if (stripeRes.data?.url) { window.location.href = stripeRes.data.url; return; }
       }
       if (formData.paymentMethod === 'bank_transfer' || formData.paymentMethod === 'e_wallet') {
         toast.loading('Đang khởi tạo mã QR...');
-        const payosRes = await axios.post('http://localhost:8000/api/payments/create-payos-link', { orderId }, config);
+        const payosRes = await axios.post(`${API_URL}/api/payments/create-payos-link`, { orderId }, config);
         if (payosRes.data?.url) { window.location.href = payosRes.data.url; return; }
       }
       setOrderResponse(orderData);
@@ -216,20 +204,16 @@ const CheckoutPage = () => {
     }
   };
 
-  // Input style — mirrors LoginPage/RegisterPage
   const inputStyle = field => ({
     width: '100%', padding: '13px 13px 13px 42px',
     background: focused === field ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.04)',
-    border: focused === field
-      ? '1px solid rgba(249,115,22,0.5)'
-      : '1px solid rgba(255,255,255,0.09)',
+    border: focused === field ? '1px solid rgba(249,115,22,0.5)' : '1px solid rgba(255,255,255,0.09)',
     borderRadius: 12, fontSize: 13, color: 'white', outline: 'none', transition: 'all 0.2s',
     fontFamily: "'Be Vietnam Pro',sans-serif",
     boxShadow: focused === field ? '0 0 0 3px rgba(249,115,22,0.1)' : 'none',
     boxSizing: 'border-box',
   });
 
-  // ── Derived
   if (step === 3 && orderResponse) return <SuccessScreen orderResponse={orderResponse} formData={formData} event={event} navigate={navigate}/>;
   if (items.length === 0) return <EmptyCart navigate={navigate}/>;
 
@@ -237,23 +221,18 @@ const CheckoutPage = () => {
 
   return (
     <div style={{ minHeight: '100svh', background: '#060606', fontFamily: "'Be Vietnam Pro',sans-serif", color: 'white' }}>
-      {/* Ambient glows */}
       <div style={{ position: 'fixed', top: -100, right: -100, width: 400, height: 400, background: 'radial-gradient(circle,rgba(249,115,22,0.04) 0%,transparent 70%)', pointerEvents: 'none', zIndex: 0 }}/>
       <div style={{ position: 'fixed', bottom: -80, left: -80, width: 350, height: 350, background: 'radial-gradient(circle,rgba(168,85,247,0.05) 0%,transparent 70%)', pointerEvents: 'none', zIndex: 0 }}/>
 
       <div style={{ maxWidth: 980, margin: '0 auto', padding: '52px 24px 80px', position: 'relative', zIndex: 1 }}>
-
-        {/* Back button */}
         <button onClick={() => navigate(-1)}
           style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: 12, fontWeight: 700, cursor: 'pointer', marginBottom: 32, padding: 0, fontFamily: "'Be Vietnam Pro',sans-serif", transition: 'color 0.2s' }}
           className="ckp-back-btn">
           <ArrowLeft style={{ width: 14, height: 14 }}/> Quay lại
         </button>
 
-        {/* Step bar */}
         <StepBar step={step}/>
 
-        {/* Layout */}
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 320px', gap: 24, alignItems: 'start' }} className="ckp-layout">
 
           {/* ─── LEFT ─── */}
@@ -265,17 +244,13 @@ const CheckoutPage = () => {
                 <div style={{ width: 3, height: 18, background: 'linear-gradient(180deg,#f97316,#a855f7)', borderRadius: 2 }}/>
                 <h2 style={{ fontSize: 14, fontWeight: 800, color: 'white', fontFamily: "'Clash Display','Be Vietnam Pro',sans-serif" }}>Thông tin đơn hàng</h2>
               </div>
-
               <div style={{ padding: '16px 24px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {/* Event info */}
                 {event && (
                   <div style={{ background: 'rgba(249,115,22,0.06)', border: '1px solid rgba(249,115,22,0.15)', borderRadius: 12, padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 4 }}>
                     <p style={{ fontSize: 13, fontWeight: 800, color: 'white', fontFamily: "'Clash Display','Be Vietnam Pro',sans-serif" }}>{event.title || event.name}</p>
                     {event.location && <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', display: 'flex', alignItems: 'center', gap: 5, fontFamily: "'Be Vietnam Pro',sans-serif" }}><MapPin style={{ width: 10, height: 10, color: '#a855f7' }}/>{event.location}</p>}
                   </div>
                 )}
-
-                {/* Ticket items */}
                 {items.map(item => (
                   <div key={item.ticketType._id}
                     style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '12px 14px', gap: 12 }}>
@@ -307,25 +282,20 @@ const CheckoutPage = () => {
                 <div style={{ width: 3, height: 18, background: 'linear-gradient(180deg,#f97316,#a855f7)', borderRadius: 2 }}/>
                 <h3 style={{ fontSize: 14, fontWeight: 800, color: 'white', fontFamily: "'Clash Display','Be Vietnam Pro',sans-serif" }}>Thông tin người đặt</h3>
               </div>
-
               <div style={{ padding: '18px 24px 22px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {/* Full name */}
                 <div style={{ position: 'relative' }}>
                   <User style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', width: 14, height: 14, color: focused === 'fullName' ? '#f97316' : 'rgba(255,255,255,0.25)', transition: 'color 0.2s', zIndex: 1 }}/>
                   <input type="text" name="fullName" value={formData.fullName} onChange={handleChange}
                     onFocus={() => setFocused('fullName')} onBlur={() => setFocused('')}
                     required placeholder="Họ và tên" style={inputStyle('fullName')}/>
                 </div>
-
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }} className="ckp-email-phone">
-                  {/* Email */}
                   <div style={{ position: 'relative' }}>
                     <Mail style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', width: 14, height: 14, color: focused === 'email' ? '#f97316' : 'rgba(255,255,255,0.25)', transition: 'color 0.2s', zIndex: 1 }}/>
                     <input type="email" name="email" value={formData.email} onChange={handleChange}
                       onFocus={() => setFocused('email')} onBlur={() => setFocused('')}
                       required placeholder="Email" style={inputStyle('email')}/>
                   </div>
-                  {/* Phone */}
                   <div style={{ position: 'relative' }}>
                     <Phone style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', width: 14, height: 14, color: focused === 'phone' ? '#a855f7' : 'rgba(255,255,255,0.25)', transition: 'color 0.2s', zIndex: 1 }}/>
                     <input type="tel" name="phone" value={formData.phone} onChange={handleChange}
@@ -344,23 +314,20 @@ const CheckoutPage = () => {
                 <h3 style={{ fontSize: 14, fontWeight: 800, color: 'white', fontFamily: "'Clash Display','Be Vietnam Pro',sans-serif" }}>Phương thức thanh toán</h3>
                 <Lock style={{ width: 12, height: 12, color: '#34d399', marginLeft: 2 }}/>
               </div>
-
               <div style={{ padding: '18px 24px 22px', display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {[
-                  { value: 'credit_card',  Icon: CreditCard,  label: 'Thẻ tín dụng',            sub: 'Visa, Mastercard qua Stripe',    accent: '#f97316' },
-                  { value: 'bank_transfer',Icon: Building2,   label: 'Chuyển khoản / VietQR',    sub: 'Tự động kích hoạt qua PayOS',   accent: '#3b82f6' },
-                  { value: 'e_wallet',     Icon: Smartphone,  label: 'Ví MoMo',                  sub: 'Thanh toán nhanh qua PayOS',    accent: '#ec4899' },
+                  { value: 'credit_card',  Icon: CreditCard,  label: 'Thẻ tín dụng',          sub: 'Visa, Mastercard qua Stripe',  accent: '#f97316' },
+                  { value: 'bank_transfer',Icon: Building2,   label: 'Chuyển khoản / VietQR',  sub: 'Tự động kích hoạt qua PayOS', accent: '#3b82f6' },
+                  { value: 'e_wallet',     Icon: Smartphone,  label: 'Ví MoMo',                sub: 'Thanh toán nhanh qua PayOS',  accent: '#ec4899' },
                 ].map(opt => {
                   const active = formData.paymentMethod === opt.value;
                   return (
                     <label key={opt.value}
                       style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', borderRadius: 14, border: active ? `1px solid ${opt.accent}50` : '1px solid rgba(255,255,255,0.07)', background: active ? `${opt.accent}0a` : 'rgba(255,255,255,0.025)', cursor: 'pointer', transition: 'all 0.2s', boxShadow: active ? `0 0 0 1px ${opt.accent}20` : 'none' }}>
                       <input type="radio" name="paymentMethod" value={opt.value} checked={active} onChange={handleChange} style={{ display: 'none' }}/>
-                      {/* Custom radio */}
                       <div style={{ width: 18, height: 18, borderRadius: '50%', border: active ? `2px solid ${opt.accent}` : '2px solid rgba(255,255,255,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.2s' }}>
                         {active && <div style={{ width: 8, height: 8, borderRadius: '50%', background: opt.accent }}/>}
                       </div>
-                      {/* Icon */}
                       <div style={{ width: 36, height: 36, borderRadius: 10, background: `${opt.accent}14`, border: `1px solid ${opt.accent}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                         <opt.Icon style={{ width: 15, height: 15, color: opt.accent }}/>
                       </div>
@@ -372,8 +339,6 @@ const CheckoutPage = () => {
                     </label>
                   );
                 })}
-
-                {/* PayOS info hint */}
                 {(formData.paymentMethod === 'bank_transfer' || formData.paymentMethod === 'e_wallet') && (
                   <div style={{ marginTop: 4, padding: '12px 14px', background: 'rgba(59,130,246,0.07)', border: '1px solid rgba(59,130,246,0.15)', borderRadius: 12, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                     <Sparkles style={{ width: 13, height: 13, color: '#60a5fa', flexShrink: 0, marginTop: 1 }}/>
@@ -385,7 +350,6 @@ const CheckoutPage = () => {
               </div>
             </div>
 
-            {/* Submit */}
             <button type="submit" disabled={loading}
               style={{ width: '100%', padding: '15px', borderRadius: 14, border: 'none', cursor: loading ? 'not-allowed' : 'pointer', color: 'white', fontSize: 14, fontWeight: 800, fontFamily: "'Be Vietnam Pro',sans-serif", display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9, transition: 'all 0.25s', background: loading ? 'rgba(255,255,255,0.05)' : 'linear-gradient(135deg,#f97316,#a855f7)', boxShadow: loading ? 'none' : '0 6px 28px rgba(249,115,22,0.28)', opacity: loading ? 0.7 : 1 }}
               className="ckp-cta-btn">
@@ -395,16 +359,14 @@ const CheckoutPage = () => {
             </button>
           </form>
 
-          {/* ─── RIGHT — Order summary sticky ─── */}
+          {/* ─── RIGHT ─── */}
           <div style={{ position: 'sticky', top: 24 }}>
             <div style={{ background: 'linear-gradient(180deg,#1c1c1e 0%,#171719 100%)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
               <div style={{ padding: '20px 22px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: 10 }}>
                 <div style={{ width: 3, height: 18, background: 'linear-gradient(180deg,#f97316,#a855f7)', borderRadius: 2 }}/>
                 <h3 style={{ fontSize: 14, fontWeight: 800, color: 'white', fontFamily: "'Clash Display','Be Vietnam Pro',sans-serif" }}>Tổng đơn hàng</h3>
               </div>
-
               <div style={{ padding: '16px 22px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {/* Line items */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingBottom: 14, borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', fontFamily: "'Be Vietnam Pro',sans-serif" }}>Tạm tính</span>
@@ -415,14 +377,10 @@ const CheckoutPage = () => {
                     <span style={{ fontSize: 12, fontWeight: 700, color: '#34d399', fontFamily: "'Be Vietnam Pro',sans-serif" }}>Miễn phí</span>
                   </div>
                 </div>
-
-                {/* Total */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(249,115,22,0.06)', border: '1px solid rgba(249,115,22,0.15)', borderRadius: 12, padding: '12px 14px' }}>
                   <span style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.5)', fontFamily: "'Be Vietnam Pro',sans-serif", textTransform: 'uppercase', letterSpacing: '0.06em' }}>Tổng cộng</span>
                   <span style={{ fontSize: 18, fontWeight: 900, background: 'linear-gradient(90deg,#f97316,#a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontFamily: "'Clash Display','Be Vietnam Pro',sans-serif", letterSpacing: '-0.01em' }}>{fmtPrice(total)}</span>
                 </div>
-
-                {/* Trust badges */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 7, paddingTop: 6 }}>
                   {[
                     { icon: Shield,    color: '#10b981', text: 'Thanh toán bảo mật PCI-DSS' },
@@ -435,7 +393,6 @@ const CheckoutPage = () => {
                     </div>
                   ))}
                 </div>
-
                 <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.18)', textAlign: 'center', fontFamily: "'Be Vietnam Pro',sans-serif", lineHeight: 1.6, paddingTop: 4 }}>
                   Bằng cách thanh toán, bạn đồng ý với điều khoản dịch vụ của chúng tôi.
                 </p>
