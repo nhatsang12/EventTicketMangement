@@ -83,7 +83,7 @@ const PaymentSuccessPage = () => {
           setPaymentMethod('stripe');
           try {
             const verifyRes = await axios.post(
-              '`${API_URL}/api/payments/verify-stripe-session',
+              `${API_URL}/api/payments/verify-stripe-session`,
               { session_id: stripeSessionId }, config
             );
             if (verifyRes.data?.success) { setOrder(verifyRes.data.data); }
