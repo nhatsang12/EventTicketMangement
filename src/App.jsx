@@ -1,7 +1,7 @@
 import { Routes, Route } from 'react-router-dom'
 import Layout from './components/layout/Layout.jsx'
 import HomePage from './pages/HomePage'
-import ProfilePage from './pages/Profile.jsx';
+import ProfilePage from './pages/Profile.jsx'
 import CheckoutPage from './pages/CheckoutPage'
 import MyTicketsPage from './pages/TicketHistoryPage.jsx'
 import LoginPage from './pages/auth/LoginPage'
@@ -16,28 +16,26 @@ import AdminEvents from './pages/admin/AdminEvents'
 import AdminTickets from './pages/admin/AdminTickets'
 import AdminCheckIn from './pages/admin/AdminCheckIn'
 import AdminAnalytics from './pages/admin/AdminAnalytics'
-import TicketHistoryPage from './pages/TicketHistoryPage';
-import CheckInPage from './pages/CheckInPage.jsx';
-import AuthLayout from './components/layout/AuthLayout.jsx';
-import EventDetailPage from './pages/EventDetailPage.jsx';
-import PaymentSuccessPage from './pages/PaymentSuccessPage';
-import PaymentFail from './pages/PaymentFail';
+import CheckInPage from './pages/CheckInPage.jsx'
+import EventDetailPage from './pages/EventDetailPage.jsx'
+import PaymentSuccessPage from './pages/PaymentSuccessPage'
+import PaymentFail from './pages/PaymentFail'
+
 function App() {
   return (
-    
     <Routes>
+      {/* Main layout routes */}
       <Route path="/" element={<Layout />}>
         <Route index element={<HomePage />} />
-      < Route path="/login" element={<LoginPage />} />
-<Route path="/checkout" element={<CheckoutPage />} />
-<Route path="/ticket-history" element={<TicketHistoryPage />} />
-<Route path="/checkin" element={<CheckInPage />} />
-        <Route path="/event/:id" element={<EventDetailPage />} />
         <Route path="login" element={<LoginPage />} />
         <Route path="register" element={<RegisterPage />} />
         <Route path="forgot-password" element={<ForgotPasswordPage />} />
-        <Route path="/payment-success" element={<PaymentSuccessPage />} />
-        <Route path="/payment-fail" element={<PaymentFail />} />
+        <Route path="event/:id" element={<EventDetailPage />} />
+        <Route path="checkin" element={<CheckInPage />} />
+        <Route path="payment-success" element={<PaymentSuccessPage />} />
+        <Route path="payment-fail" element={<PaymentFail />} />
+
+        {/* Protected routes */}
         <Route
           path="checkout"
           element={
@@ -54,28 +52,37 @@ function App() {
             </ProtectedRoute>
           }
         />
-        
+        <Route
+          path="ticket-history"
+          element={
+            <ProtectedRoute>
+              <MyTicketsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="profile"
+          element={
+            <ProtectedRoute>
+              <ProfilePage />
+            </ProtectedRoute>
+          }
+        />
       </Route>
+
+      {/* Admin layout routes */}
       <Route path="/admin" element={<AdminLayout />}>
-<Route index element={<AdminDashboard />} />
-<Route path="events" element={<AdminEvents />} />
-<Route path="tickets" element={<AdminTickets />} />
-<Route path="checkin" element={<AdminCheckIn />} />
-<Route path="analytics" element={<AdminAnalytics />} />
-<Route path="users" element={<AdminUsers />} />
-</Route>
-      <Route
-  path="profile"
-  element={
-    <ProtectedRoute>
-      <ProfilePage />
-    </ProtectedRoute>
-  }
-/>
+        <Route index element={<AdminDashboard />} />
+        <Route path="events" element={<AdminEvents />} />
+        <Route path="tickets" element={<AdminTickets />} />
+        <Route path="checkin" element={<AdminCheckIn />} />
+        <Route path="analytics" element={<AdminAnalytics />} />
+        <Route path="users" element={<AdminUsers />} />
+      </Route>
+
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
   )
 }
-
 
 export default App
