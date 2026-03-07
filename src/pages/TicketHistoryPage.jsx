@@ -126,7 +126,7 @@ const TicketHistoryPage = () => {
     (async () => {
       try {
         setLoading(true);
-        const res = await axios.get(`${API_URL}/api/admin/my-orders`, {
+        const res = await axios.get(`${API_URL}/api/orders/my-orders`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         

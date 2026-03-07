@@ -131,7 +131,7 @@ const ProfilePage = () => {
     (async () => {
       try {
         const config = { headers: { Authorization: `Bearer ${token}` } };
-        const res = await axios.get(`${API_URL}/api/admin/my-orders`,);
+        const res = await axios.get(`${API_URL}/api/orders/my-orders`)
         let orders = res.data?.data || res.data || [];
         orders = orders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         setRecentOrders(orders);
