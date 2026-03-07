@@ -6,20 +6,8 @@ import useAuthStore from '../../store/authStore';
 import API_URL from '../../config/api';
 
 const ITEMS_PER_PAGE = 6;
-
-const emptyForm = { 
-  title: '', 
-  description: '', 
-  date: '', 
-  time: '19:00', 
-  location: '', 
-  category: '', 
-  imageFile: null,
-  imagePreview: ''
-};
-
+const emptyForm = { title: '', description: '', date: '', time: '19:00', location: '', category: '', imageFile: null, imagePreview: '' };
 const categories = ['Âm nhạc', 'Công nghệ', 'Thể thao', 'Nghệ thuật', 'Ẩm thực', 'Giáo dục', 'Khác'];
-
 const statusOptions = [
   { value: 'all', label: 'Tất cả trạng thái' },
   { value: 'published', label: 'Đã xuất bản' },
@@ -27,7 +15,6 @@ const statusOptions = [
   { value: 'cancelled', label: 'Đã hủy' },
   { value: 'ended', label: 'Đã kết thúc' },
 ];
-
 const dateFilterOptions = [
   { value: 'all', label: 'Tất cả ngày' },
   { value: 'today', label: 'Hôm nay' },
@@ -35,10 +22,9 @@ const dateFilterOptions = [
   { value: 'thisMonth', label: 'Tháng này' },
   { value: 'custom', label: 'Tùy chỉnh' },
 ];
-
 const todayStr = () => {
   const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 };
 
 const AdminEvents = () => {
@@ -56,15 +42,14 @@ const AdminEvents = () => {
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [loading, setLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  
+
   const fileRef = useRef();
   const { accessToken } = useAuthStore();
 
-  const authConfig = { headers: { Authorization: `Bearer ${accessToken}` } };
-
   const fetchEvents = async () => {
     try {
-      const res = await api.get('/');
+      const config = { headers: { Authorization: `Bearer ${accessToken}` } };
+      const res = await axios.get(`${API_URL}/api/admin/events/`, config);
       setEvents(res.data.data || []);
       setCurrentPage(1);
     } catch (error) {
@@ -72,64 +57,44 @@ const AdminEvents = () => {
     }
   };
 
-  useEffect(() => {
-    fetchEvents();
-  }, []);
+  useEffect(() => { fetchEvents(); }, []);
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('Ảnh quá lớn (tối đa 5MB).');
-      return;
-    }
-    setForm(f => ({ 
-      ...f, 
-      imageFile: file, 
-      imagePreview: URL.createObjectURL(file) 
-    }));
+    if (file.size > 5 * 1024 * 1024) { toast.error('Ảnh quá lớn (tối đa 5MB).'); return; }
+    setForm(f => ({ ...f, imageFile: file, imagePreview: URL.createObjectURL(file) }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.title?.trim() || !form.date || !form.location?.trim()) {
-      toast.error('Vui lòng điền đầy đủ: tên, ngày, địa điểm');
-      return;
+      toast.error('Vui lòng điền đầy đủ: tên, ngày, địa điểm'); return;
     }
-    if (form.date < todayStr()) {
-      toast.error('Ngày tổ chức không thể là ngày trong quá khứ');
-      return;
-    }
-
+    if (form.date < todayStr()) { toast.error('Ngày tổ chức không thể là ngày trong quá khứ'); return; }
     try {
       setLoading(true);
+      const config = { headers: { Authorization: `Bearer ${accessToken}` } };
       const formData = new FormData();
       formData.append('title', form.title);
       formData.append('description', form.description);
       formData.append('location', form.location);
       formData.append('category', form.category);
-      
       const eventDateTime = new Date(`${form.date}T${form.time}`).toISOString();
       formData.append('startDate', eventDateTime);
       formData.append('endDate', eventDateTime);
+      if (form.imageFile) formData.append('image', form.imageFile);
 
-      if (form.imageFile) {
-        formData.append('image', form.imageFile);
-      }
+      const multipartConfig = { headers: { ...config.headers, 'Content-Type': 'multipart/form-data' } };
 
       if (editing !== null) {
         const eventId = events[editing]._id;
-        await api.put(`/${eventId}`, formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
+        await axios.put(`${API_URL}/api/admin/events/${eventId}`, formData, multipartConfig);
         toast.success('Cập nhật sự kiện thành công!');
       } else {
-        await api.post('', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
+        await axios.post(`${API_URL}/api/admin/events/`, formData, multipartConfig);
         toast.success('Tạo sự kiện thành công!');
       }
-
       fetchEvents();
       setShowForm(false);
       setEditing(null);
@@ -144,9 +109,7 @@ const AdminEvents = () => {
   const handleEdit = (i) => {
     setEditing(i);
     const ev = events[i];
-    let dateStr = '';
-    let timeStr = '19:00';
-
+    let dateStr = '', timeStr = '19:00';
     if (ev.startDate) {
       const d = new Date(ev.startDate);
       if (!isNaN(d.getTime())) {
@@ -154,20 +117,11 @@ const AdminEvents = () => {
         timeStr = d.toTimeString().substring(0, 5);
       }
     }
-
-    setForm({ 
-      title: ev.title || '',
-      description: ev.description || '',
-      location: ev.location || '',
-      category: ev.category || '',
-      date: dateStr,
-      time: timeStr,
-      imageFile: null,
-      imagePreview: ev.image
-        ? ev.image.startsWith("http")
-          ? ev.image
-          : `${API_URL}${ev.image}`
-        : ''
+    setForm({
+      title: ev.title || '', description: ev.description || '',
+      location: ev.location || '', category: ev.category || '',
+      date: dateStr, time: timeStr, imageFile: null,
+      imagePreview: ev.image ? (ev.image.startsWith("http") ? ev.image : `${API_URL}${ev.image}`) : ''
     });
     setShowForm(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -175,8 +129,9 @@ const AdminEvents = () => {
 
   const handleDelete = async (i) => {
     try {
+      const config = { headers: { Authorization: `Bearer ${accessToken}` } };
       const eventId = events[i]._id;
-      await api.delete(`/${eventId}`);
+      await axios.delete(`${API_URL}/api/admin/events/${eventId}`, config);
       toast.success('Đã xóa sự kiện');
       fetchEvents();
       setDeleteConfirm(null);
@@ -185,65 +140,45 @@ const AdminEvents = () => {
     }
   };
 
-  const closeForm = () => { 
-    setShowForm(false); 
-    setEditing(null); 
-    setForm(emptyForm); 
-  };
+  const closeForm = () => { setShowForm(false); setEditing(null); setForm(emptyForm); };
 
   const filtered = events.filter(e => {
     const matchSearch = e.title?.toLowerCase().includes(search.toLowerCase());
     const matchCategory = categoryFilter === 'all' || e.category === categoryFilter;
     const matchStatus = statusFilter === 'all' || e.status === statusFilter;
     const matchLocation = locationFilter === '' || e.location?.toLowerCase().includes(locationFilter.toLowerCase());
-
     let matchDate = true;
     if (dateFilter !== 'all') {
-      if (!e.startDate) {
-        matchDate = false;
-      } else {
+      if (!e.startDate) { matchDate = false; } else {
         const eventDate = new Date(e.startDate);
-        const now = new Date();
-        now.setHours(0, 0, 0, 0);
-
+        const now = new Date(); now.setHours(0,0,0,0);
         if (dateFilter === 'today') {
-          const todayEnd = new Date(now);
-          todayEnd.setDate(todayEnd.getDate() + 1);
+          const todayEnd = new Date(now); todayEnd.setDate(todayEnd.getDate()+1);
           matchDate = eventDate >= now && eventDate < todayEnd;
         } else if (dateFilter === 'thisWeek') {
-          const weekEnd = new Date(now);
-          weekEnd.setDate(weekEnd.getDate() + 7);
+          const weekEnd = new Date(now); weekEnd.setDate(weekEnd.getDate()+7);
           matchDate = eventDate >= now && eventDate <= weekEnd;
         } else if (dateFilter === 'thisMonth') {
-          const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+          const monthEnd = new Date(now.getFullYear(), now.getMonth()+1, 0);
           matchDate = eventDate >= now && eventDate <= monthEnd;
         } else if (dateFilter === 'custom' && customStartDate && customEndDate) {
           const start = new Date(customStartDate);
-          const end = new Date(customEndDate);
-          end.setHours(23, 59, 59, 999);
+          const end = new Date(customEndDate); end.setHours(23,59,59,999);
           matchDate = eventDate >= start && eventDate <= end;
         }
       }
     }
-
     return matchSearch && matchCategory && matchStatus && matchLocation && matchDate;
   });
 
   const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const paginatedEvents = filtered.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-
-  const goToPage = (page) => {
-    if (page >= 1 && page <= totalPages) {
-      setCurrentPage(page);
-    }
-  };
-
+  const goToPage = (page) => { if (page >= 1 && page <= totalPages) setCurrentPage(page); };
   const inputCls = "w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-orange-400 focus:bg-white transition-all";
 
   return (
     <div className="space-y-5">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
         <div>
           <h2 className="text-lg font-bold text-gray-900">Quản lý sự kiện</h2>
@@ -255,13 +190,11 @@ const AdminEvents = () => {
         </button>
       </div>
 
-      {/* Bộ lọc */}
       <div className="flex flex-col gap-3">
         <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center flex-wrap">
           <div className="relative flex-1 min-w-[200px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input type="text" value={search} onChange={e => setSearch(e.target.value)} 
-              placeholder="Tìm theo tên sự kiện..." 
+            <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Tìm theo tên sự kiện..."
               className="w-full pl-9 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:border-orange-400 transition-all" />
           </div>
           <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}
@@ -290,14 +223,12 @@ const AdminEvents = () => {
           )}
           <div className="relative flex-1 min-w-[200px]">
             <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input type="text" value={locationFilter} onChange={e => setLocationFilter(e.target.value)} 
-              placeholder="Lọc theo địa điểm..." 
+            <input type="text" value={locationFilter} onChange={e => setLocationFilter(e.target.value)} placeholder="Lọc theo địa điểm..."
               className="w-full pl-9 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:border-orange-400 transition-all" />
           </div>
         </div>
       </div>
 
-      {/* Form */}
       {showForm && (
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
           <div className="flex items-center justify-between mb-5">
@@ -332,7 +263,7 @@ const AdminEvents = () => {
             <div className="md:col-span-2">
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Mô tả</label>
               <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                placeholder="Mô tả sự kiện..." rows={3} 
+                placeholder="Mô tả sự kiện..." rows={3}
                 className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-orange-400 focus:bg-white resize-none transition-all" />
             </div>
             <div>
@@ -357,9 +288,7 @@ const AdminEvents = () => {
             </div>
             <div className="md:col-span-2 flex gap-3 pt-2">
               <button type="button" onClick={closeForm} disabled={loading}
-                className="flex-1 py-2.5 border border-gray-200 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors">
-                Hủy
-              </button>
+                className="flex-1 py-2.5 border border-gray-200 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors">Hủy</button>
               <button type="submit" disabled={loading}
                 className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-orange-500 to-purple-600 text-white rounded-xl text-sm font-bold hover:from-orange-600 hover:to-purple-700 transition-all shadow-md disabled:opacity-60 disabled:cursor-not-allowed">
                 <Save className="w-4 h-4" />
@@ -370,13 +299,10 @@ const AdminEvents = () => {
         </div>
       )}
 
-      {/* Danh sách + Pagination */}
       {filtered.length === 0 ? (
         <div className="text-center py-16 bg-white border border-gray-200 rounded-2xl">
           <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-500 text-sm">
-            {events.length === 0 ? 'Chưa có sự kiện nào. Tạo sự kiện đầu tiên!' : 'Không tìm thấy sự kiện phù hợp.'}
-          </p>
+          <p className="text-gray-500 text-sm">{events.length === 0 ? 'Chưa có sự kiện nào. Tạo sự kiện đầu tiên!' : 'Không tìm thấy sự kiện phù hợp.'}</p>
         </div>
       ) : (
         <>
@@ -386,22 +312,14 @@ const AdminEvents = () => {
               const d = new Date(event.startDate);
               const displayDate = d.toLocaleDateString('vi-VN');
               const displayTime = d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-
-              const imageUrl = event.image
-                ? event.image.startsWith("http")
-                  ? event.image
-                  : `${API_URL}${event.image}`
-                : null;
-
+              const imageUrl = event.image ? (event.image.startsWith("http") ? event.image : `${API_URL}${event.image}`) : null;
               return (
                 <div key={event._id} className="bg-white border border-gray-200 rounded-2xl overflow-hidden hover:border-orange-300 hover:shadow-md transition-all group">
                   <div className="relative h-36 bg-gray-100">
                     {imageUrl ? (
                       <img src={imageUrl} alt={event.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <ImageIcon className="w-10 h-10 text-gray-300" />
-                      </div>
+                      <div className="w-full h-full flex items-center justify-center"><ImageIcon className="w-10 h-10 text-gray-300" /></div>
                     )}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
                   </div>
@@ -409,12 +327,10 @@ const AdminEvents = () => {
                     <h3 className="text-sm font-bold text-gray-900 mb-2 line-clamp-1">{event.title}</h3>
                     <div className="space-y-1 mb-4">
                       <div className="flex items-center gap-2 text-xs text-gray-500">
-                        <Calendar className="w-3 h-3 text-orange-400" />
-                        <span>{displayDate} · {displayTime}</span>
+                        <Calendar className="w-3 h-3 text-orange-400" /><span>{displayDate} · {displayTime}</span>
                       </div>
                       <div className="flex items-center gap-2 text-xs text-gray-500">
-                        <MapPin className="w-3 h-3 text-purple-400" />
-                        <span className="truncate">{event.location}</span>
+                        <MapPin className="w-3 h-3 text-purple-400" /><span className="truncate">{event.location}</span>
                       </div>
                     </div>
                     <div className="flex gap-2">
@@ -432,7 +348,6 @@ const AdminEvents = () => {
               );
             })}
           </div>
-
           {totalPages > 1 && (
             <div className="flex items-center justify-center gap-3 mt-8">
               <button onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1}
@@ -459,14 +374,10 @@ const AdminEvents = () => {
               Bạn có chắc muốn xóa sự kiện <span className="text-gray-900 font-semibold">"{events[deleteConfirm]?.title}"</span>?
             </p>
             <div className="flex gap-3">
-              <button onClick={() => setDeleteConfirm(null)} 
-                className="flex-1 py-2 border border-gray-200 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors">
-                Hủy
-              </button>
-              <button onClick={() => handleDelete(deleteConfirm)} 
-                className="flex-1 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl text-sm font-semibold transition-colors">
-                Xóa
-              </button>
+              <button onClick={() => setDeleteConfirm(null)}
+                className="flex-1 py-2 border border-gray-200 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors">Hủy</button>
+              <button onClick={() => handleDelete(deleteConfirm)}
+                className="flex-1 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl text-sm font-semibold transition-colors">Xóa</button>
             </div>
           </div>
         </div>
