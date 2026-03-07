@@ -4,6 +4,7 @@ import useAuthStore from '../../store/authStore';
 import toast from 'react-hot-toast';
 import axios from 'axios';
 import { Ticket, Mail, Lock, ArrowRight, Sparkles, Eye, EyeOff } from 'lucide-react';
+import API_URL from '../../config/api';
 
 const LoginPage = () => {
   const { setAuth } = useAuthStore();
@@ -24,7 +25,7 @@ const LoginPage = () => {
     if (formData.password.length < 6) { toast.error('Mật khẩu phải có ít nhất 6 ký tự'); return; }
     try {
       setLoading(true);
-      const response = await axios.post('/api/auth/login', { email: formData.email, password: formData.password });
+      const response = await axios.post(`${API_URL}/api/auth/login`, { email: formData.email, password: formData.password });
       const { accessToken, refreshToken, data } = response.data;
       const user = data.user;
       setAuth(user, accessToken, refreshToken);
@@ -52,10 +53,6 @@ const LoginPage = () => {
         {/* Overlays */}
         <div style={{ position:'absolute', inset:0, background:'linear-gradient(135deg,rgba(6,6,6,0.55) 0%,rgba(0,0,0,0.2) 50%,rgba(168,85,247,0.08) 100%)' }}/>
         <div style={{ position:'absolute', inset:0, background:'linear-gradient(to right,rgba(6,6,6,0) 60%,rgba(6,6,6,0.96) 100%)' }}/>
-
-       
-
-
       </div>
 
       {/* ── RIGHT: Form panel ── */}
