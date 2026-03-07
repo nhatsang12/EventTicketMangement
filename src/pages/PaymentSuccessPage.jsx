@@ -6,7 +6,7 @@ import {
   MapPin, Mail, Shield, Zap, BadgeCheck
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
-
+import API_URL from '../config/api';
 // ─── HELPERS ──────────────────────────────────────────────────────────────
 const fmtPrice = p =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(p || 0);
@@ -71,7 +71,7 @@ const PaymentSuccessPage = () => {
         const payosStatus = searchParams.get('status');
         if (payosCode === '00' && payosStatus === 'PAID') {
           setPaymentMethod('payos');
-          const res = await axios.get('http://localhost:8000/api/orders/my-orders', config);
+          const res = await axios.get(`${API_URL}/api/orders/my-orders`, config);
           const orders = res.data?.data || res.data || [];
           if (orders[0]) setOrder(orders[0]);
           setLoading(false);
@@ -83,13 +83,13 @@ const PaymentSuccessPage = () => {
           setPaymentMethod('stripe');
           try {
             const verifyRes = await axios.post(
-              'http://localhost:8000/api/payments/verify-stripe-session',
+              '`${API_URL}/api/payments/verify-stripe-session',
               { session_id: stripeSessionId }, config
             );
             if (verifyRes.data?.success) { setOrder(verifyRes.data.data); }
             else throw new Error(verifyRes.data?.message || 'Xác minh thất bại');
           } catch {
-            const fallback = await axios.get('http://localhost:8000/api/orders/my-orders', config);
+            const fallback = await axios.get(`${API_URL}/api/orders/my-orders`, config);
             const orders = fallback.data?.data || fallback.data || [];
             if (orders[0]) setOrder(orders[0]);
             else throw new Error('Không tìm thấy đơn hàng');

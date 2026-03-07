@@ -4,6 +4,7 @@ import axios from 'axios';
 import { TrendingUp, Ticket, ShoppingBag, Calendar, ChevronRight, ArrowUp, Loader2 } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
 import toast from 'react-hot-toast';
+import API_URL from '../../config/api';
 
 const AdminDashboard = () => {
   const [orders, setOrders] = useState([]);
@@ -16,11 +17,8 @@ const AdminDashboard = () => {
       try {
         setLoading(true);
         const config = { headers: { Authorization: `Bearer ${token}` } };
-
-        // Chỉ cần 1 nguồn duy nhất: danh sách orders (đã populate event + tickets)
-        const res = await axios.get('http://localhost:8000/api/orders', config);
+        const res = await axios.get(`${API_URL}/api/orders`, config);
         const data = res.data?.data || res.data || [];
-        // Sắp xếp mới nhất lên đầu
         setOrders(data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
       } catch (error) {
         toast.error("Không thể tải dữ liệu thống kê từ server!");
@@ -32,14 +30,12 @@ const AdminDashboard = () => {
     if (token) fetchData();
   }, [token]);
 
-  // ── Tất cả KPI tính từ orders (đồng bộ, nhất quán) ─────────────────────
   const totalRevenue     = orders.reduce((s, o) => s + (o.totalAmount || 0), 0);
   const totalOrders      = orders.length;
   const totalTicketsSold = orders.reduce(
     (s, o) => s + (Array.isArray(o.tickets) ? o.tickets.length : 0), 0
   );
 
-  // Gom nhóm theo sự kiện để đếm số sự kiện có đơn + tính doanh thu per event
   const eventMap = {};
   orders.forEach((o) => {
     const eventId   = o.event?._id || o.event || 'unknown';

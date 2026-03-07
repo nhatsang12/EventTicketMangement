@@ -3,6 +3,7 @@ import axios from 'axios';
 import { Users, Search, Plus, Edit2, Trash2, Shield, User as UserIcon, Mail, Calendar, Loader2, X, Check } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
 import toast from 'react-hot-toast';
+import API_URL from '../../config/api';
 
 const AdminUsers = () => {
   const [users, setUsers] = useState([]);
@@ -31,7 +32,7 @@ const AdminUsers = () => {
       setLoading(true);
       const config = { headers: { Authorization: `Bearer ${token}` } };
       const params = { search, role: roleFilter };
-      const res = await axios.get('http://localhost:8000/api/admin/users', { ...config, params });
+      const res = await axios.get(`${API_URL}/api/admin/users`, { ...config, params });
       setUsers(res.data.data || []);
     } catch (error) {
       console.error('Error loading users:', error);
@@ -44,7 +45,7 @@ const AdminUsers = () => {
   const loadStats = async () => {
     try {
       const config = { headers: { Authorization: `Bearer ${token}` } };
-      const res = await axios.get('http://localhost:8000/api/admin/users/stats', config);
+      const res = await axios.get(`${API_URL}/api/admin/users/stats`, config);
       setStats(res.data.data || {});
     } catch (error) {
       console.error('Error loading stats:', error);
@@ -75,7 +76,7 @@ const AdminUsers = () => {
 
     try {
       const config = { headers: { Authorization: `Bearer ${token}` } };
-      await axios.delete(`http://localhost:8000/api/admin/users/${userId}`, config);
+      await axios.delete(`${API_URL}/api/admin/users/${userId}`, config);
       toast.success('Xóa user thành công!');
       loadUsers();
       loadStats();
@@ -110,10 +111,10 @@ const AdminUsers = () => {
       }
 
       if (modalMode === 'create') {
-        await axios.post('http://localhost:8000/api/admin/users', payload, config);
+        await axios.post(`${API_URL}/api/admin/users`, payload, config);
         toast.success('Tạo user thành công!');
       } else {
-        await axios.put(`http://localhost:8000/api/admin/users/${currentUser._id}`, payload, config);
+        await axios.put(`${API_URL}/api/admin/users/${currentUser._id}`, payload, config);
         toast.success('Cập nhật user thành công!');
       }
 

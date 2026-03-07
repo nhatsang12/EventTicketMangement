@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import axios from "axios";
+import API_URL from '../config/api';
 import {
   Calendar, MapPin, Search, Tag, Ticket,
   Users, ArrowRight, ChevronDown, ChevronRight,
@@ -73,7 +74,7 @@ const SORT_OPTIONS = [
 const CAT_ICONS = { "Âm nhạc":"🎵", "Thể thao":"⚽", "Văn hóa":"🎭", "Ẩm thực":"🍜", "Công nghệ":"💻", "Giải trí":"🎪" };
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────
-const getImageUrl = p => !p ? "https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=1000&auto=format&fit=crop&q=80" : p.startsWith("http") ? p : `http://localhost:8000${p}`;
+const getImageUrl = p => !p ? "https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=1000&auto=format&fit=crop&q=80" : p.startsWith("http") ? p : `${API_URL}${p}`;
 const fmtDate = d => { if (!d) return "Chưa cập nhật"; const dt = new Date(d); return isNaN(dt) ? "Chưa cập nhật" : dt.toLocaleDateString("vi-VN", { day:"2-digit", month:"2-digit", year:"numeric" }); };
 const fmtTime = d => { if (!d) return ""; try { const dt = new Date(d); return isNaN(dt) ? "" : dt.toLocaleTimeString("vi-VN", { hour:"2-digit", minute:"2-digit" }); } catch { return ""; } };
 const fmtPrice = p => (p === null || p === undefined || p === 0) ? "Miễn phí" : new Intl.NumberFormat("vi-VN", { style:"currency", currency:"VND" }).format(p);
@@ -628,7 +629,7 @@ const HomePage = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const res = await axios.get("http://localhost:8000/api/events");
+        const res = await axios.get(`${API_URL}/api/events`);
         let data = res.data?.data || res.data || [];
         if (!Array.isArray(data)) data = [];
         setCategories([...new Set(data.map(e => e.category).filter(Boolean))]);

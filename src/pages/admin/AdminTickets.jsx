@@ -3,6 +3,7 @@ import { Plus, Edit2, Trash2, Ticket, ToggleLeft, ToggleRight, Save, X, Tag, Che
 import toast from 'react-hot-toast';
 import axios from 'axios';
 import useAuthStore from '../../store/authStore';
+import API_URL from '../../config/api';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -28,8 +29,8 @@ const AdminTickets = () => {
 
   const { accessToken } = useAuthStore();
 
-  const apiTickets = axios.create({ baseURL: 'http://localhost:8000/api/admin/ticket-types' });
-  const apiEvents  = axios.create({ baseURL: 'http://localhost:8000/api/admin/events' });
+  const apiTickets = axios.create({ baseURL: `${API_URL}/api/admin/ticket-types` });
+  const apiEvents  = axios.create({ baseURL: `${API_URL}/api/admin/events` });
 
   const fetchData = async () => {
     try {
@@ -345,7 +346,6 @@ const AdminTickets = () => {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          {/* Nút fill số lượng vé */}
                           <button
                             onClick={() => openFillModal(globalIndex)}
                             title="Thêm số lượng vé"
@@ -393,21 +393,16 @@ const AdminTickets = () => {
       {fillModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
           <div className="bg-white border border-gray-200 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
-            {/* Header */}
             <div className="flex items-center justify-between mb-1">
               <h3 className="text-sm font-bold text-gray-900">Thêm số lượng vé</h3>
               <button onClick={closeFillModal} className="text-gray-400 hover:text-gray-600 transition-colors">
                 <X className="w-4 h-4" />
               </button>
             </div>
-
-            {/* Tên vé */}
             <p className="text-xs text-gray-500 mb-4">
               Loại vé:&nbsp;
               <span className="font-semibold text-gray-800">{fillModal.ticket.name}</span>
             </p>
-
-            {/* Thông tin hiện tại */}
             <div className="flex gap-3 mb-4">
               <div className="flex-1 bg-gray-50 rounded-xl px-3 py-2.5 text-center">
                 <p className="text-xs text-gray-400 mb-0.5">Tổng hiện tại</p>
@@ -430,8 +425,6 @@ const AdminTickets = () => {
                 </p>
               </div>
             </div>
-
-            {/* Input */}
             <div className="mb-5">
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">
                 Số lượng cần thêm *
@@ -446,8 +439,6 @@ const AdminTickets = () => {
                 className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-orange-400 focus:bg-white transition-all"
               />
             </div>
-
-            {/* Buttons */}
             <div className="flex gap-3">
               <button onClick={closeFillModal} disabled={fillLoading}
                 className="flex-1 py-2.5 border border-gray-200 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors">

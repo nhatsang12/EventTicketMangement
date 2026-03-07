@@ -6,7 +6,7 @@ import {
   ShoppingBag, ArrowLeft, CheckCircle2, ArrowRight, XCircle, Clock
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
-
+import API_URL from '../config/api';
 // ─── HELPERS ──────────────────────────────────────────────────────────────
 const fmtPrice = p =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(p || 0);
@@ -126,9 +126,10 @@ const TicketHistoryPage = () => {
     (async () => {
       try {
         setLoading(true);
-        const res = await axios.get('http://localhost:8000/api/orders/my-orders', {
+        const res = await axios.get(`${API_URL}/api/admin/my-orders`, {
           headers: { Authorization: `Bearer ${token}` },
         });
+        
         let data = res.data?.data || res.data || [];
         data = data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         setOrders(data);

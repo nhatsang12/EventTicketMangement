@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import toast from 'react-hot-toast';
-
+import API_URL from '../config/api';
 // ─── HELPERS ──────────────────────────────────────────────────────────────
 const fmtPrice = p =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(p || 0);
@@ -131,7 +131,7 @@ const ProfilePage = () => {
     (async () => {
       try {
         const config = { headers: { Authorization: `Bearer ${token}` } };
-        const res = await axios.get('http://localhost:8000/api/orders/my-orders', config);
+        const res = await axios.get(`${API_URL}/api/admin/my-orders`,);
         let orders = res.data?.data || res.data || [];
         orders = orders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         setRecentOrders(orders);

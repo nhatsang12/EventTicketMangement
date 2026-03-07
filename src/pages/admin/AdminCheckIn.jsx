@@ -3,8 +3,8 @@ import axios from 'axios';
 import { QrCode, CheckCircle, XCircle, Search, Download, Users, RefreshCw, Loader2, Clock, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import useAuthStore from '../../store/authStore';
+import API_URL from '../../config/api';
 
-// ── Chuẩn hóa ticket ─────────────────────────────────────────────────────────
 const normalizeTicket = (t) => {
   const isCheckedIn =
     t.status === 'used' ||
@@ -87,7 +87,7 @@ const AdminCheckIn = () => {
     try {
       setLoading(true);
       const config = { headers: { Authorization: `Bearer ${token}` } };
-      const res = await axios.get('http://localhost:8000/api/admin/analytics/tickets', config);
+      const res = await axios.get(`${API_URL}/api/admin/analytics/tickets`, config);
       const raw = res.data?.data?.allTickets || [];
       setAllTickets(raw.map(normalizeTicket));
     } catch {
@@ -99,13 +99,12 @@ const AdminCheckIn = () => {
 
   useEffect(() => { if (token) loadData(); }, [token, loadData]);
 
-  // ── Validate trước khi gọi API ───────────────────────────────────────────
   const validateBeforeScan = (code) => {
     const ticket = allTickets.find(
       (t) => t.qrCode === code || String(t.id) === code
     );
 
-    if (!ticket) return { valid: true }; // Không tìm thấy local → để backend quyết định
+    if (!ticket) return { valid: true };
 
     if (ticket.isCheckedIn) {
       return { valid: false, reason: 'used', message: 'Vé này đã được sử dụng rồi!' };
@@ -142,7 +141,7 @@ const AdminCheckIn = () => {
     try {
       const config = { headers: { Authorization: `Bearer ${token}` } };
       const res = await axios.post(
-        'http://localhost:8000/api/tickets/check-in',
+        `${API_URL}/api/tickets/check-in`,
         { qrCode: code },
         config
       );
@@ -317,7 +316,6 @@ const AdminCheckIn = () => {
             </div>
           )}
 
-          {/* Vừa vào cổng */}
           <div className="mt-8">
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4">Vừa vào cổng</p>
             <div className="space-y-2">
@@ -394,13 +392,11 @@ const AdminCheckIn = () => {
                     t.dateStatus === 'upcoming' ? 'bg-blue-300'   :
                                                   'bg-gray-200'
                   }`} />
-
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-bold text-gray-800 truncate">{t.customerName}</p>
                     <p className="text-[10px] text-gray-400 truncate mb-0.5">{t.eventName}</p>
                     <DateBadge dateStatus={t.dateStatus} eventDate={t.eventDate} />
                   </div>
-
                   <div className="text-right shrink-0">
                     {t.isCheckedIn ? (
                       <>

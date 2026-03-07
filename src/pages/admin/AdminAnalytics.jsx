@@ -3,6 +3,7 @@ import axios from 'axios';
 import { TrendingUp, ShoppingBag, Ticket, BarChart3, Download, Calendar, ArrowUp, Loader2 } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
 import toast from 'react-hot-toast';
+import API_URL from '../../config/api';
 
 const AdminAnalytics = () => {
   const [orders, setOrders] = useState([]);
@@ -18,8 +19,8 @@ const AdminAnalytics = () => {
         setLoading(true);
         const config = { headers: { Authorization: `Bearer ${token}` } };
         const [checkinsRes, ordersRes] = await Promise.all([
-          axios.get('http://localhost:8000/api/admin/analytics/checkins', config),
-          axios.get('http://localhost:8000/api/orders', config),
+          axios.get(`${API_URL}/api/admin/analytics/checkins`, config),
+          axios.get(`${API_URL}/api/orders`, config),
         ]);
         setCheckinStats(checkinsRes.data?.data || {});
         setOrders(ordersRes.data?.data || []);
@@ -53,7 +54,6 @@ const AdminAnalytics = () => {
   );
   const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
 
-  // ── Gom nhóm doanh thu + vé từ orders ────────────────────────────────────
   const eventMap = {};
   filteredOrders.forEach((o) => {
     const eventId   = String(o.event?._id || o.event || o.eventId || 'unknown');
@@ -66,8 +66,6 @@ const AdminAnalytics = () => {
     eventMap[eventId].tickets += Array.isArray(o.tickets) ? o.tickets.length : o.quantity || 0;
   });
 
-  // ── Gán checkedIn từ API /checkins (aggregate bảng Checkin — chính xác nhất) ──
-  // Backend trả: { totalTickets, checkedIn, pending, statsByEvent: [{ _id, eventName, totalCheckins }] }
   const statsByEvent = checkinStats?.statsByEvent;
   if (Array.isArray(statsByEvent)) {
     statsByEvent.forEach(({ _id, totalCheckins }) => {
