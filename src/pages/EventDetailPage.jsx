@@ -4,8 +4,8 @@ import axios from 'axios';
 import API_URL from '../config/api';
 import {
   Calendar, MapPin, Clock, Share2, Heart,
-  Minus, Plus, ShoppingCart, AlertCircle, Sparkles, Users,
-  ArrowLeft, Ticket, Tag, ChevronRight, Timer, Eye,
+  Minus, Plus, ShoppingCart, AlertCircle, Sparkles,
+  ArrowLeft, Ticket,
   BadgeCheck, Shield, Zap, ArrowRight
 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -78,7 +78,7 @@ const EventDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { isAuthenticated } = useAuthStore();
-  const { addItem, setEvent } = useCartStore();
+  const { addItem } = useCartStore(); // ← bỏ setEvent
 
   const [event, setEventData] = useState(null);
   const [ticketTypes, setTicketTypes] = useState([]);
@@ -102,7 +102,7 @@ const EventDetailPage = () => {
 
       setEventData(currentEvent);
       setTicketTypes(eventTickets);
-      setEvent(currentEvent);
+      // ← KHÔNG gọi setEvent ở đây nữa
     } catch (err) {
       console.error(err);
       toast.error('Không thể tải thông tin sự kiện');
@@ -132,7 +132,7 @@ const EventDetailPage = () => {
     Object.entries(selectedTickets).forEach(([tid, qty]) => {
       if (qty > 0) {
         const t = ticketTypes.find(t => t._id === tid);
-        addItem(t, qty, event); // ← truyền event vào
+        addItem(t, qty, event); // ← truyền event vào đây
       }
     });
     toast.success('Đã thêm vào giỏ hàng');
@@ -240,9 +240,9 @@ const EventDetailPage = () => {
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }} className="edp-badge-grid">
             {[
-              { icon: Shield,    color: '#10b981', title: 'Vé chính hãng',  desc: 'Mã QR độc nhất, chống giả mạo' },
-              { icon: Zap,       color: '#f97316', title: 'Đặt vé siêu tốc', desc: 'Nhận vé điện tử ngay lập tức' },
-              { icon: BadgeCheck,color: '#a855f7', title: 'Hoàn tiền 100%',  desc: 'Nếu sự kiện bị huỷ' },
+              { icon: Shield,    color: '#10b981', title: 'Vé chính hãng',   desc: 'Mã QR độc nhất, chống giả mạo' },
+              { icon: Zap,       color: '#f97316', title: 'Đặt vé siêu tốc', desc: 'Nhận vé điện tử ngay lập tức'  },
+              { icon: BadgeCheck,color: '#a855f7', title: 'Hoàn tiền 100%',  desc: 'Nếu sự kiện bị huỷ'           },
             ].map((b, i) => (
               <div key={i} style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 14, padding: '16px 18px', display: 'flex', gap: 12, alignItems: 'flex-start' }}>
                 <div style={{ width: 32, height: 32, borderRadius: 9, background: `${b.color}14`, border: `1px solid ${b.color}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -317,7 +317,7 @@ const EventDetailPage = () => {
                             <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', fontFamily: "'Be Vietnam Pro',sans-serif", fontWeight: 600 }}>Số lượng</span>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 0, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, overflow: 'hidden' }}>
                               <button onClick={() => handleQuantityChange(ticket._id, -1)} disabled={qty === 0}
-                                style={{ width: 34, height: 34, border: 'none', background: 'transparent', color: qty === 0 ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.7)', cursor: qty === 0 ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s', fontSize: 16, fontWeight: 700 }}>
+                                style={{ width: 34, height: 34, border: 'none', background: 'transparent', color: qty === 0 ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.7)', cursor: qty === 0 ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>
                                 <Minus style={{ width: 12, height: 12 }}/>
                               </button>
                               <span style={{ width: 36, textAlign: 'center', fontSize: 14, fontWeight: 800, color: qty > 0 ? '#fb923c' : 'rgba(255,255,255,0.6)', fontFamily: "'Space Mono',monospace", borderLeft: '1px solid rgba(255,255,255,0.08)', borderRight: '1px solid rgba(255,255,255,0.08)', lineHeight: '34px' }}>
