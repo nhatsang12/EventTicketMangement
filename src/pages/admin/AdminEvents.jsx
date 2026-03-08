@@ -9,39 +9,50 @@ const ITEMS_PER_PAGE = 6;
 const emptyForm = { title: '', description: '', date: '', time: '19:00', endDate: '', endTime: '21:00', location: '', category: '', imageFile: null, imagePreview: '' };
 const categories = ['Âm nhạc', 'Công nghệ', 'Thể thao', 'Nghệ thuật', 'Ẩm thực', 'Giáo dục', 'Khác'];
 const statusOptions = [
-  { value: 'all', label: 'Tất cả trạng thái' },
-  { value: 'published', label: 'Đã xuất bản' },
-  { value: 'draft', label: 'Nháp' },
+  { value: 'all',       label: 'Tất cả trạng thái' },
+  { value: 'active',    label: 'Đang mở' },
+  { value: 'draft',     label: 'Nháp' },
   { value: 'cancelled', label: 'Đã hủy' },
-  { value: 'ended', label: 'Đã kết thúc' },
+  { value: 'ended',     label: 'Đã kết thúc' },
 ];
 const dateFilterOptions = [
-  { value: 'all', label: 'Tất cả ngày' },
-  { value: 'today', label: 'Hôm nay' },
-  { value: 'thisWeek', label: 'Tuần này' },
+  { value: 'all',       label: 'Tất cả ngày' },
+  { value: 'today',     label: 'Hôm nay' },
+  { value: 'thisWeek',  label: 'Tuần này' },
   { value: 'thisMonth', label: 'Tháng này' },
-  { value: 'custom', label: 'Tùy chỉnh' },
+  { value: 'custom',    label: 'Tùy chỉnh' },
 ];
+
 const todayStr = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 };
 
+const getStatusBadge = (status) => {
+  const map = {
+    active:    { cls: 'bg-emerald-100 text-emerald-700', label: 'Đang mở' },
+    ended:     { cls: 'bg-gray-100 text-gray-500',       label: 'Đã kết thúc' },
+    draft:     { cls: 'bg-yellow-100 text-yellow-700',   label: 'Nháp' },
+    cancelled: { cls: 'bg-red-100 text-red-600',         label: 'Đã hủy' },
+  };
+  return map[status] || map['active'];
+};
+
 const AdminEvents = () => {
-  const [events, setEvents] = useState([]);
-  const [search, setSearch] = useState('');
+  const [events, setEvents]               = useState([]);
+  const [search, setSearch]               = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [dateFilter, setDateFilter] = useState('all');
+  const [statusFilter, setStatusFilter]   = useState('all');
+  const [dateFilter, setDateFilter]       = useState('all');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
   const [locationFilter, setLocationFilter] = useState('');
-  const [showForm, setShowForm] = useState(false);
-  const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState(emptyForm);
+  const [showForm, setShowForm]           = useState(false);
+  const [editing, setEditing]             = useState(null);
+  const [form, setForm]                   = useState(emptyForm);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [loading, setLoading]             = useState(false);
+  const [currentPage, setCurrentPage]     = useState(1);
 
   const fileRef = useRef();
   const { accessToken } = useAuthStore();
@@ -52,7 +63,7 @@ const AdminEvents = () => {
       const res = await axios.get(`${API_URL}/api/admin/events/`, config);
       setEvents(res.data.data || []);
       setCurrentPage(1);
-    } catch (error) {
+    } catch {
       toast.error('Lỗi khi tải dữ liệu sự kiện');
     }
   };
@@ -71,8 +82,13 @@ const AdminEvents = () => {
     if (!form.title?.trim() || !form.date || !form.location?.trim()) {
       toast.error('Vui lòng điền đầy đủ: tên, ngày, địa điểm'); return;
     }
-    if (form.date < todayStr()) { toast.error('Ngày tổ chức không thể là ngày trong quá khứ'); return; }
-    if (form.endDate && form.endDate < form.date) { toast.error('Ngày kết thúc không thể trước ngày bắt đầu'); return; }
+    // Chỉ chặn ngày quá khứ khi tạo mới, không chặn khi edit
+    if (editing === null && form.date < todayStr()) {
+      toast.error('Ngày tổ chức không thể là ngày trong quá khứ'); return;
+    }
+    if (form.endDate && form.endDate < form.date) {
+      toast.error('Ngày kết thúc không thể trước ngày bắt đầu'); return;
+    }
 
     try {
       setLoading(true);
@@ -88,6 +104,12 @@ const AdminEvents = () => {
 
       const endDateTime = new Date(`${form.endDate || form.date}T${form.endTime || '23:59'}`).toISOString();
       formData.append('endDate', endDateTime);
+
+      // Nếu admin sửa ngày mới > hôm nay thì tự động active lại
+      if (editing !== null) {
+        const newEnd = new Date(`${form.endDate || form.date}T${form.endTime || '23:59'}`);
+        if (newEnd > new Date()) formData.append('status', 'active');
+      }
 
       if (form.imageFile) formData.append('image', form.imageFile);
 
@@ -137,7 +159,7 @@ const AdminEvents = () => {
       date: dateStr, time: timeStr,
       endDate: endDateStr, endTime: endTimeStr,
       imageFile: null,
-      imagePreview: ev.image ? (ev.image.startsWith("http") ? ev.image : `${API_URL}${ev.image}`) : ''
+      imagePreview: ev.image ? (ev.image.startsWith('http') ? ev.image : `${API_URL}${ev.image}`) : '',
     });
     setShowForm(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -151,7 +173,7 @@ const AdminEvents = () => {
       toast.success('Đã xóa sự kiện');
       fetchEvents();
       setDeleteConfirm(null);
-    } catch (error) {
+    } catch {
       toast.error('Lỗi khi xóa sự kiện');
     }
   };
@@ -159,9 +181,9 @@ const AdminEvents = () => {
   const closeForm = () => { setShowForm(false); setEditing(null); setForm(emptyForm); };
 
   const filtered = events.filter(e => {
-    const matchSearch = e.title?.toLowerCase().includes(search.toLowerCase());
+    const matchSearch   = e.title?.toLowerCase().includes(search.toLowerCase());
     const matchCategory = categoryFilter === 'all' || e.category === categoryFilter;
-    const matchStatus = statusFilter === 'all' || e.status === statusFilter;
+    const matchStatus   = statusFilter === 'all' || e.status === statusFilter;
     const matchLocation = locationFilter === '' || e.location?.toLowerCase().includes(locationFilter.toLowerCase());
     let matchDate = true;
     if (dateFilter !== 'all') {
@@ -187,18 +209,25 @@ const AdminEvents = () => {
     return matchSearch && matchCategory && matchStatus && matchLocation && matchDate;
   });
 
-  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const totalPages     = Math.ceil(filtered.length / ITEMS_PER_PAGE);
+  const startIndex     = (currentPage - 1) * ITEMS_PER_PAGE;
   const paginatedEvents = filtered.slice(startIndex, startIndex + ITEMS_PER_PAGE);
   const goToPage = (page) => { if (page >= 1 && page <= totalPages) setCurrentPage(page); };
-  const inputCls = "w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-orange-400 focus:bg-white transition-all";
+
+  const inputCls = 'w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-orange-400 focus:bg-white transition-all';
+
+  const endedCount  = events.filter(e => e.status === 'ended').length;
+  const activeCount = events.filter(e => e.status === 'active').length;
 
   return (
     <div className="space-y-5">
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
         <div>
           <h2 className="text-lg font-bold text-gray-900">Quản lý sự kiện</h2>
-          <p className="text-xs text-gray-500 mt-0.5">{events.length} sự kiện</p>
+          <p className="text-xs text-gray-500 mt-0.5">
+            {events.length} sự kiện · <span className="text-emerald-600 font-semibold">{activeCount} đang mở</span>
+            {endedCount > 0 && <> · <span className="text-gray-400">{endedCount} đã kết thúc</span></>}
+          </p>
         </div>
         <button onClick={() => { setShowForm(true); setEditing(null); setForm(emptyForm); }}
           className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-500 to-purple-600 text-white text-sm font-semibold rounded-xl hover:from-orange-600 hover:to-purple-700 transition-all shadow-md">
@@ -232,10 +261,10 @@ const AdminEvents = () => {
           {dateFilter === 'custom' && (
             <div className="flex flex-col sm:flex-row gap-2 items-center">
               <input type="date" value={customStartDate} onChange={e => setCustomStartDate(e.target.value)}
-                className="px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:border-orange-400 transition-all"/>
+                className="px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:border-orange-400 transition-all" />
               <span className="text-gray-500">đến</span>
               <input type="date" value={customEndDate} onChange={e => setCustomEndDate(e.target.value)}
-                className="px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:border-orange-400 transition-all"/>
+                className="px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:border-orange-400 transition-all" />
             </div>
           )}
           <div className="relative flex-1 min-w-[200px]">
@@ -293,7 +322,9 @@ const AdminEvents = () => {
             {/* Ngày bắt đầu */}
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Ngày bắt đầu <span className="text-red-400">*</span></label>
-              <input required type="date" value={form.date} min={todayStr()} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} className={inputCls} />
+              <input required type="date" value={form.date}
+                min={editing === null ? todayStr() : undefined}
+                onChange={e => setForm(f => ({ ...f, date: e.target.value }))} className={inputCls} />
             </div>
 
             {/* Giờ bắt đầu */}
@@ -355,24 +386,40 @@ const AdminEvents = () => {
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {paginatedEvents.map((event, i) => {
-              const globalIndex = startIndex + i;
-              const d = new Date(event.startDate);
-              const displayDate = d.toLocaleDateString('vi-VN');
-              const displayTime = d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-              const endD = event.endDate ? new Date(event.endDate) : null;
+              const globalIndex  = startIndex + i;
+              const isEnded      = event.status === 'ended';
+              const badge        = getStatusBadge(event.status);
+              const d            = new Date(event.startDate);
+              const displayDate  = d.toLocaleDateString('vi-VN');
+              const displayTime  = d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+              const endD         = event.endDate ? new Date(event.endDate) : null;
               const displayEndTime = endD ? endD.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : null;
               const displayEndDate = endD ? endD.toLocaleDateString('vi-VN') : null;
-              const imageUrl = event.image ? (event.image.startsWith("http") ? event.image : `${API_URL}${event.image}`) : null;
+              const imageUrl     = event.image ? (event.image.startsWith('http') ? event.image : `${API_URL}${event.image}`) : null;
+
               return (
-                <div key={event._id} className="bg-white border border-gray-200 rounded-2xl overflow-hidden hover:border-orange-300 hover:shadow-md transition-all group">
+                <div key={event._id}
+                  className={`bg-white border border-gray-200 rounded-2xl overflow-hidden hover:shadow-md transition-all group ${
+                    isEnded ? 'opacity-60' : 'hover:border-orange-300'
+                  }`}>
                   <div className="relative h-36 bg-gray-100">
                     {imageUrl ? (
-                      <img src={imageUrl} alt={event.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                      <img src={imageUrl} alt={event.title}
+                        className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ${isEnded ? 'grayscale' : ''}`} />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center"><ImageIcon className="w-10 h-10 text-gray-300" /></div>
+                      <div className="w-full h-full flex items-center justify-center">
+                        <ImageIcon className="w-10 h-10 text-gray-300" />
+                      </div>
                     )}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
+                    {/* Status badge */}
+                    <div className="absolute top-2 right-2">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${badge.cls}`}>
+                        {badge.label}
+                      </span>
+                    </div>
                   </div>
+
                   <div className="p-4">
                     <h3 className="text-sm font-bold text-gray-900 mb-2 line-clamp-1">{event.title}</h3>
                     <div className="space-y-1 mb-4">
@@ -387,17 +434,24 @@ const AdminEvents = () => {
                         </div>
                       )}
                       <div className="flex items-center gap-2 text-xs text-gray-500">
-                        <MapPin className="w-3 h-3 text-purple-400" /><span className="truncate">{event.location}</span>
+                        <MapPin className="w-3 h-3 text-purple-400" />
+                        <span className="truncate">{event.location}</span>
                       </div>
                     </div>
+
                     <div className="flex gap-2">
                       <button onClick={() => handleEdit(globalIndex)}
                         className="flex-1 flex items-center justify-center gap-1.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-medium rounded-lg transition-colors">
                         <Edit2 className="w-3 h-3" /> Sửa
                       </button>
                       <button onClick={() => setDeleteConfirm(globalIndex)}
-                        className="flex-1 flex items-center justify-center gap-1.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-medium rounded-lg transition-colors">
-                        <Trash2 className="w-3 h-3" /> Xóa
+                        className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                          isEnded
+                            ? 'bg-gray-100 hover:bg-gray-200 text-gray-500'
+                            : 'bg-red-50 hover:bg-red-100 text-red-600'
+                        }`}>
+                        <Trash2 className="w-3 h-3" />
+                        {isEnded ? 'Dọn dẹp' : 'Xóa'}
                       </button>
                     </div>
                   </div>
@@ -428,15 +482,26 @@ const AdminEvents = () => {
       {deleteConfirm !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
           <div className="bg-white border border-gray-200 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
-            <h3 className="text-sm font-bold text-gray-900 mb-2">Xác nhận xóa</h3>
+            <h3 className="text-sm font-bold text-gray-900 mb-2">
+              {events[deleteConfirm]?.status === 'ended' ? 'Xác nhận dọn dẹp' : 'Xác nhận xóa'}
+            </h3>
             <p className="text-xs text-gray-500 mb-5">
-              Bạn có chắc muốn xóa sự kiện <span className="text-gray-900 font-semibold">"{events[deleteConfirm]?.title}"</span>?
+              {events[deleteConfirm]?.status === 'ended'
+                ? <>Sự kiện <span className="text-gray-900 font-semibold">"{events[deleteConfirm]?.title}"</span> đã kết thúc. Bạn có muốn xóa khỏi hệ thống?</>
+                : <>Bạn có chắc muốn xóa sự kiện <span className="text-gray-900 font-semibold">"{events[deleteConfirm]?.title}"</span>?</>
+              }
             </p>
             <div className="flex gap-3">
               <button onClick={() => setDeleteConfirm(null)}
                 className="flex-1 py-2 border border-gray-200 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors">Hủy</button>
               <button onClick={() => handleDelete(deleteConfirm)}
-                className="flex-1 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl text-sm font-semibold transition-colors">Xóa</button>
+                className={`flex-1 py-2 text-white rounded-xl text-sm font-semibold transition-colors ${
+                  events[deleteConfirm]?.status === 'ended'
+                    ? 'bg-gray-500 hover:bg-gray-600'
+                    : 'bg-red-500 hover:bg-red-600'
+                }`}>
+                {events[deleteConfirm]?.status === 'ended' ? 'Xóa' : 'Xóa'}
+              </button>
             </div>
           </div>
         </div>

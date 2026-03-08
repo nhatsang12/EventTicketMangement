@@ -13,16 +13,24 @@ const normalizeTicket = (t) => {
     t.checkedIn === true ||
     !!t.checkedInAt;
 
-  const eventDate =
-    t.event?.startDate || t.event?.date || t.event?.eventDate || null;
+  const eventDate    = t.event?.startDate || t.event?.date || t.event?.eventDate || null;
+  const eventEndDate = t.event?.endDate || null;
 
   let dateStatus = 'valid';
   if (eventDate) {
-    const evDay = new Date(new Date(eventDate).toDateString());
-    const today = new Date(new Date().toDateString());
-    if (evDay < today)      dateStatus = 'expired';
-    else if (evDay > today) dateStatus = 'upcoming';
-    else                    dateStatus = 'today';
+    const now   = new Date();
+    const start = new Date(eventDate);
+    const end   = eventEndDate
+      ? new Date(eventEndDate)
+      : (() => { const e = new Date(eventDate); e.setHours(23, 59, 59, 999); return e; })();
+
+    if (now > end) {
+      dateStatus = 'expired'; // quá giờ kết thúc
+    } else if (now.toDateString() !== start.toDateString() && now < start) {
+      dateStatus = 'upcoming'; // khác ngày, chưa tới
+    } else {
+      dateStatus = 'valid'; // đúng ngày → cho quét dù chưa tới giờ
+    }
   }
 
   return {
@@ -31,6 +39,7 @@ const normalizeTicket = (t) => {
     eventName:
       t.event?.title || t.event?.name || t.eventName || t.eventTitle || '—',
     eventDate,
+    eventEndDate,
     dateStatus,
     customerName:
       t.user?.name || t.user?.fullName ||
@@ -57,10 +66,9 @@ const formatDateOnly = (iso) =>
 const DateBadge = ({ dateStatus, eventDate }) => {
   if (!eventDate) return null;
   const cfg = {
-    today:    { cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', label: 'Hôm nay',  Icon: CheckCircle },
-    expired:  { cls: 'bg-red-50 text-red-600 border-red-200',            label: 'Đã qua',   Icon: XCircle },
-    upcoming: { cls: 'bg-blue-50 text-blue-600 border-blue-200',         label: 'Chưa tới', Icon: Clock },
-    valid:    { cls: 'bg-gray-50 text-gray-500 border-gray-200',         label: '',         Icon: null },
+    valid:    { cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', label: 'Hôm nay',   Icon: CheckCircle },
+    expired:  { cls: 'bg-red-50 text-red-600 border-red-200',            label: 'Đã qua',    Icon: XCircle },
+    upcoming: { cls: 'bg-blue-50 text-blue-600 border-blue-200',         label: 'Chưa tới',  Icon: Clock },
   }[dateStatus] || {};
 
   return (
@@ -109,16 +117,16 @@ const AdminCheckIn = () => {
     if (ticket.isCheckedIn) {
       return { valid: false, reason: 'used', message: 'Vé này đã được sử dụng rồi!' };
     }
+    if (ticket.dateStatus === 'upcoming') {
+      return {
+        valid: false, reason: 'upcoming',
+        message: `Sự kiện chưa tới (${formatDateOnly(ticket.eventDate)}). Không thể check-in.`,
+      };
+    }
     if (ticket.dateStatus === 'expired') {
       return {
         valid: false, reason: 'expired',
         message: `Sự kiện đã kết thúc (${formatDateOnly(ticket.eventDate)}). Không thể check-in.`,
-      };
-    }
-    if (ticket.dateStatus === 'upcoming') {
-      return {
-        valid: false, reason: 'upcoming',
-        message: `Sự kiện chưa diễn ra (${formatDateOnly(ticket.eventDate)}). Chỉ được check-in đúng ngày.`,
       };
     }
     return { valid: true, ticket };
@@ -240,10 +248,10 @@ const AdminCheckIn = () => {
       {/* KPI */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: 'Tổng vé',     value: totalCount,                              color: 'text-gray-900',    bg: 'bg-gray-50',    border: 'border-gray-200' },
-          { label: 'Đã check-in', value: checkedInCount,                          color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200' },
-          { label: 'Chờ vào',     value: totalCount - checkedInCount - expiredCount, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-200' },
-          { label: 'Vé hết hạn',  value: expiredCount,                            color: 'text-red-500',     bg: 'bg-red-50',     border: 'border-red-200' },
+          { label: 'Tổng vé',     value: totalCount,                                 color: 'text-gray-900',    bg: 'bg-gray-50',    border: 'border-gray-200' },
+          { label: 'Đã check-in', value: checkedInCount,                             color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200' },
+          { label: 'Chờ vào',     value: totalCount - checkedInCount - expiredCount, color: 'text-orange-600',  bg: 'bg-orange-50',  border: 'border-orange-200' },
+          { label: 'Vé hết hạn',  value: expiredCount,                               color: 'text-red-500',     bg: 'bg-red-50',     border: 'border-red-200' },
         ].map((s) => (
           <div key={s.label} className={`${s.bg} border ${s.border} rounded-2xl p-4 text-center shadow-sm`}>
             <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
@@ -369,7 +377,7 @@ const AdminCheckIn = () => {
             <select value={filterDate} onChange={(e) => setFilterDate(e.target.value)}
               className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium focus:outline-none">
               <option value="all">Tất cả ngày</option>
-              <option value="today">Hôm nay</option>
+              <option value="valid">Hôm nay</option>
               <option value="upcoming">Chưa tới</option>
               <option value="expired">Đã qua</option>
             </select>
@@ -381,16 +389,16 @@ const AdminCheckIn = () => {
             ) : (
               filtered.map((t) => (
                 <div key={t.id} className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${
-                  t.isCheckedIn            ? 'bg-gray-50 border-transparent hover:border-gray-200' :
-                  t.dateStatus === 'expired'  ? 'bg-red-50/50 border-red-100' :
-                  t.dateStatus === 'upcoming' ? 'bg-blue-50/40 border-blue-100' :
-                                               'bg-gray-50 border-transparent hover:border-gray-200'
+                  t.isCheckedIn               ? 'bg-gray-50 border-transparent hover:border-gray-200' :
+                  t.dateStatus === 'expired'  ? 'bg-red-50/50 border-red-100'                        :
+                  t.dateStatus === 'upcoming' ? 'bg-blue-50/40 border-blue-100'                      :
+                                                'bg-emerald-50/40 border-emerald-100'
                 }`}>
                   <div className={`w-1.5 h-8 rounded-full shrink-0 ${
-                    t.isCheckedIn              ? 'bg-emerald-500' :
-                    t.dateStatus === 'expired'  ? 'bg-red-300'    :
-                    t.dateStatus === 'upcoming' ? 'bg-blue-300'   :
-                                                  'bg-gray-200'
+                    t.isCheckedIn               ? 'bg-emerald-500' :
+                    t.dateStatus === 'expired'  ? 'bg-red-300'     :
+                    t.dateStatus === 'upcoming' ? 'bg-blue-300'    :
+                                                  'bg-emerald-300'
                   }`} />
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-bold text-gray-800 truncate">{t.customerName}</p>
@@ -412,7 +420,7 @@ const AdminCheckIn = () => {
                         <Clock className="w-2.5 h-2.5" /> Chưa tới
                       </span>
                     ) : (
-                      <span className="text-[10px] font-black text-orange-400 uppercase">Chờ</span>
+                      <span className="text-[10px] font-black text-emerald-500 uppercase">Chờ vào</span>
                     )}
                   </div>
                 </div>
