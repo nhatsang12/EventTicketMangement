@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import useAuthStore from './authStore';
 
 const useCartStore = create(
   persist(
@@ -66,37 +67,12 @@ const useCartStore = create(
       getTotalQuantity: () => {
         return get().items.reduce((total, item) => total + item.quantity, 0);
       },
-
-      // Sync từ localStorage khi tab khác thay đổi
-      syncFromStorage: () => {
-        try {
-          const raw = localStorage.getItem('cart-storage');
-          if (!raw) {
-            set({ items: [], event: null });
-            return;
-          }
-          const parsed = JSON.parse(raw);
-          const state = parsed?.state;
-          if (state) {
-            set({
-              items: state.items || [],
-              event: state.event || null,
-            });
-          }
-        } catch { /* silent */ }
-      },
     }),
-    { name: 'cart-storage' }
+    {
+      // ← Key riêng theo userId, không bị share giữa các acc
+      name: `cart-storage-${useAuthStore.getState().user?._id || 'guest'}`,
+    }
   )
 );
-
-// Lắng nghe thay đổi localStorage từ tab khác
-if (typeof window !== 'undefined') {
-  window.addEventListener('storage', (e) => {
-    if (e.key === 'cart-storage') {
-      useCartStore.getState().syncFromStorage();
-    }
-  });
-}
 
 export default useCartStore;
