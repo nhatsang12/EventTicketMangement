@@ -46,6 +46,10 @@ const getStatusInfo = s => ({
   ended:     { label: 'Đã kết thúc', color: '#6b7280', bg: 'rgba(107,114,128,0.12)'},
 }[s] || { label: 'Đang mở bán', color: '#10b981', bg: 'rgba(16,185,129,0.12)' });
 
+// FIX: Be Vietnam Pro TRƯỚC Clash Display
+// Clash Display không có glyph tiếng Việt → đặt trước sẽ gây dính chữ
+const FONT_VN = "'Be Vietnam Pro','Clash Display',sans-serif";
+
 const LoadingPage = () => (
   <div style={{ minHeight: '100svh', background: '#060606', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Be Vietnam Pro',sans-serif" }}>
     <div style={{ textAlign: 'center' }}>
@@ -65,7 +69,7 @@ const NotFoundPage = ({ navigate }) => (
       <div style={{ width: 80, height: 80, background: 'linear-gradient(135deg,rgba(249,115,22,0.1),rgba(168,85,247,0.1))', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
         <AlertCircle style={{ width: 36, height: 36, color: '#f97316' }}/>
       </div>
-      <h2 style={{ fontSize: 'clamp(1.5rem,4vw,2rem)', fontWeight: 900, color: 'white', marginBottom: 10, fontFamily: "'Clash Display','Be Vietnam Pro',sans-serif", letterSpacing: '-0.02em' }}>Không tìm thấy sự kiện</h2>
+      <h2 style={{ fontSize: 'clamp(1.5rem,4vw,2rem)', fontWeight: 900, color: 'white', marginBottom: 10, fontFamily: FONT_VN, letterSpacing: '-0.02em' }}>Không tìm thấy sự kiện</h2>
       <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 13, marginBottom: 28, lineHeight: 1.7 }}>Sự kiện bạn đang tìm kiếm không tồn tại hoặc đã bị xóa.</p>
       <button onClick={() => navigate('/')} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'linear-gradient(135deg,#f97316,#a855f7)', color: 'white', fontSize: 13, fontWeight: 800, padding: '12px 28px', borderRadius: 999, border: 'none', cursor: 'pointer', boxShadow: '0 6px 24px rgba(249,115,22,0.28)' }}>
         <ArrowLeft style={{ width: 14, height: 14 }}/> Về trang chủ
@@ -90,13 +94,13 @@ const ConflictModal = ({ cartEventName, onCancel, onConfirm }) => (
       <div style={{ width: 56, height: 56, background: 'rgba(249,115,22,0.1)', border: '1px solid rgba(249,115,22,0.25)', borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
         <ShoppingCart style={{ width: 24, height: 24, color: '#f97316' }}/>
       </div>
-      <h3 style={{ fontSize: 17, fontWeight: 900, color: 'white', textAlign: 'center', marginBottom: 10, fontFamily: "'Clash Display','Be Vietnam Pro',sans-serif", letterSpacing: '-0.02em' }}>
+      <h3 style={{ fontSize: 17, fontWeight: 900, color: 'white', textAlign: 'center', marginBottom: 10, fontFamily: FONT_VN, letterSpacing: '-0.02em' }}>
         Giỏ hàng đang có vé khác
       </h3>
       <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', textAlign: 'center', lineHeight: 1.7, marginBottom: 8 }}>
         Giỏ hàng đang có vé của
       </p>
-      <p style={{ fontSize: 14, fontWeight: 800, color: '#fb923c', textAlign: 'center', marginBottom: 20, lineHeight: 1.4, fontFamily: "'Clash Display','Be Vietnam Pro',sans-serif" }}>
+      <p style={{ fontSize: 14, fontWeight: 800, color: '#fb923c', textAlign: 'center', marginBottom: 20, lineHeight: 1.4, fontFamily: FONT_VN }}>
         "{cartEventName}"
       </p>
       <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', textAlign: 'center', lineHeight: 1.7, marginBottom: 24 }}>
@@ -214,7 +218,6 @@ const EventDetailPage = () => {
   const startTimeStr = fmtTime(event.startDate);
   const endTimeStr = fmtTime(event.endDate);
 
-  // Kiểm tra xem endDate có khác ngày startDate không
   const startDay = event.startDate ? new Date(event.startDate).toDateString() : null;
   const endDay = event.endDate ? new Date(event.endDate).toDateString() : null;
   const endDateDifferent = endDay && startDay !== endDay;
@@ -263,7 +266,7 @@ const EventDetailPage = () => {
             <span style={{ fontSize: 10, fontWeight: 800, padding: '4px 12px', borderRadius: 999, background: status.bg, color: status.color, border: `1px solid ${status.color}40`, backdropFilter: 'blur(8px)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>{status.label}</span>
             {event.category && <span style={{ fontSize: 10, fontWeight: 700, padding: '4px 12px', borderRadius: 999, background: 'rgba(255,255,255,0.08)', backdropFilter: 'blur(8px)', color: 'rgba(255,255,255,0.85)', border: '1px solid rgba(255,255,255,0.15)' }}>{event.category}</span>}
           </div>
-          <h1 style={{ fontSize: 'clamp(1.6rem,4vw,3.2rem)', fontWeight: 900, color: 'white', lineHeight: 1.08, letterSpacing: '-0.03em', fontFamily: "'Clash Display','Be Vietnam Pro',sans-serif", maxWidth: 760, marginBottom: 16, textShadow: '0 2px 20px rgba(0,0,0,0.5)' }}>
+          <h1 style={{ fontSize: 'clamp(1.6rem,4vw,3.2rem)', fontWeight: 900, color: 'white', lineHeight: 1.15, letterSpacing: '-0.02em', fontFamily: FONT_VN, maxWidth: 760, marginBottom: 16, textShadow: '0 2px 20px rgba(0,0,0,0.5)' }}>
             {event.title}
           </h1>
           <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
@@ -288,7 +291,7 @@ const EventDetailPage = () => {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-          {/* Info cards — 4 cards */}
+          {/* Info cards */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }} className="edp-info-grid">
             {[
               { icon: Calendar, color: '#f97316', label: 'Ngày diễn ra',  value: fmtDate(event.startDate) },
@@ -306,7 +309,7 @@ const EventDetailPage = () => {
                 </div>
                 <div>
                   <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>{item.label}</p>
-                  <p style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.88)', lineHeight: 1.4 }}>{item.value}</p>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.88)', lineHeight: 1.4, fontFamily: "'Be Vietnam Pro',sans-serif" }}>{item.value}</p>
                 </div>
               </div>
             ))}
@@ -316,10 +319,10 @@ const EventDetailPage = () => {
           <div style={{ background: 'linear-gradient(180deg,#1a1a1c 0%,#161618 100%)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 20, padding: '28px 30px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
               <div style={{ width: 3, height: 20, background: 'linear-gradient(180deg,#f97316,#a855f7)', borderRadius: 2 }}/>
-              <h2 style={{ fontSize: 16, fontWeight: 800, color: 'white', fontFamily: "'Clash Display','Be Vietnam Pro',sans-serif", letterSpacing: '-0.01em' }}>Giới thiệu sự kiện</h2>
+              <h2 style={{ fontSize: 16, fontWeight: 800, color: 'white', fontFamily: FONT_VN, letterSpacing: '-0.01em' }}>Giới thiệu sự kiện</h2>
               <Sparkles style={{ width: 14, height: 14, color: '#f97316' }}/>
             </div>
-            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', lineHeight: 1.85, whiteSpace: 'pre-wrap' }}>
+            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', lineHeight: 1.85, whiteSpace: 'pre-wrap', fontFamily: "'Be Vietnam Pro',sans-serif" }}>
               {event.description || 'Chưa có mô tả chi tiết cho sự kiện này.'}
             </div>
           </div>
@@ -336,8 +339,8 @@ const EventDetailPage = () => {
                   <b.icon style={{ width: 14, height: 14, color: b.color }}/>
                 </div>
                 <div>
-                  <p style={{ fontSize: 12, fontWeight: 800, color: 'white', marginBottom: 3 }}>{b.title}</p>
-                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', lineHeight: 1.5 }}>{b.desc}</p>
+                  <p style={{ fontSize: 12, fontWeight: 800, color: 'white', marginBottom: 3, fontFamily: "'Be Vietnam Pro',sans-serif" }}>{b.title}</p>
+                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', lineHeight: 1.5, fontFamily: "'Be Vietnam Pro',sans-serif" }}>{b.desc}</p>
                 </div>
               </div>
             ))}
@@ -350,7 +353,7 @@ const EventDetailPage = () => {
             <div style={{ padding: '22px 24px 18px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <div style={{ width: 3, height: 20, background: 'linear-gradient(180deg,#f97316,#a855f7)', borderRadius: 2 }}/>
-                <h2 style={{ fontSize: 15, fontWeight: 800, color: 'white', fontFamily: "'Clash Display','Be Vietnam Pro',sans-serif", letterSpacing: '-0.01em' }}>Chọn loại vé</h2>
+                <h2 style={{ fontSize: 15, fontWeight: 800, color: 'white', fontFamily: FONT_VN, letterSpacing: '-0.01em' }}>Chọn loại vé</h2>
               </div>
               <div style={{ width: 34, height: 34, background: 'linear-gradient(135deg,#f97316,#a855f7)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <ShoppingCart style={{ width: 15, height: 15, color: 'white' }}/>
@@ -375,14 +378,14 @@ const EventDetailPage = () => {
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                               <Ticket style={{ width: 12, height: 12, color: '#f97316', flexShrink: 0 }}/>
-                              <h3 style={{ fontSize: 13, fontWeight: 800, color: 'white', fontFamily: "'Clash Display','Be Vietnam Pro',sans-serif", overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ticket.name}</h3>
+                              <h3 style={{ fontSize: 13, fontWeight: 800, color: 'white', fontFamily: FONT_VN, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ticket.name}</h3>
                             </div>
-                            {ticket.description && <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', lineHeight: 1.5, marginBottom: 6 }}>{ticket.description}</p>}
-                            <p style={{ fontSize: 18, fontWeight: 900, background: 'linear-gradient(90deg,#f97316,#a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontFamily: "'Clash Display','Be Vietnam Pro',sans-serif", letterSpacing: '-0.01em' }}>
+                            {ticket.description && <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', lineHeight: 1.5, marginBottom: 6, fontFamily: "'Be Vietnam Pro',sans-serif" }}>{ticket.description}</p>}
+                            <p style={{ fontSize: 18, fontWeight: 900, background: 'linear-gradient(90deg,#f97316,#a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontFamily: FONT_VN, letterSpacing: '-0.01em' }}>
                               {fmtPrice(ticket.price)}
                             </p>
                           </div>
-                          <span style={{ fontSize: 9, fontWeight: 800, padding: '3px 9px', borderRadius: 999, background: isAvailable ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)', color: isAvailable ? '#34d399' : '#f87171', border: `1px solid ${isAvailable ? 'rgba(52,211,153,0.25)' : 'rgba(248,113,113,0.25)'}`, flexShrink: 0, marginLeft: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          <span style={{ fontSize: 9, fontWeight: 800, padding: '3px 9px', borderRadius: 999, background: isAvailable ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)', color: isAvailable ? '#34d399' : '#f87171', border: `1px solid ${isAvailable ? 'rgba(52,211,153,0.25)' : 'rgba(248,113,113,0.25)'}`, flexShrink: 0, marginLeft: 8, textTransform: 'uppercase', letterSpacing: '0.05em', fontFamily: "'Be Vietnam Pro',sans-serif" }}>
                             {isAvailable ? 'Còn vé' : 'Hết vé'}
                           </span>
                         </div>
@@ -401,7 +404,7 @@ const EventDetailPage = () => {
 
                         {isAvailable && (
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.07)' }}>
-                            <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>Số lượng</span>
+                            <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', fontWeight: 600, fontFamily: "'Be Vietnam Pro',sans-serif" }}>Số lượng</span>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 0, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, overflow: 'hidden' }}>
                               <button onClick={() => handleQuantityChange(ticket._id, -1)} disabled={qty === 0}
                                 style={{ width: 34, height: 34, border: 'none', background: 'transparent', color: qty === 0 ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.7)', cursor: qty === 0 ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>
@@ -424,10 +427,10 @@ const EventDetailPage = () => {
                   <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(249,115,22,0.06)', border: '1px solid rgba(249,115,22,0.15)', borderRadius: 12, padding: '12px 16px' }}>
                       <div>
-                        <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', marginBottom: 2, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Tổng cộng</p>
-                        {totalSelected > 0 && <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>{totalSelected} vé đã chọn</p>}
+                        <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', marginBottom: 2, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: "'Be Vietnam Pro',sans-serif" }}>Tổng cộng</p>
+                        {totalSelected > 0 && <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', fontFamily: "'Be Vietnam Pro',sans-serif" }}>{totalSelected} vé đã chọn</p>}
                       </div>
-                      <span style={{ fontSize: 20, fontWeight: 900, background: 'linear-gradient(90deg,#f97316,#a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontFamily: "'Clash Display','Be Vietnam Pro',sans-serif", letterSpacing: '-0.01em' }}>
+                      <span style={{ fontSize: 20, fontWeight: 900, background: 'linear-gradient(90deg,#f97316,#a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontFamily: FONT_VN, letterSpacing: '-0.01em' }}>
                         {fmtPrice(getTotalPrice())}
                       </span>
                     </div>
@@ -438,7 +441,7 @@ const EventDetailPage = () => {
                       Đặt vé ngay <ArrowRight style={{ width: 15, height: 15 }}/>
                     </button>
 
-                    <p style={{ textAlign: 'center', fontSize: 10, color: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                    <p style={{ textAlign: 'center', fontSize: 10, color: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, fontFamily: "'Be Vietnam Pro',sans-serif" }}>
                       <Shield style={{ width: 10, height: 10 }}/> Thanh toán bảo mật · Hoàn tiền nếu sự kiện huỷ
                     </p>
                   </div>
@@ -448,8 +451,8 @@ const EventDetailPage = () => {
                   <div style={{ width: 52, height: 52, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
                     <AlertCircle style={{ width: 22, height: 22, color: 'rgba(255,255,255,0.15)' }}/>
                   </div>
-                  <p style={{ fontWeight: 700, color: 'rgba(255,255,255,0.4)', fontSize: 13, marginBottom: 4 }}>Chưa mở bán vé</p>
-                  <p style={{ color: 'rgba(255,255,255,0.2)', fontSize: 11 }}>Sự kiện này chưa có thông tin vé.</p>
+                  <p style={{ fontWeight: 700, color: 'rgba(255,255,255,0.4)', fontSize: 13, marginBottom: 4, fontFamily: "'Be Vietnam Pro',sans-serif" }}>Chưa mở bán vé</p>
+                  <p style={{ color: 'rgba(255,255,255,0.2)', fontSize: 11, fontFamily: "'Be Vietnam Pro',sans-serif" }}>Sự kiện này chưa có thông tin vé.</p>
                 </div>
               )}
             </div>

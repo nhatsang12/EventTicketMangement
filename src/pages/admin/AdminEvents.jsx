@@ -28,6 +28,25 @@ const todayStr = () => {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 };
 
+// Chuyển giờ local → UTC ISO string để gửi lên server
+const toLocalISO = (dateStr, timeStr) => {
+  if (!dateStr) return null;
+  const t = timeStr && timeStr.length === 5 ? timeStr : '00:00';
+  const d = new Date(`${dateStr}T${t}:00`);
+  if (isNaN(d.getTime())) return null;
+  return d.toISOString();
+};
+
+// Đọc local time từ Date object (tránh toISOString() trả về UTC)
+const toLocalDateStr = (d) => {
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+};
+const toLocalTimeStr = (d) => {
+  const pad = n => String(n).padStart(2, '0');
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
 const getStatusBadge = (status) => {
   const map = {
     active:    { cls: 'bg-emerald-100 text-emerald-700', label: 'Đang mở' },
@@ -39,20 +58,20 @@ const getStatusBadge = (status) => {
 };
 
 const AdminEvents = () => {
-  const [events, setEvents]               = useState([]);
-  const [search, setSearch]               = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('all');
-  const [statusFilter, setStatusFilter]   = useState('all');
-  const [dateFilter, setDateFilter]       = useState('all');
+  const [events, setEvents]                   = useState([]);
+  const [search, setSearch]                   = useState('');
+  const [categoryFilter, setCategoryFilter]   = useState('all');
+  const [statusFilter, setStatusFilter]       = useState('all');
+  const [dateFilter, setDateFilter]           = useState('all');
   const [customStartDate, setCustomStartDate] = useState('');
-  const [customEndDate, setCustomEndDate] = useState('');
-  const [locationFilter, setLocationFilter] = useState('');
-  const [showForm, setShowForm]           = useState(false);
-  const [editing, setEditing]             = useState(null);
-  const [form, setForm]                   = useState(emptyForm);
-  const [deleteConfirm, setDeleteConfirm] = useState(null);
-  const [loading, setLoading]             = useState(false);
-  const [currentPage, setCurrentPage]     = useState(1);
+  const [customEndDate, setCustomEndDate]     = useState('');
+  const [locationFilter, setLocationFilter]   = useState('');
+  const [showForm, setShowForm]               = useState(false);
+  const [editing, setEditing]                 = useState(null);
+  const [form, setForm]                       = useState(emptyForm);
+  const [deleteConfirm, setDeleteConfirm]     = useState(null);
+  const [loading, setLoading]                 = useState(false);
+  const [currentPage, setCurrentPage]         = useState(1);
 
   const fileRef = useRef();
   const { accessToken } = useAuthStore();
@@ -82,7 +101,6 @@ const AdminEvents = () => {
     if (!form.title?.trim() || !form.date || !form.location?.trim()) {
       toast.error('Vui lòng điền đầy đủ: tên, ngày, địa điểm'); return;
     }
-    // Chỉ chặn ngày quá khứ khi tạo mới, không chặn khi edit
     if (editing === null && form.date < todayStr()) {
       toast.error('Ngày tổ chức không thể là ngày trong quá khứ'); return;
     }
@@ -93,24 +111,27 @@ const AdminEvents = () => {
     try {
       setLoading(true);
       const config = { headers: { Authorization: `Bearer ${accessToken}` } };
+      // Tính trước các giá trị date
+      const startDateTime = toLocalISO(form.date, form.time || '19:00');
+      const endDateTime   = toLocalISO(form.endDate || form.date, form.endTime || '23:59');
+
+      // Tất cả text fields append TRƯỚC, image append SAU CÙNG
+      // Multer cần đọc hết text fields trước khi xử lý file upload
       const formData = new FormData();
-      formData.append('title', form.title);
-      formData.append('description', form.description);
-      formData.append('location', form.location);
-      formData.append('category', form.category);
+      formData.append('title',       form.title);
+      formData.append('description', form.description || '');
+      formData.append('location',    form.location);
+      formData.append('category',    form.category || '');
+      formData.append('startDate',   startDateTime);
+      formData.append('endDate',     endDateTime);
 
-      const startDateTime = new Date(`${form.date}T${form.time}`).toISOString();
-      formData.append('startDate', startDateTime);
-
-      const endDateTime = new Date(`${form.endDate || form.date}T${form.endTime || '23:59'}`).toISOString();
-      formData.append('endDate', endDateTime);
-
-      // Nếu admin sửa ngày mới > hôm nay thì tự động active lại
+      // Nếu admin sửa và ngày kết thúc mới > hiện tại thì tự active lại
       if (editing !== null) {
         const newEnd = new Date(`${form.endDate || form.date}T${form.endTime || '23:59'}`);
         if (newEnd > new Date()) formData.append('status', 'active');
       }
 
+      // Image CUỐI CÙNG — đảm bảo multer đã parse hết text fields
       if (form.imageFile) formData.append('image', form.imageFile);
 
       const multipartConfig = { headers: { ...config.headers, 'Content-Type': 'multipart/form-data' } };
@@ -137,22 +158,27 @@ const AdminEvents = () => {
   const handleEdit = (i) => {
     setEditing(i);
     const ev = events[i];
+
     let dateStr = '', timeStr = '19:00';
     if (ev.startDate) {
       const d = new Date(ev.startDate);
       if (!isNaN(d.getTime())) {
-        dateStr = d.toISOString().split('T')[0];
-        timeStr = d.toTimeString().substring(0, 5);
+        // Dùng local time, không dùng toISOString() (UTC)
+        dateStr = toLocalDateStr(d);
+        timeStr = toLocalTimeStr(d);
       }
     }
+
     let endDateStr = '', endTimeStr = '21:00';
     if (ev.endDate) {
       const ed = new Date(ev.endDate);
       if (!isNaN(ed.getTime())) {
-        endDateStr = ed.toISOString().split('T')[0];
-        endTimeStr = ed.toTimeString().substring(0, 5);
+        // Dùng local time, không dùng toISOString() (UTC)
+        endDateStr = toLocalDateStr(ed);
+        endTimeStr = toLocalTimeStr(ed);
       }
     }
+
     setForm({
       title: ev.title || '', description: ev.description || '',
       location: ev.location || '', category: ev.category || '',
@@ -209,15 +235,19 @@ const AdminEvents = () => {
     return matchSearch && matchCategory && matchStatus && matchLocation && matchDate;
   });
 
-  const totalPages     = Math.ceil(filtered.length / ITEMS_PER_PAGE);
-  const startIndex     = (currentPage - 1) * ITEMS_PER_PAGE;
+  const totalPages      = Math.ceil(filtered.length / ITEMS_PER_PAGE);
+  const startIndex      = (currentPage - 1) * ITEMS_PER_PAGE;
   const paginatedEvents = filtered.slice(startIndex, startIndex + ITEMS_PER_PAGE);
   const goToPage = (page) => { if (page >= 1 && page <= totalPages) setCurrentPage(page); };
 
   const inputCls = 'w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-orange-400 focus:bg-white transition-all';
 
-  const endedCount  = events.filter(e => e.status === 'ended').length;
-  const activeCount = events.filter(e => e.status === 'active').length;
+  const now = new Date();
+  const endedCount  = events.filter(e =>
+    e.status === 'ended' || e.status === 'cancelled' ||
+    (e.endDate ? new Date(e.endDate) < now : e.startDate && (() => { const d = new Date(e.startDate); d.setHours(23,59,59,999); return d < now; })())
+  ).length;
+  const activeCount = events.length - endedCount;
 
   return (
     <div className="space-y-5">
@@ -386,16 +416,28 @@ const AdminEvents = () => {
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {paginatedEvents.map((event, i) => {
-              const globalIndex  = startIndex + i;
-              const isEnded      = event.status === 'ended';
-              const badge        = getStatusBadge(event.status);
-              const d            = new Date(event.startDate);
-              const displayDate  = d.toLocaleDateString('vi-VN');
-              const displayTime  = d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-              const endD         = event.endDate ? new Date(event.endDate) : null;
-              const displayEndTime = endD ? endD.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : null;
+              const globalIndex = startIndex + i;
+
+              const isEnded = event.status === 'ended' || event.status === 'cancelled' ||
+                (event.endDate
+                  ? new Date(event.endDate) < new Date()
+                  : event.startDate && (() => {
+                      const e = new Date(event.startDate);
+                      e.setHours(23, 59, 59, 999);
+                      return e < new Date();
+                    })()
+                );
+
+              const effectiveStatus = isEnded && event.status === 'active' ? 'ended' : event.status;
+              const badge = getStatusBadge(effectiveStatus);
+
+              const d              = new Date(event.startDate);
+              const displayDate    = d.toLocaleDateString('vi-VN');
+              const displayTime    = d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+              const endD           = event.endDate ? new Date(event.endDate) : null;
               const displayEndDate = endD ? endD.toLocaleDateString('vi-VN') : null;
-              const imageUrl     = event.image ? (event.image.startsWith('http') ? event.image : `${API_URL}${event.image}`) : null;
+              const displayEndTime = endD ? endD.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : null;
+              const imageUrl       = event.image ? (event.image.startsWith('http') ? event.image : `${API_URL}${event.image}`) : null;
 
               return (
                 <div key={event._id}
@@ -412,7 +454,6 @@ const AdminEvents = () => {
                       </div>
                     )}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
-                    {/* Status badge */}
                     <div className="absolute top-2 right-2">
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${badge.cls}`}>
                         {badge.label}
@@ -483,24 +524,34 @@ const AdminEvents = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
           <div className="bg-white border border-gray-200 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
             <h3 className="text-sm font-bold text-gray-900 mb-2">
-              {events[deleteConfirm]?.status === 'ended' ? 'Xác nhận dọn dẹp' : 'Xác nhận xóa'}
+              {(() => {
+                const ev = events[deleteConfirm];
+                const expired = ev && (ev.status === 'ended' || (ev.endDate ? new Date(ev.endDate) < new Date() : false));
+                return expired ? 'Xác nhận dọn dẹp' : 'Xác nhận xóa';
+              })()}
             </h3>
             <p className="text-xs text-gray-500 mb-5">
-              {events[deleteConfirm]?.status === 'ended'
-                ? <>Sự kiện <span className="text-gray-900 font-semibold">"{events[deleteConfirm]?.title}"</span> đã kết thúc. Bạn có muốn xóa khỏi hệ thống?</>
-                : <>Bạn có chắc muốn xóa sự kiện <span className="text-gray-900 font-semibold">"{events[deleteConfirm]?.title}"</span>?</>
-              }
+              {(() => {
+                const ev = events[deleteConfirm];
+                const expired = ev && (ev.status === 'ended' || (ev.endDate ? new Date(ev.endDate) < new Date() : false));
+                return expired
+                  ? <span>Sự kiện <span className="text-gray-900 font-semibold">"{ev?.title}"</span> đã kết thúc. Bạn có muốn xóa khỏi hệ thống?</span>
+                  : <span>Bạn có chắc muốn xóa sự kiện <span className="text-gray-900 font-semibold">"{ev?.title}"</span>?</span>;
+              })()}
             </p>
             <div className="flex gap-3">
               <button onClick={() => setDeleteConfirm(null)}
                 className="flex-1 py-2 border border-gray-200 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors">Hủy</button>
               <button onClick={() => handleDelete(deleteConfirm)}
                 className={`flex-1 py-2 text-white rounded-xl text-sm font-semibold transition-colors ${
-                  events[deleteConfirm]?.status === 'ended'
-                    ? 'bg-gray-500 hover:bg-gray-600'
-                    : 'bg-red-500 hover:bg-red-600'
+                  (() => {
+                    const ev = events[deleteConfirm];
+                    return ev && (ev.status === 'ended' || (ev.endDate ? new Date(ev.endDate) < new Date() : false))
+                      ? 'bg-gray-500 hover:bg-gray-600'
+                      : 'bg-red-500 hover:bg-red-600';
+                  })()
                 }`}>
-                {events[deleteConfirm]?.status === 'ended' ? 'Xóa' : 'Xóa'}
+                Xóa
               </button>
             </div>
           </div>

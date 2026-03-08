@@ -103,7 +103,6 @@ const getUrgency = (pct, total, sold, startDate) => {
 };
 const getViewers = id => { const s=(id||"").split("").reduce((a,c)=>a+c.charCodeAt(0),0); return 12+(s%87); };
 
-
 // ─── SCROLL REVEAL HOOK ────────────────────────────────────────────────────
 const useReveal = (opts = {}) => {
   const { threshold = 0.12, rootMargin = "0px 0px -60px 0px", once = true } = opts;
@@ -147,13 +146,16 @@ const useCountdown = target => {
   useEffect(()=>{ const i=setInterval(()=>setT(calc()),1000); return ()=>clearInterval(i); },[target]);
   return t;
 };
+
 const CountdownCompact = ({ startDate }) => {
   const t = useCountdown(startDate);
-  if (!t || t.total >= 7*86400000) return null;
+  if (!t) return null;
   return (
     <span style={{ display:"inline-flex", alignItems:"center", gap:4, fontSize:10, fontWeight:700, color:"#c084fc", fontFamily:"'Space Mono',monospace" }}>
       <Timer style={{ width:9,height:9 }}/>
-      {t.days>0?`${t.days}d ${String(t.hours).padStart(2,"0")}:${String(t.minutes).padStart(2,"0")}:${String(t.seconds).padStart(2,"0")}`:`${String(t.hours).padStart(2,"0")}:${String(t.minutes).padStart(2,"0")}:${String(t.seconds).padStart(2,"0")}`}
+      {t.days > 0
+        ? `${t.days}d ${String(t.hours).padStart(2,"0")}:${String(t.minutes).padStart(2,"0")}:${String(t.seconds).padStart(2,"0")}`
+        : `${String(t.hours).padStart(2,"0")}:${String(t.minutes).padStart(2,"0")}:${String(t.seconds).padStart(2,"0")}`}
     </span>
   );
 };
@@ -197,10 +199,24 @@ const EventCard = ({ event, index = 0 }) => {
         <span style={{ position:"absolute", bottom:10, right:10, fontSize:10, color:"rgba(255,255,255,0.55)", display:"flex", alignItems:"center", gap:3, background:"rgba(0,0,0,0.5)", backdropFilter:"blur(6px)", padding:"3px 8px", borderRadius:999, fontFamily:"'Be Vietnam Pro',sans-serif" }}><Eye style={{ width:10,height:10 }}/>{getViewers(event._id?.$oid||event._id)}</span>
       </div>
       <div style={{ padding:"16px 18px 18px" }}>
-        <h3 style={{ fontSize:15, fontWeight:800, color:"white", lineHeight:1.35, marginBottom:10, display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical", overflow:"hidden", fontFamily:"'Clash Display','Be Vietnam Pro',sans-serif", letterSpacing:"-0.02em" }}>{event.title}</h3>
+        <h3 style={{ fontSize:15, fontWeight:800, color:"white", lineHeight:1.35, marginBottom:10, display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical", overflow:"hidden", fontFamily:"'Be Vietnam Pro','Clash Display',sans-serif", letterSpacing:"-0.02em" }}>{event.title}</h3>
         <div style={{ display:"flex", flexDirection:"column", gap:6, marginBottom:12 }}>
-          <span style={{ fontSize:12, color:"rgba(255,255,255,0.5)", display:"flex", alignItems:"center", gap:6, fontFamily:"'Be Vietnam Pro',sans-serif" }}><Calendar style={{ width:11,height:11,color:"#f97316",flexShrink:0 }}/>{fmtDate(event.startDate)}{fmtTime(event.startDate)&&<span style={{ color:"rgba(255,255,255,0.3)" }}> · {fmtTime(event.startDate)}</span>}</span>
-          <span style={{ fontSize:12, color:"rgba(255, 255, 255, 0.9)", display:"flex", alignItems:"center", gap:6, fontFamily:"'Be Vietnam Pro',sans-serif" }}><MapPin style={{ width:11,height:11,color:"#a855f7",flexShrink:0 }}/><span style={{ overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{event.location||"Chưa cập nhật"}</span></span>
+          <span style={{ fontSize:12, color:"rgba(255,255,255,0.5)", display:"flex", alignItems:"center", gap:6, fontFamily:"'Be Vietnam Pro',sans-serif" }}>
+            <Calendar style={{ width:11,height:11,color:"#f97316",flexShrink:0 }}/>
+            Bắt đầu: {fmtDate(event.startDate)}
+            {fmtTime(event.startDate) && <span style={{ color:"rgba(255,255,255,0.3)" }}> · {fmtTime(event.startDate)}</span>}
+          </span>
+          {event.endDate && (
+            <span style={{ fontSize:12, color:"rgba(255,255,255,0.5)", display:"flex", alignItems:"center", gap:6, fontFamily:"'Be Vietnam Pro',sans-serif" }}>
+              <Calendar style={{ width:11,height:11,color:"#10b981",flexShrink:0 }}/>
+              Kết thúc: {fmtDate(event.endDate)}
+              {fmtTime(event.endDate) && <span style={{ color:"rgba(255,255,255,0.3)" }}> · {fmtTime(event.endDate)}</span>}
+            </span>
+          )}
+          <span style={{ fontSize:12, color:"rgba(255,255,255,0.5)", display:"flex", alignItems:"center", gap:6, fontFamily:"'Be Vietnam Pro',sans-serif" }}>
+            <MapPin style={{ width:11,height:11,color:"#a855f7",flexShrink:0 }}/>
+            <span style={{ overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{event.location||"Chưa cập nhật"}</span>
+          </span>
           <CountdownCompact startDate={event.startDate}/>
         </div>
         {total > 0 && <div style={{ marginBottom:14 }}>
@@ -215,7 +231,7 @@ const EventCard = ({ event, index = 0 }) => {
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", borderTop:"1px solid rgba(255,255,255,0.07)", paddingTop:14 }}>
           <div>
             <p style={{ fontSize:10, color:"rgba(255,255,255,0.3)", fontFamily:"'Be Vietnam Pro',sans-serif", marginBottom:2 }}>Từ</p>
-            <span style={{ fontSize:16, fontWeight:900, background:"linear-gradient(90deg,#f97316,#a855f7)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent", fontFamily:"'Clash Display','Be Vietnam Pro',sans-serif" }}>{fmtPriceRange({min,max})}</span>
+            <span style={{ fontSize:16, fontWeight:900, background:"linear-gradient(90deg,#f97316,#a855f7)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent", fontFamily:"'Be Vietnam Pro','Clash Display',sans-serif" }}>{fmtPriceRange({min,max})}</span>
           </div>
           <span style={{ fontSize:12, fontWeight:800, color:"white", padding:"9px 20px", borderRadius:999, background:urgency?.level==="critical"?"linear-gradient(135deg,#ef4444,#f97316)":"linear-gradient(135deg,#f97316,#a855f7)", fontFamily:"'Be Vietnam Pro',sans-serif", boxShadow:"0 4px 18px rgba(249,115,22,0.3)", display:"flex", alignItems:"center", gap:5, transition:"all 0.2s" }} className="hp2-cta-btn">
             Đặt vé <ArrowRight style={{ width:12,height:12 }}/>
@@ -235,7 +251,6 @@ const EventCardTall = ({ event }) => {
   const { min, max } = getPriceRange(event);
   const urgency = getUrgency(pct, total, sold, event.startDate);
   const t = useCountdown(event.startDate);
-  const within7 = t && t.total < 7*86400000;
   return (
     <Reveal variant="fadeLeft" delay={0} duration={800} style={{height:"100%"}}><Link to={`/event/${event._id}`} className="hp2-tall-card" style={{
       display:"block", position:"relative", borderRadius:18, overflow:"hidden",
@@ -254,7 +269,7 @@ const EventCardTall = ({ event }) => {
         <Eye style={{ width:11,height:11 }}/>{getViewers(event._id?.$oid||event._id)} đang xem
       </div>
       <div style={{ position:"absolute", bottom:0, left:0, right:0, padding:"20px 20px" }}>
-        {within7 && t && (
+        {t && (
           <div style={{ display:"flex", gap:6, marginBottom:12, alignItems:"center", flexWrap:"wrap" }}>
             <Timer style={{ width:11,height:11,color:"#c084fc" }}/>
             <span style={{ fontSize:10, color:"rgba(255,255,255,0.4)", fontFamily:"'Be Vietnam Pro',sans-serif" }}>Bắt đầu sau</span>
@@ -267,11 +282,25 @@ const EventCardTall = ({ event }) => {
             ))}
           </div>
         )}
-        <h2 style={{ color:"white", fontWeight:900, lineHeight:1.1, marginBottom:6, fontSize:"clamp(1.1rem,2vw,1.6rem)", fontFamily:"'Clash Display','Be Vietnam Pro',sans-serif", letterSpacing:"-0.02em" }}>{event.title}</h2>
-        <div style={{ display:"flex", gap:12, marginBottom:14, flexWrap:"wrap" }}>
-          <span style={{ fontSize:11, color:"white", display:"flex", alignItems:"center", gap:4, fontFamily:"'Be Vietnam Pro',sans-serif" }}><Calendar style={{ width:11,height:11,color:"#f97316" }}/>{fmtDate(event.startDate)}</span>
-          {event.location && <span style={{ fontSize:11, color:"white", display:"flex", alignItems:"center", gap:4, fontFamily:"'Be Vietnam Pro',sans-serif" }}><MapPin style={{ width:11,height:11,color:"#a855f7" }}/>{event.location}</span>}
+        <h2 style={{ color:"white", fontWeight:900, lineHeight:1.1, marginBottom:6, fontSize:"clamp(1.1rem,2vw,1.6rem)", fontFamily:"'Be Vietnam Pro','Clash Display',sans-serif", letterSpacing:"-0.02em" }}>{event.title}</h2>
+        <div style={{ display:"flex", gap:12, marginBottom:6, flexWrap:"wrap" }}>
+          <span style={{ fontSize:11, color:"white", display:"flex", alignItems:"center", gap:4, fontFamily:"'Be Vietnam Pro',sans-serif" }}>
+            <Calendar style={{ width:11,height:11,color:"#f97316" }}/>Bắt đầu: {fmtDate(event.startDate)} · {fmtTime(event.startDate)}
+          </span>
         </div>
+        {event.endDate && (
+          <div style={{ display:"flex", gap:12, marginBottom:14, flexWrap:"wrap" }}>
+            <span style={{ fontSize:11, color:"rgba(255,255,255,0.7)", display:"flex", alignItems:"center", gap:4, fontFamily:"'Be Vietnam Pro',sans-serif" }}>
+              <Calendar style={{ width:11,height:11,color:"#10b981" }}/>Kết thúc: {fmtDate(event.endDate)} · {fmtTime(event.endDate)}
+            </span>
+            {event.location && <span style={{ fontSize:11, color:"white", display:"flex", alignItems:"center", gap:4, fontFamily:"'Be Vietnam Pro',sans-serif" }}><MapPin style={{ width:11,height:11,color:"#a855f7" }}/>{event.location}</span>}
+          </div>
+        )}
+        {!event.endDate && event.location && (
+          <div style={{ marginBottom:14 }}>
+            <span style={{ fontSize:11, color:"white", display:"flex", alignItems:"center", gap:4, fontFamily:"'Be Vietnam Pro',sans-serif" }}><MapPin style={{ width:11,height:11,color:"#a855f7" }}/>{event.location}</span>
+          </div>
+        )}
         {total > 0 && <div style={{ marginBottom:14 }}>
           <div style={{ height:2, background:"rgba(255,255,255,0.1)", borderRadius:2, overflow:"hidden", marginBottom:4 }}>
             <div style={{ height:"100%", width:`${pct}%`, background:"linear-gradient(90deg,#f97316,#a855f7)", borderRadius:2 }}/>
@@ -281,7 +310,7 @@ const EventCardTall = ({ event }) => {
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", borderTop:"1px solid rgba(255,255,255,0.1)", paddingTop:14 }}>
           <div>
             <p style={{ fontSize:10, color:"rgba(255,255,255,0.3)", marginBottom:2, fontFamily:"'Be Vietnam Pro',sans-serif" }}>Từ</p>
-            <p style={{ fontSize:18, fontWeight:900, color:"white", fontFamily:"'Clash Display','Be Vietnam Pro',sans-serif", letterSpacing:"-0.01em" }}>{fmtPriceRange({min,max})}</p>
+            <p style={{ fontSize:18, fontWeight:900, color:"white", fontFamily:"'Be Vietnam Pro','Clash Display',sans-serif", letterSpacing:"-0.01em" }}>{fmtPriceRange({min,max})}</p>
           </div>
           <span style={{ fontSize:12, fontWeight:800, color:"white", padding:"10px 20px", borderRadius:999, background:"linear-gradient(135deg,#f97316,#a855f7)", fontFamily:"'Be Vietnam Pro',sans-serif", boxShadow:"0 6px 24px rgba(249,115,22,0.3)", display:"flex", alignItems:"center", gap:5 }}>
             Đặt vé <ArrowRight style={{ width:13,height:13 }}/>
@@ -319,9 +348,16 @@ const EventListRow = ({ event, index = 0 }) => {
           <span style={{ fontSize:10, fontWeight:700, color:status.color, background:status.bg, padding:"2px 8px", borderRadius:999, border:`1px solid ${status.color}35`, fontFamily:"'Be Vietnam Pro',sans-serif" }}>{status.label}</span>
           <CountdownCompact startDate={event.startDate}/>
         </div>
-        <h3 style={{ fontSize:14, fontWeight:800, color:"white", marginBottom:7, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", fontFamily:"'Clash Display','Be Vietnam Pro',sans-serif", letterSpacing:"-0.02em" }}>{event.title}</h3>
+        <h3 style={{ fontSize:14, fontWeight:800, color:"white", marginBottom:7, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", fontFamily:"'Be Vietnam Pro','Clash Display',sans-serif", letterSpacing:"-0.02em" }}>{event.title}</h3>
         <div style={{ display:"flex", gap:14, flexWrap:"wrap" }}>
-          <span style={{ fontSize:11, color:"white", display:"flex", alignItems:"center", gap:4, fontFamily:"'Be Vietnam Pro',sans-serif" }}><Calendar style={{ width:11,height:11,color:"#f97316" }}/>{fmtDate(event.startDate)}</span>
+          <span style={{ fontSize:11, color:"white", display:"flex", alignItems:"center", gap:4, fontFamily:"'Be Vietnam Pro',sans-serif" }}>
+            <Calendar style={{ width:11,height:11,color:"#f97316" }}/>Bắt đầu: {fmtDate(event.startDate)} · {fmtTime(event.startDate)}
+          </span>
+          {event.endDate && (
+            <span style={{ fontSize:11, color:"rgba(255,255,255,0.6)", display:"flex", alignItems:"center", gap:4, fontFamily:"'Be Vietnam Pro',sans-serif" }}>
+              <Calendar style={{ width:11,height:11,color:"#10b981" }}/>Kết thúc: {fmtDate(event.endDate)} · {fmtTime(event.endDate)}
+            </span>
+          )}
           {event.location && <span style={{ fontSize:11, color:"white", display:"flex", alignItems:"center", gap:4, fontFamily:"'Be Vietnam Pro',sans-serif" }}><MapPin style={{ width:11,height:11,color:"#a855f7" }}/>{event.location}</span>}
         </div>
         {total > 0 && <div style={{ display:"flex", alignItems:"center", gap:8, marginTop:8 }}>
@@ -334,7 +370,7 @@ const EventListRow = ({ event, index = 0 }) => {
       <div style={{ padding:"16px 20px", display:"flex", flexDirection:"column", justifyContent:"center", alignItems:"flex-end", gap:10, flexShrink:0, borderLeft:"1px solid rgba(255,255,255,0.06)" }}>
         <div style={{ textAlign:"right" }}>
           <p style={{ fontSize:10, color:"rgba(255,255,255,0.3)", fontFamily:"'Be Vietnam Pro',sans-serif", marginBottom:2 }}>Từ</p>
-          <span style={{ fontSize:15, fontWeight:900, background:"linear-gradient(90deg,#f97316,#a855f7)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent", fontFamily:"'Clash Display','Be Vietnam Pro',sans-serif" }}>{fmtPriceRange({min,max})}</span>
+          <span style={{ fontSize:15, fontWeight:900, background:"linear-gradient(90deg,#f97316,#a855f7)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent", fontFamily:"'Be Vietnam Pro','Clash Display',sans-serif" }}>{fmtPriceRange({min,max})}</span>
         </div>
         <span style={{ fontSize:11, fontWeight:800, color:"white", padding:"8px 18px", borderRadius:999, background:"linear-gradient(135deg,#f97316,#a855f7)", fontFamily:"'Be Vietnam Pro',sans-serif", boxShadow:"0 4px 16px rgba(249,115,22,0.25)", display:"flex", alignItems:"center", gap:4, whiteSpace:"nowrap" }}>Đặt vé <ArrowRight style={{ width:11,height:11 }}/></span>
       </div>
@@ -348,17 +384,17 @@ const INITIAL_SHOW = 11;
 const AllEventsSection = ({ events, loading, clearFilters, catFilter, setCatFilter, sortFilter, setSortFilter, priceFilter, setPriceFilter, dateFilter, setDateFilter, categories }) => {
   const [showAll, setShowAll] = useState(false);
   const [viewMode, setViewMode] = useState("grid");
-      const displayed = showAll ? events : events.slice(0, INITIAL_SHOW);
+  const displayed = showAll ? events : events.slice(0, INITIAL_SHOW);
   const remaining = events.length - INITIAL_SHOW;
 
   return (
     <section style={{ background:"linear-gradient(180deg,#0a0f0e 0%,#080c0b 100%)", borderTop:"1px solid rgba(255,255,255,0.05)" }}>
       <div style={{ maxWidth:1152, margin:"0 auto", padding:"52px 24px 28px" }}>
         <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:16, flexWrap:"wrap", marginBottom:24 }}>
-          <div >
+          <div>
             <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:6 }}>
               <div style={{ width:3, height:24, background:"linear-gradient(180deg,#f97316,#a855f7)", borderRadius:2 }}/>
-              <h2 style={{ fontSize:"clamp(1.1rem,2.5vw,1.6rem)", fontWeight:900, color:"white", fontFamily:"'Clash Display','Be Vietnam Pro',sans-serif", letterSpacing:"-0.02em" }}>
+              <h2 style={{ fontSize:"clamp(1.1rem,2.5vw,1.6rem)", fontWeight:900, color:"white", fontFamily:"'Be Vietnam Pro','Clash Display',sans-serif", letterSpacing:"-0.02em" }}>
                 {catFilter !== "all" ? catFilter : "Tất cả sự kiện"}
               </h2>
               {!loading && <span style={{ fontSize:11, fontWeight:700, padding:"3px 9px", borderRadius:999, background:"rgba(249,115,22,0.1)", color:"#fb923c", border:"1px solid rgba(249,115,22,0.2)", fontFamily:"'Space Mono',monospace" }}>{events.length}</span>}
@@ -392,7 +428,7 @@ const AllEventsSection = ({ events, loading, clearFilters, catFilter, setCatFilt
 
         {categories.length > 0 && (
           <div style={{ display:"flex", gap:6, overflowX:"auto", paddingBottom:4, scrollbarWidth:"none", marginBottom:8 }}>
-            {[{ value:"all", label:"Tất cả" }, ...categories.map(c=>({ value:c, label:c }))].map((opt, i) => (
+            {[{ value:"all", label:"Tất cả" }, ...categories.map(c=>({ value:c, label:c }))].map((opt) => (
               <button key={opt.value} onClick={()=>setCatFilter(opt.value)} style={{
                 padding:"6px 14px", borderRadius:999, fontSize:11, fontWeight:600,
                 border: catFilter===opt.value ? "1px solid rgba(249,115,22,0.5)" : "1px solid rgba(255,255,255,0.09)",
@@ -471,144 +507,134 @@ const AllEventsSection = ({ events, loading, clearFilters, catFilter, setCatFilt
 };
 
 // ─── WHY US ───────────────────────────────────────────────────────────────
-const WhyUsSection = () => {
-      return (
-    <section style={{ background:"linear-gradient(135deg,#0f0d09 0%,#110e08 50%,#0d0b09 100%)", padding:"80px 0", borderTop:"1px solid rgba(249,115,22,0.08)" }}>
-      <div style={{ maxWidth:1152, margin:"0 auto", padding:"0 24px" }}>
-        <Reveal variant="blur" delay={0} duration={800}><div style={{ textAlign:"center", marginBottom:48 }}>
-          <p style={{ fontSize:11, fontWeight:700, color:"#a855f7", marginBottom:8, textTransform:"uppercase", letterSpacing:"0.15em", fontFamily:"'Be Vietnam Pro',sans-serif" }}>Tại sao chọn chúng tôi</p>
-          <h2 style={{ fontSize:"clamp(1.5rem,3vw,2.25rem)", fontWeight:900, color:"white", fontFamily:"'Clash Display','Be Vietnam Pro',sans-serif", letterSpacing:"-0.02em" }}>Trải nghiệm đặt vé tốt nhất</h2>
-        </div></Reveal>
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))", gap:16 }}>
-          {WHY_US.map((item,i) => (
-            <div key={i} className="hp2-why-card" style={{ background:"rgba(255,255,255,0.025)", border:"1px solid rgba(255,255,255,0.06)", borderRadius:16, padding:24, display:"flex", gap:16, alignItems:"flex-start", transition:"all 0.3s" }}>
-              <div style={{ width:44,height:44,borderRadius:12,flexShrink:0,background:`${item.accent}15`,border:`1px solid ${item.accent}25`,display:"flex",alignItems:"center",justifyContent:"center" }}>
-                <item.icon style={{ width:20,height:20,color:item.accent }}/>
-              </div>
-              <div>
-                <h3 style={{ fontSize:14,fontWeight:800,color:"white",marginBottom:5,fontFamily:"'Clash Display','Be Vietnam Pro',sans-serif" }}>{item.title}</h3>
-                <p style={{ fontSize:12,color:"rgba(255,255,255,0.4)",lineHeight:1.7,fontFamily:"'Be Vietnam Pro',sans-serif" }}>{item.desc}</p>
-              </div>
+const WhyUsSection = () => (
+  <section style={{ background:"linear-gradient(135deg,#0f0d09 0%,#110e08 50%,#0d0b09 100%)", padding:"80px 0", borderTop:"1px solid rgba(249,115,22,0.08)" }}>
+    <div style={{ maxWidth:1152, margin:"0 auto", padding:"0 24px" }}>
+      <Reveal variant="blur" delay={0} duration={800}><div style={{ textAlign:"center", marginBottom:48 }}>
+        <p style={{ fontSize:11, fontWeight:700, color:"#a855f7", marginBottom:8, textTransform:"uppercase", letterSpacing:"0.15em", fontFamily:"'Be Vietnam Pro',sans-serif" }}>Tại sao chọn chúng tôi</p>
+        <h2 style={{ fontSize:"clamp(1.5rem,3vw,2.25rem)", fontWeight:900, color:"white", fontFamily:"'Be Vietnam Pro','Clash Display',sans-serif", letterSpacing:"-0.02em" }}>Trải nghiệm đặt vé tốt nhất</h2>
+      </div></Reveal>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))", gap:16 }}>
+        {WHY_US.map((item,i) => (
+          <div key={i} className="hp2-why-card" style={{ background:"rgba(255,255,255,0.025)", border:"1px solid rgba(255,255,255,0.06)", borderRadius:16, padding:24, display:"flex", gap:16, alignItems:"flex-start", transition:"all 0.3s" }}>
+            <div style={{ width:44,height:44,borderRadius:12,flexShrink:0,background:`${item.accent}15`,border:`1px solid ${item.accent}25`,display:"flex",alignItems:"center",justifyContent:"center" }}>
+              <item.icon style={{ width:20,height:20,color:item.accent }}/>
             </div>
-          ))}
-        </div>
+            <div>
+              <h3 style={{ fontSize:14,fontWeight:800,color:"white",marginBottom:5,fontFamily:"'Be Vietnam Pro','Clash Display',sans-serif" }}>{item.title}</h3>
+              <p style={{ fontSize:12,color:"rgba(255,255,255,0.4)",lineHeight:1.7,fontFamily:"'Be Vietnam Pro',sans-serif" }}>{item.desc}</p>
+            </div>
+          </div>
+        ))}
       </div>
-    </section>
-  );
-};
+    </div>
+  </section>
+);
 
 // ─── ORGANIZERS ───────────────────────────────────────────────────────────
-const OrganizersSection = () => {
-      return (
-    <section style={{ background:"linear-gradient(135deg,#09090f 0%,#0b0a12 60%,#08080e 100%)", padding:"80px 0", position:"relative", overflow:"hidden", borderTop:"1px solid rgba(168,85,247,0.08)" }}>
-      <div style={{ position:"absolute",top:-80,right:-80,width:400,height:400,background:"radial-gradient(circle,rgba(249,115,22,0.05) 0%,transparent 70%)",pointerEvents:"none" }}/>
-      <div style={{ position:"absolute",bottom:-80,left:-80,width:400,height:400,background:"radial-gradient(circle,rgba(168,85,247,0.07) 0%,transparent 70%)",pointerEvents:"none" }}/>
-      <div style={{ position:"absolute",inset:0,opacity:0.02,backgroundImage:"linear-gradient(rgba(255,255,255,1) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,1) 1px,transparent 1px)",backgroundSize:"48px 48px",pointerEvents:"none" }}/>
-      <div style={{ maxWidth:1152,margin:"0 auto",padding:"0 24px",position:"relative" }}>
-        <Reveal variant="fadeUp" delay={0} duration={800}><div style={{ textAlign:"center",marginBottom:48 }}>
-          <p style={{ fontSize:11,fontWeight:700,color:"#f97316",marginBottom:8,textTransform:"uppercase",letterSpacing:"0.15em",fontFamily:"'Be Vietnam Pro',sans-serif" }}>Đối tác</p>
-          <h2 style={{ fontSize:"clamp(1.5rem,3vw,2.25rem)",fontWeight:900,color:"white",marginBottom:8,fontFamily:"'Clash Display','Be Vietnam Pro',sans-serif",letterSpacing:"-0.02em" }}>Nhà tổ chức nổi tiếng</h2>
-          <p style={{ color:"rgba(255,255,255,0.3)",fontSize:14,fontFamily:"'Be Vietnam Pro',sans-serif" }}>Những đơn vị uy tín và chuyên nghiệp hàng đầu</p>
-        </div></Reveal>
-        <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",gap:20 }}>
-          {FEATURED_ORGANIZERS.map((org, i) => (
-            <Reveal key={org.id} variant="scaleUp" delay={i*100} duration={700} threshold={0.08}><div className="hp2-org-card" style={{ background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:20,padding:28,textAlign:"center",transition:"all 0.4s",cursor:"pointer" }}>
-              <div style={{ position:"relative",width:88,height:88,margin:"0 auto 16px" }}>
-                <div className="hp2-org-glow" style={{ position:"absolute",inset:-3,borderRadius:"50%",background:"linear-gradient(135deg,#f97316,#a855f7)",opacity:0.4,filter:"blur(8px)",transition:"opacity 0.4s" }}/>
-                <img src={org.avatar} alt={org.name} style={{ position:"relative",width:"100%",height:"100%",borderRadius:"50%",objectFit:"cover",border:"2px solid rgba(255,255,255,0.1)" }} onError={e=>{e.target.src="https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=150&auto=format&fit=crop";}}/>
-                <div style={{ position:"absolute",bottom:-4,right:-4,background:"linear-gradient(135deg,#f97316,#a855f7)",borderRadius:"50%",width:26,height:26,display:"flex",alignItems:"center",justifyContent:"center" }}><Award style={{ width:14,height:14,color:"white" }}/></div>
-              </div>
-              <h3 style={{ fontSize:15,fontWeight:800,color:"white",marginBottom:6,fontFamily:"'Clash Display','Be Vietnam Pro',sans-serif" }}>{org.name}</h3>
-              <p style={{ fontSize:12,color:"rgba(255,255,255,0.4)",marginBottom:16,lineHeight:1.6,fontFamily:"'Be Vietnam Pro',sans-serif" }}>{org.description}</p>
-              <div style={{ display:"flex",justifyContent:"center",gap:24,marginBottom:20 }}>
-                <div style={{ textAlign:"center" }}><p style={{ fontSize:16,fontWeight:800,color:"white",fontFamily:"'Space Mono',monospace" }}>{org.totalEvents}</p><p style={{ fontSize:10,color:"rgba(255,255,255,0.3)",fontFamily:"'Be Vietnam Pro',sans-serif" }}>Sự kiện</p></div>
-                <div style={{ width:1,background:"rgba(255,255,255,0.08)" }}/>
-                <div style={{ textAlign:"center" }}><p style={{ fontSize:16,fontWeight:800,color:"white",fontFamily:"'Space Mono',monospace" }}>{org.followers}</p><p style={{ fontSize:10,color:"rgba(255,255,255,0.3)",fontFamily:"'Be Vietnam Pro',sans-serif" }}>Theo dõi</p></div>
-              </div>
-              <button className="hp2-org-btn" style={{ width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.1)",color:"rgba(255,255,255,0.65)",borderRadius:999,padding:"9px 0",fontSize:12,fontWeight:700,cursor:"pointer",transition:"all 0.25s",fontFamily:"'Be Vietnam Pro',sans-serif" }}>Theo dõi</button>
-            </div></Reveal>
-          ))}
-        </div>
+const OrganizersSection = () => (
+  <section style={{ background:"linear-gradient(135deg,#09090f 0%,#0b0a12 60%,#08080e 100%)", padding:"80px 0", position:"relative", overflow:"hidden", borderTop:"1px solid rgba(168,85,247,0.08)" }}>
+    <div style={{ position:"absolute",top:-80,right:-80,width:400,height:400,background:"radial-gradient(circle,rgba(249,115,22,0.05) 0%,transparent 70%)",pointerEvents:"none" }}/>
+    <div style={{ position:"absolute",bottom:-80,left:-80,width:400,height:400,background:"radial-gradient(circle,rgba(168,85,247,0.07) 0%,transparent 70%)",pointerEvents:"none" }}/>
+    <div style={{ position:"absolute",inset:0,opacity:0.02,backgroundImage:"linear-gradient(rgba(255,255,255,1) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,1) 1px,transparent 1px)",backgroundSize:"48px 48px",pointerEvents:"none" }}/>
+    <div style={{ maxWidth:1152,margin:"0 auto",padding:"0 24px",position:"relative" }}>
+      <Reveal variant="fadeUp" delay={0} duration={800}><div style={{ textAlign:"center",marginBottom:48 }}>
+        <p style={{ fontSize:11,fontWeight:700,color:"#f97316",marginBottom:8,textTransform:"uppercase",letterSpacing:"0.15em",fontFamily:"'Be Vietnam Pro',sans-serif" }}>Đối tác</p>
+        <h2 style={{ fontSize:"clamp(1.5rem,3vw,2.25rem)",fontWeight:900,color:"white",marginBottom:8,fontFamily:"'Be Vietnam Pro','Clash Display',sans-serif",letterSpacing:"-0.02em" }}>Nhà tổ chức nổi tiếng</h2>
+        <p style={{ color:"rgba(255,255,255,0.3)",fontSize:14,fontFamily:"'Be Vietnam Pro',sans-serif" }}>Những đơn vị uy tín và chuyên nghiệp hàng đầu</p>
+      </div></Reveal>
+      <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",gap:20 }}>
+        {FEATURED_ORGANIZERS.map((org, i) => (
+          <Reveal key={org.id} variant="scaleUp" delay={i*100} duration={700} threshold={0.08}><div className="hp2-org-card" style={{ background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:20,padding:28,textAlign:"center",transition:"all 0.4s",cursor:"pointer" }}>
+            <div style={{ position:"relative",width:88,height:88,margin:"0 auto 16px" }}>
+              <div className="hp2-org-glow" style={{ position:"absolute",inset:-3,borderRadius:"50%",background:"linear-gradient(135deg,#f97316,#a855f7)",opacity:0.4,filter:"blur(8px)",transition:"opacity 0.4s" }}/>
+              <img src={org.avatar} alt={org.name} style={{ position:"relative",width:"100%",height:"100%",borderRadius:"50%",objectFit:"cover",border:"2px solid rgba(255,255,255,0.1)" }} onError={e=>{e.target.src="https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=150&auto=format&fit=crop";}}/>
+              <div style={{ position:"absolute",bottom:-4,right:-4,background:"linear-gradient(135deg,#f97316,#a855f7)",borderRadius:"50%",width:26,height:26,display:"flex",alignItems:"center",justifyContent:"center" }}><Award style={{ width:14,height:14,color:"white" }}/></div>
+            </div>
+            <h3 style={{ fontSize:15,fontWeight:800,color:"white",marginBottom:6,fontFamily:"'Be Vietnam Pro','Clash Display',sans-serif" }}>{org.name}</h3>
+            <p style={{ fontSize:12,color:"rgba(255,255,255,0.4)",marginBottom:16,lineHeight:1.6,fontFamily:"'Be Vietnam Pro',sans-serif" }}>{org.description}</p>
+            <div style={{ display:"flex",justifyContent:"center",gap:24,marginBottom:20 }}>
+              <div style={{ textAlign:"center" }}><p style={{ fontSize:16,fontWeight:800,color:"white",fontFamily:"'Space Mono',monospace" }}>{org.totalEvents}</p><p style={{ fontSize:10,color:"rgba(255,255,255,0.3)",fontFamily:"'Be Vietnam Pro',sans-serif" }}>Sự kiện</p></div>
+              <div style={{ width:1,background:"rgba(255,255,255,0.08)" }}/>
+              <div style={{ textAlign:"center" }}><p style={{ fontSize:16,fontWeight:800,color:"white",fontFamily:"'Space Mono',monospace" }}>{org.followers}</p><p style={{ fontSize:10,color:"rgba(255,255,255,0.3)",fontFamily:"'Be Vietnam Pro',sans-serif" }}>Theo dõi</p></div>
+            </div>
+            <button className="hp2-org-btn" style={{ width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.1)",color:"rgba(255,255,255,0.65)",borderRadius:999,padding:"9px 0",fontSize:12,fontWeight:700,cursor:"pointer",transition:"all 0.25s",fontFamily:"'Be Vietnam Pro',sans-serif" }}>Theo dõi</button>
+          </div></Reveal>
+        ))}
       </div>
-    </section>
-  );
-};
+    </div>
+  </section>
+);
 
 // ─── TESTIMONIALS ─────────────────────────────────────────────────────────
-const TestimonialsSection = () => {
-      return (
-    <section style={{ background:"linear-gradient(180deg,#0c0c0c 0%,#0a0a0a 100%)", padding:"80px 0", borderTop:"1px solid rgba(255,255,255,0.04)" }}>
-      <div style={{ maxWidth:1152,margin:"0 auto",padding:"0 24px" }}>
-        <Reveal variant="fadeUp" delay={0} duration={800}><div style={{ textAlign:"center",marginBottom:48 }}>
-          <p style={{ fontSize:11,fontWeight:700,color:"#fb923c",marginBottom:8,textTransform:"uppercase",letterSpacing:"0.15em",fontFamily:"'Be Vietnam Pro',sans-serif" }}>Đánh giá</p>
-          <h2 style={{ fontSize:"clamp(1.5rem,3vw,2.25rem)",fontWeight:900,color:"white",marginBottom:10,fontFamily:"'Clash Display','Be Vietnam Pro',sans-serif",letterSpacing:"-0.02em" }}>Khách hàng nói gì</h2>
-          <div style={{ display:"flex",justifyContent:"center",alignItems:"center",gap:4 }}>
-            {[...Array(5)].map((_,i)=><Star key={i} style={{ width:15,height:15,color:"#fbbf24",fill:"#fbbf24" }}/>)}
-            <span style={{ fontSize:13,color:"rgba(255,255,255,0.35)",marginLeft:8,fontFamily:"'Be Vietnam Pro',sans-serif" }}>4.9 · 2,400+ đánh giá</span>
-          </div>
-        </div></Reveal>
-        <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:20 }}>
-          {TESTIMONIALS.map((t, i) => (
-            <Reveal key={t.id} variant="fadeUp" delay={i*120} duration={700} threshold={0.08}><div className="hp2-testi-card" style={{ background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:20,padding:28,transition:"all 0.3s" }}>
-              <div style={{ fontSize:48,lineHeight:1,color:"rgba(249,115,22,0.18)",fontFamily:"Georgia,serif",marginBottom:4,userSelect:"none" }}>"</div>
-              <div style={{ display:"flex",gap:3,marginBottom:14 }}>{[...Array(t.rating)].map((_,j)=><Star key={j} style={{ width:13,height:13,color:"#fbbf24",fill:"#fbbf24" }}/>)}</div>
-              <p style={{ fontSize:13,color:"rgba(255,255,255,0.5)",lineHeight:1.8,marginBottom:20,fontFamily:"'Be Vietnam Pro',sans-serif" }}>{t.comment}</p>
-              <div style={{ display:"flex",alignItems:"center",gap:12,borderTop:"1px solid rgba(255,255,255,0.06)",paddingTop:18 }}>
-                <img src={t.avatar} alt={t.name} style={{ width:40,height:40,borderRadius:"50%",objectFit:"cover",border:"2px solid rgba(249,115,22,0.2)" }} onError={e=>{e.target.src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop";}}/>
-                <div><h4 style={{ fontSize:13,fontWeight:700,color:"white",fontFamily:"'Be Vietnam Pro',sans-serif" }}>{t.name}</h4><p style={{ fontSize:11,color:"rgba(255,255,255,0.3)",fontFamily:"'Be Vietnam Pro',sans-serif" }}>{t.event}</p></div>
-              </div>
-            </div></Reveal>
-          ))}
+const TestimonialsSection = () => (
+  <section style={{ background:"linear-gradient(180deg,#0c0c0c 0%,#0a0a0a 100%)", padding:"80px 0", borderTop:"1px solid rgba(255,255,255,0.04)" }}>
+    <div style={{ maxWidth:1152,margin:"0 auto",padding:"0 24px" }}>
+      <Reveal variant="fadeUp" delay={0} duration={800}><div style={{ textAlign:"center",marginBottom:48 }}>
+        <p style={{ fontSize:11,fontWeight:700,color:"#fb923c",marginBottom:8,textTransform:"uppercase",letterSpacing:"0.15em",fontFamily:"'Be Vietnam Pro',sans-serif" }}>Đánh giá</p>
+        <h2 style={{ fontSize:"clamp(1.5rem,3vw,2.25rem)",fontWeight:900,color:"white",marginBottom:10,fontFamily:"'Be Vietnam Pro','Clash Display',sans-serif",letterSpacing:"-0.02em" }}>Khách hàng nói gì</h2>
+        <div style={{ display:"flex",justifyContent:"center",alignItems:"center",gap:4 }}>
+          {[...Array(5)].map((_,i)=><Star key={i} style={{ width:15,height:15,color:"#fbbf24",fill:"#fbbf24" }}/>)}
+          <span style={{ fontSize:13,color:"rgba(255,255,255,0.35)",marginLeft:8,fontFamily:"'Be Vietnam Pro',sans-serif" }}>4.9 · 2,400+ đánh giá</span>
         </div>
+      </div></Reveal>
+      <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:20 }}>
+        {TESTIMONIALS.map((t, i) => (
+          <Reveal key={t.id} variant="fadeUp" delay={i*120} duration={700} threshold={0.08}><div className="hp2-testi-card" style={{ background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:20,padding:28,transition:"all 0.3s" }}>
+            <div style={{ fontSize:48,lineHeight:1,color:"rgba(249,115,22,0.18)",fontFamily:"Georgia,serif",marginBottom:4,userSelect:"none" }}>"</div>
+            <div style={{ display:"flex",gap:3,marginBottom:14 }}>{[...Array(t.rating)].map((_,j)=><Star key={j} style={{ width:13,height:13,color:"#fbbf24",fill:"#fbbf24" }}/>)}</div>
+            <p style={{ fontSize:13,color:"rgba(255,255,255,0.5)",lineHeight:1.8,marginBottom:20,fontFamily:"'Be Vietnam Pro',sans-serif" }}>{t.comment}</p>
+            <div style={{ display:"flex",alignItems:"center",gap:12,borderTop:"1px solid rgba(255,255,255,0.06)",paddingTop:18 }}>
+              <img src={t.avatar} alt={t.name} style={{ width:40,height:40,borderRadius:"50%",objectFit:"cover",border:"2px solid rgba(249,115,22,0.2)" }} onError={e=>{e.target.src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop";}}/>
+              <div><h4 style={{ fontSize:13,fontWeight:700,color:"white",fontFamily:"'Be Vietnam Pro',sans-serif" }}>{t.name}</h4><p style={{ fontSize:11,color:"rgba(255,255,255,0.3)",fontFamily:"'Be Vietnam Pro',sans-serif" }}>{t.event}</p></div>
+            </div>
+          </div></Reveal>
+        ))}
       </div>
-    </section>
-  );
-};
+    </div>
+  </section>
+);
 
 // ─── LOCATIONS ────────────────────────────────────────────────────────────
-const LocationsSection = () => {
-      return (
-    <section style={{ background:"linear-gradient(135deg,#080f0d 0%,#090e0c 60%,#070c0a 100%)", padding:"80px 0", borderTop:"1px solid rgba(16,185,129,0.08)" }}>
-      <div style={{ maxWidth:1152,margin:"0 auto",padding:"0 24px" }}>
-        <Reveal variant="blur" delay={0} duration={900}><div style={{ textAlign:"center",marginBottom:36 }}>
-          <p style={{ fontSize:11,fontWeight:700,color:"#10b981",marginBottom:8,textTransform:"uppercase",letterSpacing:"0.15em",fontFamily:"'Be Vietnam Pro',sans-serif" }}>Khám phá</p>
-          <h2 style={{ fontSize:"clamp(1.5rem,3vw,2.25rem)",fontWeight:900,color:"white",marginBottom:8,fontFamily:"'Clash Display','Be Vietnam Pro',sans-serif",letterSpacing:"-0.02em" }}>Địa điểm phổ biến</h2>
-          <p style={{ color:"rgba(255,255,255,0.3)",fontSize:14,fontFamily:"'Be Vietnam Pro',sans-serif" }}>Tìm sự kiện theo thành phố bạn yêu thích</p>
-        </div></Reveal>
-        <div style={{ display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12 }}>
-          {LOCATIONS.map((loc,i) => (
-<Reveal key={loc.name} variant={i===0?"fadeLeft":i%2===0?"fadeRight":"fadeUp"} delay={i*70} duration={700} threshold={0.06}><Link to={`/?location=${encodeURIComponent(loc.name)}`} className="hp2-loc-card" style={{ position:"relative",overflow:"hidden",borderRadius:16,textDecoration:"none",gridColumn:i===0?"span 2":"span 1",gridRow:i===0?"span 2":"span 1",display:"block" }}>
-              <img src={loc.img} alt={loc.name} className="hp2-loc-img" style={{ width:"100%",height:i===0?340:160,objectFit:"cover",display:"block",transition:"transform 0.6s" }} onError={e=>{e.target.src="https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=600&h=400&fit=crop";}}/>
-              <div style={{ position:"absolute",inset:0,background:"linear-gradient(to top,rgba(0,0,0,0.8) 0%,rgba(0,0,0,0.15) 60%,transparent 100%)" }}/>
-              <div style={{ position:"absolute",bottom:0,left:0,right:0,padding:i===0?"20px 22px":"14px 16px",display:"flex",alignItems:"flex-end",justifyContent:"space-between" }}>
-                <div><h3 style={{ color:"white",fontWeight:900,fontSize:i===0?20:14,fontFamily:"'Clash Display','Be Vietnam Pro',sans-serif",letterSpacing:"-0.01em" }}>{loc.name}</h3><p style={{ color:"rgba(255,255,255,0.45)",fontSize:11,marginTop:2,fontFamily:"'Be Vietnam Pro',sans-serif" }}>{loc.count} sự kiện</p></div>
-                <div className="hp2-loc-arrow" style={{ width:28,height:28,borderRadius:"50%",background:"rgba(255,255,255,0.1)",backdropFilter:"blur(8px)",border:"1px solid rgba(255,255,255,0.15)",display:"flex",alignItems:"center",justifyContent:"center",transition:"all 0.3s" }}><ChevronRight style={{ width:13,height:13,color:"white" }}/></div>
-              </div>
-            </Link></Reveal>
-          ))}
-        </div>
+const LocationsSection = () => (
+  <section style={{ background:"linear-gradient(135deg,#080f0d 0%,#090e0c 60%,#070c0a 100%)", padding:"80px 0", borderTop:"1px solid rgba(16,185,129,0.08)" }}>
+    <div style={{ maxWidth:1152,margin:"0 auto",padding:"0 24px" }}>
+      <Reveal variant="blur" delay={0} duration={900}><div style={{ textAlign:"center",marginBottom:36 }}>
+        <p style={{ fontSize:11,fontWeight:700,color:"#10b981",marginBottom:8,textTransform:"uppercase",letterSpacing:"0.15em",fontFamily:"'Be Vietnam Pro',sans-serif" }}>Khám phá</p>
+        <h2 style={{ fontSize:"clamp(1.5rem,3vw,2.25rem)",fontWeight:900,color:"white",marginBottom:8,fontFamily:"'Be Vietnam Pro','Clash Display',sans-serif",letterSpacing:"-0.02em" }}>Địa điểm phổ biến</h2>
+        <p style={{ color:"rgba(255,255,255,0.3)",fontSize:14,fontFamily:"'Be Vietnam Pro',sans-serif" }}>Tìm sự kiện theo thành phố bạn yêu thích</p>
+      </div></Reveal>
+      <div style={{ display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12 }}>
+        {LOCATIONS.map((loc,i) => (
+          <Reveal key={loc.name} variant={i===0?"fadeLeft":i%2===0?"fadeRight":"fadeUp"} delay={i*70} duration={700} threshold={0.06}><Link to={`/?location=${encodeURIComponent(loc.name)}`} className="hp2-loc-card" style={{ position:"relative",overflow:"hidden",borderRadius:16,textDecoration:"none",gridColumn:i===0?"span 2":"span 1",gridRow:i===0?"span 2":"span 1",display:"block" }}>
+            <img src={loc.img} alt={loc.name} className="hp2-loc-img" style={{ width:"100%",height:i===0?340:160,objectFit:"cover",display:"block",transition:"transform 0.6s" }} onError={e=>{e.target.src="https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=600&h=400&fit=crop";}}/>
+            <div style={{ position:"absolute",inset:0,background:"linear-gradient(to top,rgba(0,0,0,0.8) 0%,rgba(0,0,0,0.15) 60%,transparent 100%)" }}/>
+            <div style={{ position:"absolute",bottom:0,left:0,right:0,padding:i===0?"20px 22px":"14px 16px",display:"flex",alignItems:"flex-end",justifyContent:"space-between" }}>
+              <div><h3 style={{ color:"white",fontWeight:900,fontSize:i===0?20:14,fontFamily:"'Be Vietnam Pro','Clash Display',sans-serif",letterSpacing:"-0.01em" }}>{loc.name}</h3><p style={{ color:"rgba(255,255,255,0.45)",fontSize:11,marginTop:2,fontFamily:"'Be Vietnam Pro',sans-serif" }}>{loc.count} sự kiện</p></div>
+              <div className="hp2-loc-arrow" style={{ width:28,height:28,borderRadius:"50%",background:"rgba(255,255,255,0.1)",backdropFilter:"blur(8px)",border:"1px solid rgba(255,255,255,0.15)",display:"flex",alignItems:"center",justifyContent:"center",transition:"all 0.3s" }}><ChevronRight style={{ width:13,height:13,color:"white" }}/></div>
+            </div>
+          </Link></Reveal>
+        ))}
       </div>
-    </section>
-  );
-};
+    </div>
+  </section>
+);
 
 // ─── FOOTER CTA ───────────────────────────────────────────────────────────
-const FooterCTA = () => {
-    return (
-    <section style={{ background:"#060606", padding:"72px 24px", textAlign:"center", borderTop:"1px solid rgba(255,255,255,0.04)", position:"relative", overflow:"hidden" }}>
-      <div style={{ position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",width:600,height:300,background:"radial-gradient(ellipse,rgba(249,115,22,0.07) 0%,transparent 70%)",pointerEvents:"none" }}/>
-      <Reveal variant="slideUp" delay={0} duration={900} style={{position:"relative",maxWidth:480,margin:"0 auto"}}>
-        <h2 style={{ fontSize:"clamp(1.5rem,4vw,2.5rem)",fontWeight:900,color:"white",marginBottom:12,fontFamily:"'Clash Display','Be Vietnam Pro',sans-serif",letterSpacing:"-0.02em" }}>Sẵn sàng trải nghiệm?</h2>
-        <p style={{ color:"rgba(255,255,255,0.38)",fontSize:14,marginBottom:28,fontFamily:"'Be Vietnam Pro',sans-serif" }}>Đăng ký ngay để không bỏ lỡ sự kiện yêu thích của bạn.</p>
-        <Reveal variant="scaleUp" delay={150} duration={600}>
-          <Link to="/events" style={{ display:"inline-flex",alignItems:"center",gap:8,background:"linear-gradient(135deg,#f97316,#a855f7)",color:"white",fontSize:15,fontWeight:800,padding:"15px 36px",borderRadius:999,textDecoration:"none",fontFamily:"'Be Vietnam Pro',sans-serif",boxShadow:"0 8px 40px rgba(249,115,22,0.28)" }}>
-            Khám phá sự kiện <ArrowRight style={{ width:16,height:16 }}/>
-          </Link>
-        </Reveal>
+const FooterCTA = () => (
+  <section style={{ background:"#060606", padding:"72px 24px", textAlign:"center", borderTop:"1px solid rgba(255,255,255,0.04)", position:"relative", overflow:"hidden" }}>
+    <div style={{ position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",width:600,height:300,background:"radial-gradient(ellipse,rgba(249,115,22,0.07) 0%,transparent 70%)",pointerEvents:"none" }}/>
+    <Reveal variant="slideUp" delay={0} duration={900} style={{position:"relative",maxWidth:480,margin:"0 auto"}}>
+      <h2 style={{ fontSize:"clamp(1.5rem,4vw,2.5rem)",fontWeight:900,color:"white",marginBottom:12,fontFamily:"'Be Vietnam Pro','Clash Display',sans-serif",letterSpacing:"-0.02em" }}>Sẵn sàng trải nghiệm?</h2>
+      <p style={{ color:"rgba(255,255,255,0.38)",fontSize:14,marginBottom:28,fontFamily:"'Be Vietnam Pro',sans-serif" }}>Đăng ký ngay để không bỏ lỡ sự kiện yêu thích của bạn.</p>
+      <Reveal variant="scaleUp" delay={150} duration={600}>
+        <Link to="/events" style={{ display:"inline-flex",alignItems:"center",gap:8,background:"linear-gradient(135deg,#f97316,#a855f7)",color:"white",fontSize:15,fontWeight:800,padding:"15px 36px",borderRadius:999,textDecoration:"none",fontFamily:"'Be Vietnam Pro',sans-serif",boxShadow:"0 8px 40px rgba(249,115,22,0.28)" }}>
+          Khám phá sự kiện <ArrowRight style={{ width:16,height:16 }}/>
+        </Link>
       </Reveal>
-    </section>
-  );
-};
+    </Reveal>
+  </section>
+);
 
 // ─── MAIN PAGE ─────────────────────────────────────────────────────────────
 const HomePage = () => {
@@ -622,9 +648,6 @@ const HomePage = () => {
   const [catFilter, setCatFilter] = useState("all");
   const [sortFilter, setSortFilter] = useState("newest");
 
-  // Hero reveal
-    // Featured strip reveal
-  
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -632,6 +655,16 @@ const HomePage = () => {
         const res = await axios.get(`${API_URL}/api/events`);
         let data = res.data?.data || res.data || [];
         if (!Array.isArray(data)) data = [];
+
+        // ── Ẩn event đã hủy hoặc đã hết hạn dựa trên endDate/startDate ──
+        const now = new Date();
+        data = data.filter(e => {
+          if (e.status === 'cancelled') return false;
+          if (e.endDate && new Date(e.endDate) < now) return false;
+          if (!e.endDate && e.startDate && new Date(e.startDate) < now) return false;
+          return true;
+        });
+
         setCategories([...new Set(data.map(e => e.category).filter(Boolean))]);
         const q = searchParams.get("search");
         if (q) data = data.filter(e => e.title?.toLowerCase().includes(q.toLowerCase()) || e.location?.toLowerCase().includes(q.toLowerCase()));
@@ -688,7 +721,7 @@ const HomePage = () => {
           <Reveal variant="fadeDown" delay={100} duration={700} threshold={0}><div style={{ display:"inline-flex", alignItems:"center", gap:6, background:"rgba(249,115,22,0.08)", border:"1px solid rgba(249,115,22,0.2)", color:"#fb923c", fontSize:10, fontWeight:700, padding:"6px 12px", borderRadius:999, marginBottom:28, width:"fit-content", fontFamily:"'Be Vietnam Pro',sans-serif", letterSpacing:"0.08em", textTransform:"uppercase" }}>
             <Sparkles style={{ width:11,height:11 }}/> Nền tảng sự kiện #1 Việt Nam
           </div></Reveal>
-          <Reveal variant="fadeUp" delay={220} duration={800} threshold={0}><h1 style={{ color:"white", fontWeight:900, lineHeight:1.0, marginBottom:20, fontSize:"clamp(2.8rem,4.5vw,5rem)", fontFamily:"'Clash Display','Be Vietnam Pro',sans-serif", letterSpacing:"-0.035em" }}>
+          <Reveal variant="fadeUp" delay={220} duration={800} threshold={0}><h1 style={{ color:"white", fontWeight:900, lineHeight:1.0, marginBottom:20, fontSize:"clamp(2.8rem,4.5vw,5rem)", fontFamily:"'Be Vietnam Pro','Clash Display',sans-serif", letterSpacing:"-0.035em" }}>
             Sự kiện<br/>
             <span style={{ WebkitTextStroke:"2px rgba(249,115,22,0.6)", WebkitTextFillColor:"transparent", fontStyle:"italic" }}>đặc biệt</span><br/>
             <span style={{ background:"linear-gradient(135deg,#f97316,#ec4899,#a855f7)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent" }}>dành cho bạn</span>
@@ -711,7 +744,6 @@ const HomePage = () => {
             ))}
           </div>
         </div>
-        {/* Hero image side */}
         <Reveal variant="scaleIn" delay={0} duration={1100} threshold={0} style={{position:"relative",overflow:"hidden"}}>
           <div style={{ position:"absolute", inset:0, zIndex:2, background:"#060606", clipPath:"polygon(0 0,12% 0,0 100%)" }}/>
           <img src="https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=1400&auto=format&fit=crop&q=80" alt="hero"
@@ -797,13 +829,13 @@ const HomePage = () => {
             <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16 }}>
               <div style={{ display:"flex",alignItems:"center",gap:10 }}>
                 <div style={{ width:3,height:22,background:"linear-gradient(180deg,#f97316,#a855f7)",borderRadius:2 }}/>
-                <span style={{ fontSize:14,fontWeight:800,color:"white",fontFamily:"'Clash Display','Be Vietnam Pro',sans-serif",letterSpacing:"-0.01em" }}>Sự kiện nổi bật</span>
+                <span style={{ fontSize:14,fontWeight:800,color:"white",fontFamily:"'Be Vietnam Pro','Clash Display',sans-serif",letterSpacing:"-0.01em" }}>Sự kiện nổi bật</span>
               </div>
               <Link to="/events" style={{ fontSize:11,fontWeight:700,color:"rgba(255,255,255,0.35)",textDecoration:"none",display:"flex",alignItems:"center",gap:3,fontFamily:"'Be Vietnam Pro',sans-serif" }}>Xem tất cả <ChevronRight style={{ width:13,height:13 }}/></Link>
             </div>
             <div style={{ overflowX:"scroll",marginLeft:-24,marginRight:-24,paddingLeft:24,paddingRight:24,scrollbarWidth:"none" }}>
               <div style={{ display:"flex",gap:12,width:"max-content" }}>
-                {events.slice(0,7).map((event, i) => (
+                {events.slice(0,7).map((event) => (
                   <Link key={event._id} to={`/event/${event._id}`} className="hp2-strip-card" style={{ width:200,background:"#151311",borderRadius:14,border:"1px solid rgba(255,255,255,0.07)",overflow:"hidden",textDecoration:"none",flexShrink:0,display:"block",transition:"all 0.28s" }}>
                     <div style={{ height:120,overflow:"hidden",background:"#1a1a1a",position:"relative" }}>
                       <img src={getImageUrl(event.image)} alt={event.title} className="hp2-strip-img" style={{ width:"100%",height:"100%",objectFit:"cover",transition:"transform 0.5s" }} onError={e=>{e.target.src="https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=400&auto=format&fit=crop";}}/>
@@ -811,9 +843,17 @@ const HomePage = () => {
                       {event.category && <span style={{ position:"absolute",bottom:6,left:6,fontSize:9,fontWeight:600,padding:"1px 6px",borderRadius:999,background:"rgba(0,0,0,0.75)",color:"rgba(255,255,255,0.8)",fontFamily:"'Be Vietnam Pro',sans-serif" }}>{event.category}</span>}
                     </div>
                     <div style={{ padding:"10px 12px" }}>
-                      <p style={{ fontSize:12,fontWeight:700,color:"white",lineHeight:1.35,marginBottom:6,display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden",fontFamily:"'Clash Display','Be Vietnam Pro',sans-serif" }}>{event.title}</p>
-                      <span style={{ fontSize:10,color:"rgba(255,255,255,0.35)",display:"flex",alignItems:"center",gap:3,marginBottom:6,fontFamily:"'Be Vietnam Pro',sans-serif" }}><Calendar style={{ width:9,height:9 }}/>{fmtDate(event.startDate)}</span>
-                      <p style={{ fontSize:11,fontWeight:800,background:"linear-gradient(90deg,#f97316,#a855f7)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",fontFamily:"'Clash Display','Be Vietnam Pro',sans-serif" }}>{fmtPriceRange(getPriceRange(event))}</p>
+                      <p style={{ fontSize:12,fontWeight:700,color:"white",lineHeight:1.35,marginBottom:4,display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden",fontFamily:"'Be Vietnam Pro','Clash Display',sans-serif" }}>{event.title}</p>
+                      <span style={{ fontSize:10,color:"rgba(255,255,255,0.35)",display:"flex",alignItems:"center",gap:3,marginBottom:2,fontFamily:"'Be Vietnam Pro',sans-serif" }}>
+                        <Calendar style={{ width:9,height:9,color:"#f97316" }}/>Bắt đầu: {fmtDate(event.startDate)} · {fmtTime(event.startDate)}
+                      </span>
+                      {event.endDate && (
+                        <span style={{ fontSize:10,color:"rgba(255,255,255,0.25)",display:"flex",alignItems:"center",gap:3,marginBottom:4,fontFamily:"'Be Vietnam Pro',sans-serif" }}>
+                          <Calendar style={{ width:9,height:9,color:"#10b981" }}/>Kết thúc: {fmtDate(event.endDate)} · {fmtTime(event.endDate)}
+                        </span>
+                      )}
+                      <CountdownCompact startDate={event.startDate}/>
+                      <p style={{ fontSize:11,fontWeight:800,background:"linear-gradient(90deg,#f97316,#a855f7)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",fontFamily:"'Be Vietnam Pro','Clash Display',sans-serif",marginTop:4 }}>{fmtPriceRange(getPriceRange(event))}</p>
                     </div>
                   </Link>
                 ))}
@@ -841,26 +881,12 @@ const HomePage = () => {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,700;1,900&family=Space+Mono:wght@400;700&display=swap');
         @import url('https://api.fontshare.com/v2/css?f[]=clash-display@400,500,600,700,800,900&display=swap');
-
         .hp2-root *, .hp2-root { box-sizing:border-box; }
-
-        @keyframes hp2-shimmer {
-          0%   { background-position:-800px 0; }
-          100% { background-position:800px 0; }
-        }
-        .hp2-shimmer {
-          background: linear-gradient(90deg,rgba(255,255,255,0.03) 25%,rgba(255,255,255,0.07) 37%,rgba(255,255,255,0.03) 63%) !important;
-          background-size:1600px 100% !important;
-          animation: hp2-shimmer 1.4s ease infinite;
-        }
+        @keyframes hp2-shimmer { 0%{background-position:-800px 0} 100%{background-position:800px 0} }
+        .hp2-shimmer { background:linear-gradient(90deg,rgba(255,255,255,0.03) 25%,rgba(255,255,255,0.07) 37%,rgba(255,255,255,0.03) 63%) !important; background-size:1600px 100% !important; animation:hp2-shimmer 1.4s ease infinite; }
         @keyframes hp2-pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
         .hp2-pulse { animation:hp2-pulse 1.4s ease infinite; }
-
-        @media (max-width:768px) {
-          .hp2-root section:first-child { grid-template-columns:1fr !important; }
-          .hp2-root section:first-child > div:last-child { display:none !important; }
-        }
-
+        @media (max-width:768px) { .hp2-root section:first-child { grid-template-columns:1fr !important; } .hp2-root section:first-child > div:last-child { display:none !important; } }
         .hp2-card:hover { border-color:rgba(249,115,22,0.3) !important; transform:translateY(-5px) !important; box-shadow:0 20px 56px rgba(0,0,0,0.65), 0 0 0 1px rgba(249,115,22,0.12) !important; }
         .hp2-card:hover .hp2-card-img { transform:scale(1.08); }
         .hp2-tall-card:hover .hp2-tall-img { transform:scale(1.04); }
@@ -877,13 +903,8 @@ const HomePage = () => {
         .hp2-loc-card:hover .hp2-loc-img { transform:scale(1.07); }
         .hp2-loc-card:hover .hp2-loc-arrow { background:linear-gradient(135deg,#f97316,#a855f7) !important; border-color:transparent !important; }
         .hp2-show-more:hover { border-color:rgba(255,255,255,0.18) !important; color:white !important; }
-
-        @media (prefers-reduced-motion: reduce) {
-          * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
-        }
-
-        * { scrollbar-width:none; }
-        ::-webkit-scrollbar { display:none; }
+        @media (prefers-reduced-motion:reduce) { *{ transition-duration:0.01ms !important; animation-duration:0.01ms !important; } }
+        * { scrollbar-width:none; } ::-webkit-scrollbar { display:none; }
         input::placeholder { color:rgba(255,255,255,0.3); }
       `}</style>
     </div>
