@@ -4,20 +4,109 @@ import axios from 'axios';
 import API_URL from '../config/api';
 import {
   ShoppingCart, Trash2, CreditCard, CheckCircle, Lock,
-  ArrowLeft, ArrowRight, Ticket, MapPin, Calendar, User,
+  ArrowLeft, ArrowRight, Ticket, MapPin, User,
   Mail, Phone, Shield, BadgeCheck, Zap, Building2, Smartphone,
-  ChevronRight, Sparkles
+  ChevronRight, Sparkles, XCircle
 } from 'lucide-react';
 import useCartStore from '../store/cartStore';
 import useAuthStore from '../store/authStore';
 import toast from 'react-hot-toast';
 
-// ─── HELPERS ──────────────────────────────────────────────────────────────
 const fmtPrice = p =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(p || 0);
 
 const generateQRCode = data =>
   `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(data)}`;
+
+// ─── SOLD OUT MODAL ───────────────────────────────────────────────────────
+const SoldOutModal = ({ message, onClose, onGoHome }) => (
+  <div style={{
+    position: 'fixed', inset: 0, zIndex: 9999,
+    background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(12px)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
+    fontFamily: "'Be Vietnam Pro',sans-serif",
+    animation: 'fadeIn 0.2s ease',
+  }}>
+    <div style={{
+      background: 'linear-gradient(180deg,#1e1e20 0%,#18181a 100%)',
+      border: '1px solid rgba(239,68,68,0.2)',
+      borderRadius: 24, padding: '36px 28px',
+      maxWidth: 400, width: '100%',
+      boxShadow: '0 32px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(239,68,68,0.08)',
+      textAlign: 'center',
+      animation: 'slideUp 0.25s ease',
+    }}>
+      {/* Icon */}
+      <div style={{
+        width: 68, height: 68,
+        background: 'radial-gradient(circle, rgba(239,68,68,0.15) 0%, rgba(239,68,68,0.05) 100%)',
+        border: '1px solid rgba(239,68,68,0.25)', borderRadius: '50%',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        margin: '0 auto 20px',
+      }}>
+        <XCircle style={{ width: 32, height: 32, color: '#f87171' }}/>
+      </div>
+
+      {/* Title */}
+      <h3 style={{
+        fontSize: 20, fontWeight: 900, color: 'white', marginBottom: 10,
+        fontFamily: "'Clash Display','Be Vietnam Pro',sans-serif", letterSpacing: '-0.02em',
+      }}>
+        Rất tiếc, vé đã hết!
+      </h3>
+
+      {/* Message */}
+      <p style={{
+        fontSize: 13, color: 'rgba(255,255,255,0.45)', lineHeight: 1.7,
+        marginBottom: 8, fontFamily: "'Be Vietnam Pro',sans-serif",
+      }}>
+        {message}
+      </p>
+
+      <p style={{
+        fontSize: 12, color: 'rgba(255,255,255,0.25)', lineHeight: 1.6,
+        marginBottom: 28, fontFamily: "'Be Vietnam Pro',sans-serif",
+      }}>
+        Có người vừa hoàn tất thanh toán trước bạn. Vui lòng thử loại vé khác hoặc quay lại sau.
+      </p>
+
+      {/* Divider */}
+      <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', marginBottom: 20 }}/>
+
+      {/* Buttons */}
+      <div style={{ display: 'flex', gap: 10 }}>
+        <button
+          onClick={onGoHome}
+          style={{
+            flex: 1, padding: '12px', borderRadius: 12,
+            border: '1px solid rgba(255,255,255,0.1)',
+            background: 'rgba(255,255,255,0.04)',
+            color: 'rgba(255,255,255,0.55)', fontSize: 13, fontWeight: 700,
+            cursor: 'pointer', fontFamily: "'Be Vietnam Pro',sans-serif",
+            transition: 'all 0.2s',
+          }}
+          className="ckp-outline-btn"
+        >
+          Về trang chủ
+        </button>
+        <button
+          onClick={onClose}
+          style={{
+            flex: 1, padding: '12px', borderRadius: 12, border: 'none',
+            background: 'linear-gradient(135deg,#ef4444,#f97316)',
+            color: 'white', fontSize: 13, fontWeight: 800,
+            cursor: 'pointer', fontFamily: "'Be Vietnam Pro',sans-serif",
+            boxShadow: '0 4px 18px rgba(239,68,68,0.3)',
+            transition: 'all 0.2s',
+          }}
+          className="ckp-cta-btn"
+        >
+          Chọn vé khác
+        </button>
+      </div>
+    </div>
+  </div>
+);
 
 // ─── STEP INDICATOR ───────────────────────────────────────────────────────
 const StepBar = ({ step }) => (
@@ -80,7 +169,6 @@ const SuccessScreen = ({ orderResponse, formData, event, navigate }) => (
           Mã đơn hàng: <span style={{ fontFamily: "'Space Mono',monospace", color: '#fb923c', fontWeight: 700 }}>{orderResponse._id || orderResponse.id}</span>
         </p>
       </div>
-
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 28 }}>
         {orderResponse.tickets?.map((ticket, idx) => (
           <div key={ticket._id || idx} style={{ background: 'linear-gradient(180deg,#1e1e20 0%,#18181a 100%)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, overflow: 'hidden', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
@@ -99,7 +187,7 @@ const SuccessScreen = ({ orderResponse, formData, event, navigate }) => (
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {[
                   { label: 'Địa điểm', value: orderResponse.event?.location || event?.location },
-                  { label: 'Email',    value: orderResponse.customerInfo?.email || formData.email },
+                  { label: 'Email', value: orderResponse.customerInfo?.email || formData.email },
                   { label: 'Ticket ID', value: ticket._id || ticket.id, mono: true },
                 ].map((row, j) => (
                   <div key={j} style={{ display: 'flex', gap: 10, alignItems: 'baseline' }}>
@@ -123,7 +211,6 @@ const SuccessScreen = ({ orderResponse, formData, event, navigate }) => (
           </div>
         ))}
       </div>
-
       <div style={{ display: 'flex', gap: 12 }}>
         <button onClick={() => navigate('/ticket-history')}
           style={{ flex: 1, padding: '13px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.65)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: "'Be Vietnam Pro',sans-serif", transition: 'all 0.2s' }}
@@ -151,6 +238,7 @@ const CheckoutPage = () => {
   const [step, setStep] = useState(1);
   const [orderResponse, setOrderResponse] = useState(null);
   const [focused, setFocused] = useState('');
+  const [soldOutMsg, setSoldOutMsg] = useState(''); // ← THÊM
 
   const [formData, setFormData] = useState({
     fullName: user?.name || '',
@@ -181,12 +269,12 @@ const CheckoutPage = () => {
       const orderData = res.data?.data || res.data;
       const orderId = orderData._id || orderData.id;
       if (!orderId) { toast.error('Không lấy được mã đơn hàng'); setLoading(false); return; }
-  
+
       if (formData.paymentMethod === 'credit_card') {
         toast.loading('Đang chuyển hướng đến Stripe...');
         const stripeRes = await axios.post(`${API_URL}/api/payments/create-checkout-session`, { orderId }, config);
         if (stripeRes.data?.url) {
-          clearCart(); // ← xóa giỏ trước khi redirect
+          clearCart();
           window.location.href = stripeRes.data.url;
           return;
         }
@@ -195,7 +283,7 @@ const CheckoutPage = () => {
         toast.loading('Đang khởi tạo mã QR...');
         const payosRes = await axios.post(`${API_URL}/api/payments/create-payos-link`, { orderId }, config);
         if (payosRes.data?.url) {
-          clearCart(); // ← xóa giỏ trước khi redirect
+          clearCart();
           window.location.href = payosRes.data.url;
           return;
         }
@@ -206,7 +294,14 @@ const CheckoutPage = () => {
       toast.success('Đơn hàng đã được ghi nhận!');
     } catch (err) {
       toast.dismiss();
-      toast.error(err.response?.data?.message || 'Không thể khởi tạo thanh toán, vui lòng thử lại');
+      const msg = err.response?.data?.message || 'Không thể khởi tạo thanh toán, vui lòng thử lại';
+
+      // ← HIỆN MODAL NẾU HẾT VÉ
+      if (msg.includes('hết') || msg.includes('không đủ')) {
+        setSoldOutMsg(msg);
+      } else {
+        toast.error(msg);
+      }
     } finally {
       setLoading(false);
     }
@@ -229,6 +324,16 @@ const CheckoutPage = () => {
 
   return (
     <div style={{ minHeight: '100svh', background: '#060606', fontFamily: "'Be Vietnam Pro',sans-serif", color: 'white' }}>
+
+      {/* ─── SOLD OUT MODAL ─── */}
+      {soldOutMsg && (
+        <SoldOutModal
+          message={soldOutMsg}
+          onClose={() => { setSoldOutMsg(''); navigate(-1); }}
+          onGoHome={() => { setSoldOutMsg(''); navigate('/'); }}
+        />
+      )}
+
       <div style={{ position: 'fixed', top: -100, right: -100, width: 400, height: 400, background: 'radial-gradient(circle,rgba(249,115,22,0.04) 0%,transparent 70%)', pointerEvents: 'none', zIndex: 0 }}/>
       <div style={{ position: 'fixed', bottom: -80, left: -80, width: 350, height: 350, background: 'radial-gradient(circle,rgba(168,85,247,0.05) 0%,transparent 70%)', pointerEvents: 'none', zIndex: 0 }}/>
 
@@ -245,7 +350,6 @@ const CheckoutPage = () => {
 
           {/* ─── LEFT ─── */}
           <form onSubmit={handleCheckout} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-
             {/* Order summary */}
             <div style={{ background: 'linear-gradient(180deg,#1e1e20 0%,#18181a 100%)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 20, overflow: 'hidden' }}>
               <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -324,9 +428,9 @@ const CheckoutPage = () => {
               </div>
               <div style={{ padding: '18px 24px 22px', display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {[
-                  { value: 'credit_card',  Icon: CreditCard,  label: 'Thẻ tín dụng',          sub: 'Visa, Mastercard qua Stripe',  accent: '#f97316' },
-                  { value: 'bank_transfer',Icon: Building2,   label: 'Chuyển khoản / VietQR',  sub: 'Tự động kích hoạt qua PayOS', accent: '#3b82f6' },
-                  { value: 'e_wallet',     Icon: Smartphone,  label: 'Ví MoMo',                sub: 'Thanh toán nhanh qua PayOS',  accent: '#ec4899' },
+                  { value: 'credit_card',   Icon: CreditCard,  label: 'Thẻ tín dụng',         sub: 'Visa, Mastercard qua Stripe',  accent: '#f97316' },
+                  { value: 'bank_transfer', Icon: Building2,   label: 'Chuyển khoản / VietQR', sub: 'Tự động kích hoạt qua PayOS', accent: '#3b82f6' },
+                  { value: 'e_wallet',      Icon: Smartphone,  label: 'Ví MoMo',               sub: 'Thanh toán nhanh qua PayOS',  accent: '#ec4899' },
                 ].map(opt => {
                   const active = formData.paymentMethod === opt.value;
                   return (
@@ -391,9 +495,9 @@ const CheckoutPage = () => {
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 7, paddingTop: 6 }}>
                   {[
-                    { icon: Shield,    color: '#10b981', text: 'Thanh toán bảo mật PCI-DSS' },
-                    { icon: BadgeCheck,color: '#a855f7', text: 'Vé chính hãng, QR độc nhất' },
-                    { icon: Zap,       color: '#f97316', text: 'Nhận vé ngay sau thanh toán' },
+                    { icon: Shield,     color: '#10b981', text: 'Thanh toán bảo mật PCI-DSS' },
+                    { icon: BadgeCheck, color: '#a855f7', text: 'Vé chính hãng, QR độc nhất' },
+                    { icon: Zap,        color: '#f97316', text: 'Nhận vé ngay sau thanh toán' },
                   ].map((b, i) => (
                     <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <b.icon style={{ width: 12, height: 12, color: b.color, flexShrink: 0 }}/>
@@ -415,8 +519,10 @@ const CheckoutPage = () => {
         @import url('https://api.fontshare.com/v2/css?f[]=clash-display@700,800,900&display=swap');
 
         @keyframes ckp-spin { to { transform:rotate(360deg) } }
-        .ckp-spin { animation: ckp-spin 0.85s linear infinite; }
+        @keyframes fadeIn { from { opacity:0 } to { opacity:1 } }
+        @keyframes slideUp { from { opacity:0; transform:translateY(24px) } to { opacity:1; transform:translateY(0) } }
 
+        .ckp-spin { animation: ckp-spin 0.85s linear infinite; }
         .ckp-back-btn:hover { color:white !important; }
         .ckp-cta-btn:hover:not(:disabled) { transform:translateY(-2px); box-shadow:0 10px 36px rgba(249,115,22,0.38) !important; }
         .ckp-cta-btn:active:not(:disabled) { transform:translateY(0); }
