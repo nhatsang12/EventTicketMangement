@@ -15,7 +15,6 @@ import useCartStore from '../store/cartStore';
 import useAuthStore from '../store/authStore';
 import toast from 'react-hot-toast';
 
-// ─── HELPERS (same as HomePage) ────────────────────────────────────────────
 const getImageUrl = p =>
   !p ? 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=1400&auto=format&fit=crop&q=80'
      : p.startsWith('http') ? p : `${API_URL}${p}`;
@@ -47,7 +46,6 @@ const getStatusInfo = s => ({
   ended:     { label: 'Đã kết thúc', color: '#6b7280', bg: 'rgba(107,114,128,0.12)'},
 }[s] || { label: 'Đang mở bán', color: '#10b981', bg: 'rgba(16,185,129,0.12)' });
 
-// ─── LOADING SKELETON ──────────────────────────────────────────────────────
 const LoadingPage = () => (
   <div style={{ minHeight: '100svh', background: '#060606', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Be Vietnam Pro',sans-serif" }}>
     <div style={{ textAlign: 'center' }}>
@@ -61,7 +59,6 @@ const LoadingPage = () => (
   </div>
 );
 
-// ─── NOT FOUND ─────────────────────────────────────────────────────────────
 const NotFoundPage = ({ navigate }) => (
   <div style={{ minHeight: '100svh', background: '#060606', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Be Vietnam Pro',sans-serif" }}>
     <div style={{ textAlign: 'center', maxWidth: 400, padding: '0 24px' }}>
@@ -77,7 +74,6 @@ const NotFoundPage = ({ navigate }) => (
   </div>
 );
 
-// ─── MAIN PAGE ─────────────────────────────────────────────────────────────
 const EventDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -123,13 +119,20 @@ const EventDetailPage = () => {
   };
 
   const handleAddToCart = () => {
-    if (!isAuthenticated) { toast.error('Vui lòng đăng nhập để đặt vé'); navigate('/login'); return; }
+    if (!isAuthenticated) {
+      toast.error('Vui lòng đăng nhập để đặt vé');
+      navigate('/login');
+      return;
+    }
     const hasAny = Object.values(selectedTickets).some(q => q > 0);
-    if (!hasAny) { toast.error('Vui lòng chọn ít nhất một loại vé'); return; }
+    if (!hasAny) {
+      toast.error('Vui lòng chọn ít nhất một loại vé');
+      return;
+    }
     Object.entries(selectedTickets).forEach(([tid, qty]) => {
       if (qty > 0) {
         const t = ticketTypes.find(t => t._id === tid);
-        addItem(t, qty);
+        addItem(t, qty, event); // ← truyền event vào
       }
     });
     toast.success('Đã thêm vào giỏ hàng');
@@ -154,29 +157,21 @@ const EventDetailPage = () => {
   return (
     <div style={{ minHeight: '100svh', background: '#060606', fontFamily: "'Be Vietnam Pro',sans-serif", color: 'white' }}>
 
-      {/* ══════════════════════════════════════════
-          HERO — cinematic full-width image
-      ══════════════════════════════════════════ */}
       <section style={{ position: 'relative', height: 'clamp(420px,55vw,620px)', overflow: 'hidden', background: '#0a0a0a' }}>
-        {/* Background image */}
         <img src={heroImg} alt={event.title}
           style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center', display: 'block' }}
           onError={e => { e.target.src = 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1400&auto=format&fit=crop'; }}
         />
-
-        {/* Layered overlays */}
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top,rgba(6,6,6,1) 0%,rgba(6,6,6,0.55) 40%,rgba(6,6,6,0.1) 80%,transparent 100%)' }}/>
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg,rgba(6,6,6,0.6) 0%,transparent 50%,rgba(168,85,247,0.08) 100%)' }}/>
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right,rgba(6,6,6,0.4) 0%,transparent 60%)' }}/>
 
-        {/* Back button */}
         <button onClick={() => navigate(-1)}
           style={{ position: 'absolute', top: 50, left: 28, display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.8)', fontSize: 12, fontWeight: 700, padding: '8px 14px', borderRadius: 999, cursor: 'pointer', fontFamily: "'Be Vietnam Pro',sans-serif", transition: 'all 0.2s', zIndex: 10 }}
           className="edp-back-btn">
           <ArrowLeft style={{ width: 13, height: 13 }}/> Quay lại
         </button>
 
-        {/* Share + Wishlist */}
         <div style={{ position: 'absolute', top: 50, right: 28, display: 'flex', gap: 8, zIndex: 10 }}>
           <button onClick={() => { navigator.clipboard?.writeText(window.location.href); toast.success('Đã sao chép link!'); }}
             style={{ width: 38, height: 38, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.7)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}
@@ -189,7 +184,6 @@ const EventDetailPage = () => {
           </button>
         </div>
 
-        {/* Hero content — bottom overlay */}
         <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: 'clamp(24px,4vw,48px) clamp(20px,5vw,60px)', zIndex: 5 }}>
           <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 10, fontWeight: 800, padding: '4px 12px', borderRadius: 999, background: status.bg, color: status.color, border: `1px solid ${status.color}40`, backdropFilter: 'blur(8px)', fontFamily: "'Be Vietnam Pro',sans-serif", letterSpacing: '0.06em', textTransform: 'uppercase' }}>{status.label}</span>
@@ -212,15 +206,9 @@ const EventDetailPage = () => {
         </div>
       </section>
 
-      {/* ══════════════════════════════════════════
-          BODY — 2-col layout
-      ══════════════════════════════════════════ */}
       <div style={{ maxWidth: 1152, margin: '0 auto', padding: '40px 24px 80px', display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 360px', gap: 28, alignItems: 'start' }} className="edp-layout">
 
-        {/* ─── LEFT COLUMN ─── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-
-          {/* Info cards row */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }} className="edp-info-grid">
             {[
               { icon: Calendar, color: '#f97316', label: 'Ngày diễn ra', value: fmtDate(event.startDate) },
@@ -239,7 +227,6 @@ const EventDetailPage = () => {
             ))}
           </div>
 
-          {/* Description */}
           <div style={{ background: 'linear-gradient(180deg,#1a1a1c 0%,#161618 100%)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 20, padding: '28px 30px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
               <div style={{ width: 3, height: 20, background: 'linear-gradient(180deg,#f97316,#a855f7)', borderRadius: 2 }}/>
@@ -251,7 +238,6 @@ const EventDetailPage = () => {
             </div>
           </div>
 
-          {/* Trust badges */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }} className="edp-badge-grid">
             {[
               { icon: Shield,    color: '#10b981', title: 'Vé chính hãng',  desc: 'Mã QR độc nhất, chống giả mạo' },
@@ -271,7 +257,6 @@ const EventDetailPage = () => {
           </div>
         </div>
 
-        {/* ─── RIGHT COLUMN — TICKET SIDEBAR ─── */}
         <div style={{ position: 'sticky', top: 24 }}>
           <div style={{ background: 'linear-gradient(180deg,#1c1c1e 0%,#171719 100%)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 22, overflow: 'hidden', boxShadow: '0 24px 64px rgba(0,0,0,0.6), 0 1px 0 rgba(255,255,255,0.05) inset' }}>
 

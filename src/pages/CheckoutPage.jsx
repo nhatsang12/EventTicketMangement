@@ -181,16 +181,24 @@ const CheckoutPage = () => {
       const orderData = res.data?.data || res.data;
       const orderId = orderData._id || orderData.id;
       if (!orderId) { toast.error('Không lấy được mã đơn hàng'); setLoading(false); return; }
-
+  
       if (formData.paymentMethod === 'credit_card') {
         toast.loading('Đang chuyển hướng đến Stripe...');
         const stripeRes = await axios.post(`${API_URL}/api/payments/create-checkout-session`, { orderId }, config);
-        if (stripeRes.data?.url) { window.location.href = stripeRes.data.url; return; }
+        if (stripeRes.data?.url) {
+          clearCart(); // ← xóa giỏ trước khi redirect
+          window.location.href = stripeRes.data.url;
+          return;
+        }
       }
       if (formData.paymentMethod === 'bank_transfer' || formData.paymentMethod === 'e_wallet') {
         toast.loading('Đang khởi tạo mã QR...');
         const payosRes = await axios.post(`${API_URL}/api/payments/create-payos-link`, { orderId }, config);
-        if (payosRes.data?.url) { window.location.href = payosRes.data.url; return; }
+        if (payosRes.data?.url) {
+          clearCart(); // ← xóa giỏ trước khi redirect
+          window.location.href = payosRes.data.url;
+          return;
+        }
       }
       setOrderResponse(orderData);
       clearCart();

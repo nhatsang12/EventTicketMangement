@@ -7,10 +7,18 @@ const useCartStore = create(
       items: [],
       event: null,
 
-      addItem: (ticketType, quantity) => {
+      addItem: (ticketType, quantity, newEvent) => {
         const { items, event } = get();
-        const existingItem = items.find(item => item.ticketType._id === ticketType._id);
 
+        if (newEvent && event && event._id !== newEvent._id) {
+          set({ items: [{ ticketType, quantity }], event: newEvent });
+          return;
+        }
+        if (newEvent && !event) {
+          set({ event: newEvent });
+        }
+
+        const existingItem = items.find(item => item.ticketType._id === ticketType._id);
         if (existingItem) {
           set({
             items: items.map(item =>
@@ -20,18 +28,14 @@ const useCartStore = create(
             ),
           });
         } else {
-          set({
-            items: [...items, { ticketType, quantity }],
-          });
+          set({ items: [...items, { ticketType, quantity }] });
         }
       },
 
       updateQuantity: (ticketTypeId, quantity) => {
         const { items } = get();
         if (quantity <= 0) {
-          set({
-            items: items.filter(item => item.ticketType._id !== ticketTypeId),
-          });
+          set({ items: items.filter(item => item.ticketType._id !== ticketTypeId) });
         } else {
           set({
             items: items.map(item =>
@@ -44,9 +48,7 @@ const useCartStore = create(
       },
 
       removeItem: (ticketTypeId) => {
-        set({
-          items: get().items.filter(item => item.ticketType._id !== ticketTypeId),
-        });
+        set({ items: get().items.filter(item => item.ticketType._id !== ticketTypeId) });
       },
 
       setEvent: (eventData) => {
@@ -68,9 +70,7 @@ const useCartStore = create(
         return get().items.reduce((total, item) => total + item.quantity, 0);
       },
     }),
-    {
-      name: 'cart-storage',
-    }
+    { name: 'cart-storage' }
   )
 );
 
