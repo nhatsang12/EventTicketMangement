@@ -74,7 +74,6 @@ const NotFoundPage = ({ navigate }) => (
   </div>
 );
 
-// ─── CONFLICT MODAL ────────────────────────────────────────────────────────
 const ConflictModal = ({ cartEventName, onCancel, onConfirm }) => (
   <div style={{
     position: 'fixed', inset: 0, zIndex: 999,
@@ -88,17 +87,12 @@ const ConflictModal = ({ cartEventName, onCancel, onConfirm }) => (
       borderRadius: 22, padding: '32px 28px', maxWidth: 400, width: '100%',
       boxShadow: '0 32px 80px rgba(0,0,0,0.7)',
     }}>
-      {/* Icon */}
       <div style={{ width: 56, height: 56, background: 'rgba(249,115,22,0.1)', border: '1px solid rgba(249,115,22,0.25)', borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
         <ShoppingCart style={{ width: 24, height: 24, color: '#f97316' }}/>
       </div>
-
-      {/* Title */}
       <h3 style={{ fontSize: 17, fontWeight: 900, color: 'white', textAlign: 'center', marginBottom: 10, fontFamily: "'Clash Display','Be Vietnam Pro',sans-serif", letterSpacing: '-0.02em' }}>
         Giỏ hàng đang có vé khác
       </h3>
-
-      {/* Body */}
       <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', textAlign: 'center', lineHeight: 1.7, marginBottom: 8 }}>
         Giỏ hàng đang có vé của
       </p>
@@ -108,8 +102,6 @@ const ConflictModal = ({ cartEventName, onCancel, onConfirm }) => (
       <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', textAlign: 'center', lineHeight: 1.7, marginBottom: 24 }}>
         Bạn có muốn xóa giỏ hàng hiện tại và thêm vé mới không?
       </p>
-
-      {/* Buttons */}
       <div style={{ display: 'flex', gap: 10 }}>
         <button onClick={onCancel}
           style={{ flex: 1, padding: '12px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s', fontFamily: "'Be Vietnam Pro',sans-serif" }}
@@ -126,7 +118,6 @@ const ConflictModal = ({ cartEventName, onCancel, onConfirm }) => (
   </div>
 );
 
-// ─── MAIN PAGE ─────────────────────────────────────────────────────────────
 const EventDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -157,7 +148,6 @@ const EventDetailPage = () => {
 
       setEventData(currentEvent);
       setTicketTypes(eventTickets);
-      // KHÔNG gọi setEvent ở đây
     } catch (err) {
       console.error(err);
       toast.error('Không thể tải thông tin sự kiện');
@@ -195,13 +185,10 @@ const EventDetailPage = () => {
       toast.error('Vui lòng chọn ít nhất một loại vé');
       return;
     }
-
-    // Kiểm tra conflict
     if (cartEvent && cartEvent._id !== event._id) {
       setShowConflict(true);
       return;
     }
-
     doAddToCart();
   };
 
@@ -224,12 +211,17 @@ const EventDetailPage = () => {
 
   const status = getStatusInfo(event.status);
   const heroImg = getImageUrl(event.image);
-  const timeStr = fmtTime(event.startDate);
+  const startTimeStr = fmtTime(event.startDate);
+  const endTimeStr = fmtTime(event.endDate);
+
+  // Kiểm tra xem endDate có khác ngày startDate không
+  const startDay = event.startDate ? new Date(event.startDate).toDateString() : null;
+  const endDay = event.endDate ? new Date(event.endDate).toDateString() : null;
+  const endDateDifferent = endDay && startDay !== endDay;
 
   return (
     <div style={{ minHeight: '100svh', background: '#060606', fontFamily: "'Be Vietnam Pro',sans-serif", color: 'white' }}>
 
-      {/* Conflict Modal */}
       {showConflict && (
         <ConflictModal
           cartEventName={cartEvent?.title || 'sự kiện khác'}
@@ -238,6 +230,7 @@ const EventDetailPage = () => {
         />
       )}
 
+      {/* Hero */}
       <section style={{ position: 'relative', height: 'clamp(420px,55vw,620px)', overflow: 'hidden', background: '#0a0a0a' }}>
         <img src={heroImg} alt={event.title}
           style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center', display: 'block' }}
@@ -277,12 +270,16 @@ const EventDetailPage = () => {
             <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', display: 'flex', alignItems: 'center', gap: 6 }}>
               <Calendar style={{ width: 13, height: 13, color: '#f97316', flexShrink: 0 }}/>{fmtDate(event.startDate)}
             </span>
-            {timeStr && <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Clock style={{ width: 13, height: 13, color: '#a855f7', flexShrink: 0 }}/>{timeStr}
-            </span>}
-            {event.location && <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <MapPin style={{ width: 13, height: 13, color: '#ec4899', flexShrink: 0 }}/>{event.location}
-            </span>}
+            {startTimeStr && (
+              <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Clock style={{ width: 13, height: 13, color: '#a855f7', flexShrink: 0 }}/>{startTimeStr}{endTimeStr ? ` – ${endTimeStr}` : ''}
+              </span>
+            )}
+            {event.location && (
+              <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <MapPin style={{ width: 13, height: 13, color: '#ec4899', flexShrink: 0 }}/>{event.location}
+              </span>
+            )}
           </div>
         </div>
       </section>
@@ -290,10 +287,17 @@ const EventDetailPage = () => {
       <div style={{ maxWidth: 1152, margin: '0 auto', padding: '40px 24px 80px', display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 360px', gap: 28, alignItems: 'start' }} className="edp-layout">
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }} className="edp-info-grid">
+
+          {/* Info cards — 4 cards */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }} className="edp-info-grid">
             {[
-              { icon: Calendar, color: '#f97316', label: 'Ngày diễn ra', value: fmtDate(event.startDate) },
-              { icon: Clock,    color: '#a855f7', label: 'Giờ bắt đầu',  value: timeStr || event.time || '19:00' },
+              { icon: Calendar, color: '#f97316', label: 'Ngày diễn ra',  value: fmtDate(event.startDate) },
+              { icon: Clock,    color: '#a855f7', label: 'Giờ bắt đầu',  value: startTimeStr || '19:00' },
+              { icon: Clock,    color: '#10b981', label: 'Giờ kết thúc',
+                value: event.endDate
+                  ? (endDateDifferent ? `${fmtDate(event.endDate)} ${endTimeStr}` : endTimeStr || 'Chưa cập nhật')
+                  : 'Chưa cập nhật'
+              },
               { icon: MapPin,   color: '#ec4899', label: 'Địa điểm',     value: event.location || 'Chưa cập nhật' },
             ].map((item, i) => (
               <div key={i} style={{ background: 'linear-gradient(180deg,#1e1e20 0%,#18181a 100%)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 10, transition: 'border-color 0.2s' }} className="edp-info-card">
@@ -308,6 +312,7 @@ const EventDetailPage = () => {
             ))}
           </div>
 
+          {/* Description */}
           <div style={{ background: 'linear-gradient(180deg,#1a1a1c 0%,#161618 100%)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 20, padding: '28px 30px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
               <div style={{ width: 3, height: 20, background: 'linear-gradient(180deg,#f97316,#a855f7)', borderRadius: 2 }}/>
@@ -319,6 +324,7 @@ const EventDetailPage = () => {
             </div>
           </div>
 
+          {/* Badges */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }} className="edp-badge-grid">
             {[
               { icon: Shield,    color: '#10b981', title: 'Vé chính hãng',   desc: 'Mã QR độc nhất, chống giả mạo' },
@@ -338,9 +344,9 @@ const EventDetailPage = () => {
           </div>
         </div>
 
+        {/* Right — ticket selector */}
         <div style={{ position: 'sticky', top: 24 }}>
           <div style={{ background: 'linear-gradient(180deg,#1c1c1e 0%,#171719 100%)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 22, overflow: 'hidden', boxShadow: '0 24px 64px rgba(0,0,0,0.6), 0 1px 0 rgba(255,255,255,0.05) inset' }}>
-
             <div style={{ padding: '22px 24px 18px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <div style={{ width: 3, height: 20, background: 'linear-gradient(180deg,#f97316,#a855f7)', borderRadius: 2 }}/>
@@ -471,7 +477,7 @@ const EventDetailPage = () => {
           .edp-badge-grid { grid-template-columns:1fr !important; }
         }
         @media (max-width:520px) {
-          .edp-info-grid { grid-template-columns:1fr !important; }
+          .edp-info-grid { grid-template-columns:1fr 1fr !important; }
         }
 
         * { scrollbar-width:none; }

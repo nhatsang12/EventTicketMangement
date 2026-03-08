@@ -6,7 +6,7 @@ import useAuthStore from '../../store/authStore';
 import API_URL from '../../config/api';
 
 const ITEMS_PER_PAGE = 6;
-const emptyForm = { title: '', description: '', date: '', time: '19:00', location: '', category: '', imageFile: null, imagePreview: '' };
+const emptyForm = { title: '', description: '', date: '', time: '19:00', endDate: '', endTime: '21:00', location: '', category: '', imageFile: null, imagePreview: '' };
 const categories = ['Âm nhạc', 'Công nghệ', 'Thể thao', 'Nghệ thuật', 'Ẩm thực', 'Giáo dục', 'Khác'];
 const statusOptions = [
   { value: 'all', label: 'Tất cả trạng thái' },
@@ -72,6 +72,8 @@ const AdminEvents = () => {
       toast.error('Vui lòng điền đầy đủ: tên, ngày, địa điểm'); return;
     }
     if (form.date < todayStr()) { toast.error('Ngày tổ chức không thể là ngày trong quá khứ'); return; }
+    if (form.endDate && form.endDate < form.date) { toast.error('Ngày kết thúc không thể trước ngày bắt đầu'); return; }
+
     try {
       setLoading(true);
       const config = { headers: { Authorization: `Bearer ${accessToken}` } };
@@ -80,9 +82,13 @@ const AdminEvents = () => {
       formData.append('description', form.description);
       formData.append('location', form.location);
       formData.append('category', form.category);
-      const eventDateTime = new Date(`${form.date}T${form.time}`).toISOString();
-      formData.append('startDate', eventDateTime);
-      formData.append('endDate', eventDateTime);
+
+      const startDateTime = new Date(`${form.date}T${form.time}`).toISOString();
+      formData.append('startDate', startDateTime);
+
+      const endDateTime = new Date(`${form.endDate || form.date}T${form.endTime || '23:59'}`).toISOString();
+      formData.append('endDate', endDateTime);
+
       if (form.imageFile) formData.append('image', form.imageFile);
 
       const multipartConfig = { headers: { ...config.headers, 'Content-Type': 'multipart/form-data' } };
@@ -117,10 +123,20 @@ const AdminEvents = () => {
         timeStr = d.toTimeString().substring(0, 5);
       }
     }
+    let endDateStr = '', endTimeStr = '21:00';
+    if (ev.endDate) {
+      const ed = new Date(ev.endDate);
+      if (!isNaN(ed.getTime())) {
+        endDateStr = ed.toISOString().split('T')[0];
+        endTimeStr = ed.toTimeString().substring(0, 5);
+      }
+    }
     setForm({
       title: ev.title || '', description: ev.description || '',
       location: ev.location || '', category: ev.category || '',
-      date: dateStr, time: timeStr, imageFile: null,
+      date: dateStr, time: timeStr,
+      endDate: endDateStr, endTime: endTimeStr,
+      imageFile: null,
       imagePreview: ev.image ? (ev.image.startsWith("http") ? ev.image : `${API_URL}${ev.image}`) : ''
     });
     setShowForm(true);
@@ -190,6 +206,7 @@ const AdminEvents = () => {
         </button>
       </div>
 
+      {/* Filters */}
       <div className="flex flex-col gap-3">
         <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center flex-wrap">
           <div className="relative flex-1 min-w-[200px]">
@@ -229,6 +246,7 @@ const AdminEvents = () => {
         </div>
       </div>
 
+      {/* Form */}
       {showForm && (
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
           <div className="flex items-center justify-between mb-5">
@@ -236,6 +254,7 @@ const AdminEvents = () => {
             <button onClick={closeForm} className="text-gray-400 hover:text-gray-600 transition-colors"><X className="w-4 h-4" /></button>
           </div>
           <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Ảnh */}
             <div className="md:col-span-2">
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Ảnh sự kiện</label>
               <div onClick={() => !loading && fileRef.current?.click()}
@@ -256,28 +275,53 @@ const AdminEvents = () => {
                 <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
               </div>
             </div>
+
+            {/* Tên */}
             <div className="md:col-span-2">
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Tên sự kiện <span className="text-red-400">*</span></label>
               <input required type="text" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="Nhập tên sự kiện..." className={inputCls} />
             </div>
+
+            {/* Mô tả */}
             <div className="md:col-span-2">
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Mô tả</label>
               <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
                 placeholder="Mô tả sự kiện..." rows={3}
                 className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-orange-400 focus:bg-white resize-none transition-all" />
             </div>
+
+            {/* Ngày bắt đầu */}
             <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Ngày tổ chức <span className="text-red-400">*</span></label>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Ngày bắt đầu <span className="text-red-400">*</span></label>
               <input required type="date" value={form.date} min={todayStr()} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} className={inputCls} />
             </div>
+
+            {/* Giờ bắt đầu */}
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Giờ bắt đầu</label>
               <input type="time" value={form.time} onChange={e => setForm(f => ({ ...f, time: e.target.value }))} className={inputCls} />
             </div>
+
+            {/* Ngày kết thúc */}
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Ngày kết thúc</label>
+              <input type="date" value={form.endDate} min={form.date || todayStr()}
+                onChange={e => setForm(f => ({ ...f, endDate: e.target.value }))} className={inputCls} />
+            </div>
+
+            {/* Giờ kết thúc */}
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Giờ kết thúc</label>
+              <input type="time" value={form.endTime} onChange={e => setForm(f => ({ ...f, endTime: e.target.value }))} className={inputCls} />
+            </div>
+
+            {/* Địa điểm */}
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Địa điểm <span className="text-red-400">*</span></label>
               <input required type="text" value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} placeholder="Địa điểm tổ chức..." className={inputCls} />
             </div>
+
+            {/* Danh mục */}
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Danh mục</label>
               <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
@@ -286,6 +330,8 @@ const AdminEvents = () => {
                 {categories.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
+
+            {/* Buttons */}
             <div className="md:col-span-2 flex gap-3 pt-2">
               <button type="button" onClick={closeForm} disabled={loading}
                 className="flex-1 py-2.5 border border-gray-200 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors">Hủy</button>
@@ -299,6 +345,7 @@ const AdminEvents = () => {
         </div>
       )}
 
+      {/* Event list */}
       {filtered.length === 0 ? (
         <div className="text-center py-16 bg-white border border-gray-200 rounded-2xl">
           <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
@@ -312,6 +359,9 @@ const AdminEvents = () => {
               const d = new Date(event.startDate);
               const displayDate = d.toLocaleDateString('vi-VN');
               const displayTime = d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+              const endD = event.endDate ? new Date(event.endDate) : null;
+              const displayEndTime = endD ? endD.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : null;
+              const displayEndDate = endD ? endD.toLocaleDateString('vi-VN') : null;
               const imageUrl = event.image ? (event.image.startsWith("http") ? event.image : `${API_URL}${event.image}`) : null;
               return (
                 <div key={event._id} className="bg-white border border-gray-200 rounded-2xl overflow-hidden hover:border-orange-300 hover:shadow-md transition-all group">
@@ -327,8 +377,15 @@ const AdminEvents = () => {
                     <h3 className="text-sm font-bold text-gray-900 mb-2 line-clamp-1">{event.title}</h3>
                     <div className="space-y-1 mb-4">
                       <div className="flex items-center gap-2 text-xs text-gray-500">
-                        <Calendar className="w-3 h-3 text-orange-400" /><span>{displayDate} · {displayTime}</span>
+                        <Calendar className="w-3 h-3 text-orange-400" />
+                        <span>Bắt đầu: {displayDate} · {displayTime}</span>
                       </div>
+                      {displayEndDate && (
+                        <div className="flex items-center gap-2 text-xs text-gray-500">
+                          <Calendar className="w-3 h-3 text-green-400" />
+                          <span>Kết thúc: {displayEndDate} · {displayEndTime}</span>
+                        </div>
+                      )}
                       <div className="flex items-center gap-2 text-xs text-gray-500">
                         <MapPin className="w-3 h-3 text-purple-400" /><span className="truncate">{event.location}</span>
                       </div>
@@ -348,6 +405,7 @@ const AdminEvents = () => {
               );
             })}
           </div>
+
           {totalPages > 1 && (
             <div className="flex items-center justify-center gap-3 mt-8">
               <button onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1}
@@ -366,6 +424,7 @@ const AdminEvents = () => {
         </>
       )}
 
+      {/* Delete confirm */}
       {deleteConfirm !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
           <div className="bg-white border border-gray-200 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
