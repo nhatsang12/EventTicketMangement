@@ -10,10 +10,11 @@ const useCartStore = create(
       addItem: (ticketType, quantity, newEvent) => {
         const { items, event } = get();
 
-        if (newEvent && event && event._id !== newEvent._id) {
-          set({ items: [{ ticketType, quantity }], event: newEvent });
-          return;
+        // Nếu giỏ đang có vé của sự kiện khác → báo conflict
+        if (newEvent && event && event._id !== newEvent._id && items.length > 0) {
+          return 'CONFLICT';
         }
+
         if (newEvent && !event) {
           set({ event: newEvent });
         }
