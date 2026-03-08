@@ -9,16 +9,12 @@ const useCartStore = create(
 
       addItem: (ticketType, quantity, newEvent) => {
         const { items, event } = get();
-
-        // Nếu giỏ đang có vé của sự kiện khác → báo conflict
         if (newEvent && event && event._id !== newEvent._id && items.length > 0) {
           return 'CONFLICT';
         }
-
         if (newEvent && !event) {
           set({ event: newEvent });
         }
-
         const existingItem = items.find(item => item.ticketType._id === ticketType._id);
         if (existingItem) {
           set({
@@ -70,9 +66,37 @@ const useCartStore = create(
       getTotalQuantity: () => {
         return get().items.reduce((total, item) => total + item.quantity, 0);
       },
+
+      // Sync từ localStorage khi tab khác thay đổi
+      syncFromStorage: () => {
+        try {
+          const raw = localStorage.getItem('cart-storage');
+          if (!raw) {
+            set({ items: [], event: null });
+            return;
+          }
+          const parsed = JSON.parse(raw);
+          const state = parsed?.state;
+          if (state) {
+            set({
+              items: state.items || [],
+              event: state.event || null,
+            });
+          }
+        } catch { /* silent */ }
+      },
     }),
     { name: 'cart-storage' }
   )
 );
+
+// Lắng nghe thay đổi localStorage từ tab khác
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'cart-storage') {
+      useCartStore.getState().syncFromStorage();
+    }
+  });
+}
 
 export default useCartStore;
