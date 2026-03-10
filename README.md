@@ -7,7 +7,7 @@
 
 ---
 ## DEMO Event Ticket https://event-ticket-mangement-8s3y.vercel.app/
-The first time the page loads may be a bit slow. Thank you for your understanding.Thank you
+The first time the page loads may be a bit slow. Thank you for your understanding.
 ## 🗂️ Repositories
 
 | Repo | Description | Link |
