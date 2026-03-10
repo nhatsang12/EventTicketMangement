@@ -7,14 +7,13 @@
 
 ---
 ## DEMO Event Ticket https://event-ticket-mangement-8s3y.vercel.app/
+The first time the page loads may be a bit slow. Thank you for your understanding.Thank you
 ## 🗂️ Repositories
 
 | Repo | Description | Link |
 |---|---|---|
 | **event-ticketing-ui** | React frontend (repo này) | ← you are here |
-| **event-ticketing-server** | Node.js REST API + Database | [View Server Repo](https://github.com/nhatsang12/BEserverEventTicketingPlatform) |
-The first time the page loads may be a bit slow. Thank you for your understanding.Thank you
----
+| **event-ticketing-server** | Node.js REST API + Database | [View Server Repo](https://github.com/nhatsang12/BEserverEventTicketingPlatform) |---
 
 ## 🏗️ System Architecture
 
