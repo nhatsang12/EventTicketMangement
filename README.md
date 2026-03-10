@@ -13,7 +13,7 @@
 |---|---|---|
 | **event-ticketing-ui** | React frontend (repo này) | ← you are here |
 | **event-ticketing-server** | Node.js REST API + Database | [View Server Repo](https://github.com/nhatsang12/BEserverEventTicketingPlatform) |
-
+The first time the page loads may be a bit slow. Thank you for your understanding.Thank you
 ---
 
 ## 🏗️ System Architecture
