@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import useAuthStore from '../../store/authStore';
 import toast from 'react-hot-toast';
 import axios from 'axios';
-import { Ticket, Mail, Lock, ArrowRight, Sparkles, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import API_URL from '../../config/api';
 
 const LoginPage = () => {
@@ -15,17 +15,44 @@ const LoginPage = () => {
   const from = location.state?.from || '/';
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [focused, setFocused] = useState('');
+  const [errors, setErrors] = useState({});
 
-  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+  const validate = (name, value) => {
+    const newErrors = { ...errors };
+
+    if (name === 'email') {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (value.length > 0 && !emailRegex.test(value)) {
+        newErrors.email = 'Email không hợp lệ';
+      } else {
+        delete newErrors.email;
+      }
+    }
+
+    if (name === 'password') {
+      if (value.length > 0 && value.length < 6) {
+        newErrors.password = 'Mật khẩu phải có ít nhất 6 ký tự';
+      } else {
+        delete newErrors.password;
+      }
+    }
+
+    setErrors(newErrors);
+  };
+
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+    validate(e.target.name, e.target.value);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.email)) { toast.error('Email không hợp lệ'); return; }
-    if (formData.password.length < 6) { toast.error('Mật khẩu phải có ít nhất 6 ký tự'); return; }
     try {
       setLoading(true);
-      const response = await axios.post(`${API_URL}/api/auth/login`, { email: formData.email, password: formData.password });
+      const response = await axios.post(`${API_URL}/api/auth/login`, {
+        email: formData.email,
+        password: formData.password,
+      });
       const { accessToken, refreshToken, data } = response.data;
       const user = data.user;
       setAuth(user, accessToken, refreshToken);
@@ -40,6 +67,26 @@ const LoginPage = () => {
     }
   };
 
+  const hasErrors = Object.keys(errors).length > 0;
+
+  const fieldAccent = (field) => {
+    if (errors[field]) return 'rgba(248,113,113,0.6)';
+    if (field === 'password') return 'rgba(168,85,247,0.5)';
+    return 'rgba(249,115,22,0.5)';
+  };
+
+  const fieldGlow = (field) => {
+    if (errors[field]) return 'rgba(248,113,113,0.1)';
+    if (field === 'password') return 'rgba(168,85,247,0.1)';
+    return 'rgba(249,115,22,0.1)';
+  };
+
+  const iconColor = (field) => {
+    if (errors[field]) return '#f87171';
+    if (focused !== field) return 'rgba(255,255,255,0.25)';
+    return field === 'password' ? '#a855f7' : '#f97316';
+  };
+
   return (
     <div style={{ minHeight:'100svh', display:'flex', fontFamily:"'Be Vietnam Pro',sans-serif", background:'#060606', position:'relative', overflow:'hidden' }}>
 
@@ -50,14 +97,12 @@ const LoginPage = () => {
           alt="event"
           style={{ width:'100%', height:'100%', objectFit:'cover', objectPosition:'center' }}
         />
-        {/* Overlays */}
         <div style={{ position:'absolute', inset:0, background:'linear-gradient(135deg,rgba(6,6,6,0.55) 0%,rgba(0,0,0,0.2) 50%,rgba(168,85,247,0.08) 100%)' }}/>
         <div style={{ position:'absolute', inset:0, background:'linear-gradient(to right,rgba(6,6,6,0) 60%,rgba(6,6,6,0.96) 100%)' }}/>
       </div>
 
       {/* ── RIGHT: Form panel ── */}
       <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', padding:'40px 48px', background:'#060606', position:'relative', overflow:'hidden' }}>
-        {/* Ambient glow */}
         <div style={{ position:'absolute', top:-100, right:-100, width:400, height:400, background:'radial-gradient(circle,rgba(249,115,22,0.05) 0%,transparent 70%)', pointerEvents:'none' }}/>
         <div style={{ position:'absolute', bottom:-80, left:-80, width:350, height:350, background:'radial-gradient(circle,rgba(168,85,247,0.06) 0%,transparent 70%)', pointerEvents:'none' }}/>
 
@@ -65,7 +110,7 @@ const LoginPage = () => {
 
           {/* Header */}
           <div style={{ marginBottom:36 }}>
-            <p style={{ fontSize:11, fontWeight:700, color:'rgba(255,255,255,0.25)', textTransform:'uppercase', letterSpacing:'0.15em', marginBottom:10, fontFamily:"'Be Vietnam Pro',sans-serif" }}>
+            <p style={{ fontSize:11, fontWeight:700, color:'rgba(255,255,255,0.25)', textTransform:'uppercase', letterSpacing:'0.15em', marginBottom:10 }}>
               Đăng nhập
             </p>
             <h1 style={{ fontSize:'clamp(1.8rem,3vw,2.4rem)', fontWeight:900, color:'white', lineHeight:1.1, letterSpacing:'-0.03em', fontFamily:"'Clash Display','Be Vietnam Pro',sans-serif", marginBottom:8 }}>
@@ -73,7 +118,7 @@ const LoginPage = () => {
               <span style={{ background:'linear-gradient(90deg,#f97316,#a855f7)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>quay trở lại!</span>
             </h1>
             {from !== '/' && (
-              <div style={{ marginTop:14, display:'flex', alignItems:'center', gap:8, background:'rgba(249,115,22,0.08)', border:'1px solid rgba(249,115,22,0.2)', borderRadius:10, padding:'10px 14px', fontSize:12, color:'#fb923c', fontFamily:"'Be Vietnam Pro',sans-serif" }}>
+              <div style={{ marginTop:14, display:'flex', alignItems:'center', gap:8, background:'rgba(249,115,22,0.08)', border:'1px solid rgba(249,115,22,0.2)', borderRadius:10, padding:'10px 14px', fontSize:12, color:'#fb923c' }}>
                 <span style={{ fontSize:14 }}>🎟</span> Đăng nhập xong sẽ tiếp tục đặt vé
               </div>
             )}
@@ -83,49 +128,73 @@ const LoginPage = () => {
           <form onSubmit={handleSubmit} style={{ display:'flex', flexDirection:'column', gap:14 }}>
 
             {/* Email */}
-            <div style={{ position:'relative' }}>
-              <Mail style={{ position:'absolute', left:14, top:'50%', transform:'translateY(-50%)', width:15, height:15, color: focused==='email' ? '#f97316' : 'rgba(255,255,255,0.25)', transition:'color 0.2s', zIndex:1 }}/>
-              <input
-                type="email" name="email" value={formData.email}
-                onChange={handleChange}
-                onFocus={()=>setFocused('email')} onBlur={()=>setFocused('')}
-                required placeholder="Email"
-                style={{
-                  width:'100%', padding:'14px 14px 14px 42px',
-                  background: focused==='email' ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.04)',
-                  border: focused==='email' ? '1px solid rgba(249,115,22,0.5)' : '1px solid rgba(255,255,255,0.09)',
-                  borderRadius:12, fontSize:14, color:'white',
-                  outline:'none', transition:'all 0.2s',
-                  fontFamily:"'Be Vietnam Pro',sans-serif",
-                  boxShadow: focused==='email' ? '0 0 0 3px rgba(249,115,22,0.1)' : 'none',
-                  boxSizing:'border-box',
-                }}
-              />
+            <div>
+              <div style={{ position:'relative' }}>
+                <Mail style={{ position:'absolute', left:14, top:'50%', transform:'translateY(-50%)', width:15, height:15, color: iconColor('email'), transition:'color 0.2s', zIndex:1 }}/>
+                <input
+                  type="email" name="email" value={formData.email}
+                  onChange={handleChange}
+                  onFocus={()=>setFocused('email')} onBlur={()=>setFocused('')}
+                  required placeholder="Email"
+                  style={{
+                    width:'100%', padding:'14px 14px 14px 42px',
+                    background: focused==='email' ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.04)',
+                    border: focused==='email'
+                      ? `1px solid ${fieldAccent('email')}`
+                      : errors.email
+                        ? '1px solid rgba(248,113,113,0.4)'
+                        : '1px solid rgba(255,255,255,0.09)',
+                    borderRadius:12, fontSize:14, color:'white',
+                    outline:'none', transition:'all 0.2s',
+                    fontFamily:"'Be Vietnam Pro',sans-serif",
+                    boxShadow: focused==='email' ? `0 0 0 3px ${fieldGlow('email')}` : 'none',
+                    boxSizing:'border-box',
+                  }}
+                />
+              </div>
+              {/* ✅ Lỗi email */}
+              {errors.email && (
+                <div style={{ display:'flex', alignItems:'center', gap:6, marginTop:6, fontSize:12, color:'#f87171', fontFamily:"'Be Vietnam Pro',sans-serif" }}>
+                  ⚠️ {errors.email}
+                </div>
+              )}
             </div>
 
             {/* Password */}
-            <div style={{ position:'relative' }}>
-              <Lock style={{ position:'absolute', left:14, top:'50%', transform:'translateY(-50%)', width:15, height:15, color: focused==='password' ? '#a855f7' : 'rgba(255,255,255,0.25)', transition:'color 0.2s', zIndex:1 }}/>
-              <input
-                type={showPass ? 'text' : 'password'} name="password" value={formData.password}
-                onChange={handleChange}
-                onFocus={()=>setFocused('password')} onBlur={()=>setFocused('')}
-                required placeholder="Mật khẩu"
-                style={{
-                  width:'100%', padding:'14px 44px 14px 42px',
-                  background: focused==='password' ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.04)',
-                  border: focused==='password' ? '1px solid rgba(168,85,247,0.5)' : '1px solid rgba(255,255,255,0.09)',
-                  borderRadius:12, fontSize:14, color:'white',
-                  outline:'none', transition:'all 0.2s',
-                  fontFamily:"'Be Vietnam Pro',sans-serif",
-                  boxShadow: focused==='password' ? '0 0 0 3px rgba(168,85,247,0.1)' : 'none',
-                  boxSizing:'border-box',
-                }}
-              />
-              <button type="button" onClick={()=>setShowPass(v=>!v)}
-                style={{ position:'absolute', right:14, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', color:'rgba(255,255,255,0.28)', padding:0, display:'flex' }}>
-                {showPass ? <EyeOff style={{ width:15, height:15 }}/> : <Eye style={{ width:15, height:15 }}/>}
-              </button>
+            <div>
+              <div style={{ position:'relative' }}>
+                <Lock style={{ position:'absolute', left:14, top:'50%', transform:'translateY(-50%)', width:15, height:15, color: iconColor('password'), transition:'color 0.2s', zIndex:1 }}/>
+                <input
+                  type={showPass ? 'text' : 'password'} name="password" value={formData.password}
+                  onChange={handleChange}
+                  onFocus={()=>setFocused('password')} onBlur={()=>setFocused('')}
+                  required placeholder="Mật khẩu"
+                  style={{
+                    width:'100%', padding:'14px 44px 14px 42px',
+                    background: focused==='password' ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.04)',
+                    border: focused==='password'
+                      ? `1px solid ${fieldAccent('password')}`
+                      : errors.password
+                        ? '1px solid rgba(248,113,113,0.4)'
+                        : '1px solid rgba(255,255,255,0.09)',
+                    borderRadius:12, fontSize:14, color:'white',
+                    outline:'none', transition:'all 0.2s',
+                    fontFamily:"'Be Vietnam Pro',sans-serif",
+                    boxShadow: focused==='password' ? `0 0 0 3px ${fieldGlow('password')}` : 'none',
+                    boxSizing:'border-box',
+                  }}
+                />
+                <button type="button" onClick={()=>setShowPass(v=>!v)}
+                  style={{ position:'absolute', right:14, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', color:'rgba(255,255,255,0.28)', padding:0, display:'flex' }}>
+                  {showPass ? <EyeOff style={{ width:15, height:15 }}/> : <Eye style={{ width:15, height:15 }}/>}
+                </button>
+              </div>
+              {/* ✅ Lỗi password */}
+              {errors.password && (
+                <div style={{ display:'flex', alignItems:'center', gap:6, marginTop:6, fontSize:12, color:'#f87171', fontFamily:"'Be Vietnam Pro',sans-serif" }}>
+                  ⚠️ {errors.password}
+                </div>
+              )}
             </div>
 
             {/* Forgot */}
@@ -136,17 +205,17 @@ const LoginPage = () => {
             </div>
 
             {/* Submit */}
-            <button type="submit" disabled={loading}
+            <button type="submit" disabled={loading || hasErrors}
               style={{
                 width:'100%', padding:'15px', borderRadius:12,
-                background: loading ? 'rgba(255,255,255,0.06)' : 'linear-gradient(135deg,#f97316,#a855f7)',
-                border:'none', cursor: loading ? 'not-allowed' : 'pointer',
+                background: loading || hasErrors ? 'rgba(255,255,255,0.06)' : 'linear-gradient(135deg,#f97316,#a855f7)',
+                border:'none', cursor: loading || hasErrors ? 'not-allowed' : 'pointer',
                 color:'white', fontSize:15, fontWeight:800,
                 fontFamily:"'Be Vietnam Pro',sans-serif",
                 display:'flex', alignItems:'center', justifyContent:'center', gap:8,
                 transition:'all 0.25s',
-                boxShadow: loading ? 'none' : '0 6px 28px rgba(249,115,22,0.28)',
-                opacity: loading ? 0.7 : 1,
+                boxShadow: loading || hasErrors ? 'none' : '0 6px 28px rgba(249,115,22,0.28)',
+                opacity: loading || hasErrors ? 0.5 : 1,
               }} className="lp-submit">
               {loading ? (
                 <><span style={{ width:16, height:16, border:'2px solid rgba(255,255,255,0.3)', borderTopColor:'white', borderRadius:'50%', display:'inline-block' }} className="lp-spin"/> Đang xử lý...</>
