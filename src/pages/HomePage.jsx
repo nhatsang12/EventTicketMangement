@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useSearchParams, Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import axios from "axios";
 import API_URL from '../config/api';
 import {
@@ -638,6 +639,7 @@ const FooterCTA = () => (
 
 // ─── MAIN PAGE ─────────────────────────────────────────────────────────────
 const HomePage = () => {
+  const { t } = useTranslation();
   const [allEvents, setAllEvents] = useState([]);
   const [events, setEvents] = useState([]);
   const [categories, setCategories] = useState([]);

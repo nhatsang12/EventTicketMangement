@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import {
   Ticket, Calendar, MapPin, QrCode, ChevronDown, ChevronUp,
@@ -41,11 +42,11 @@ const isTicketExpired = (ticket, order) => {
 };
 
 // Trả về trạng thái + config hiển thị của vé
-const getTicketStatus = (ticket, order) => {
+const getTicketStatus = (ticket, order, t) => {
   if (isTicketCheckedIn(ticket)) {
     return {
       key: 'used',
-      label: 'Đã sử dụng',
+      label: t('ticketStatus.used'),
       color: 'rgba(255,255,255,0.3)',
       bg: 'rgba(255,255,255,0.05)',
       border: 'rgba(255,255,255,0.08)',
@@ -56,7 +57,7 @@ const getTicketStatus = (ticket, order) => {
   if (isTicketExpired(ticket, order)) {
     return {
       key: 'expired',
-      label: 'Không còn hiệu lực',
+      label: t('ticketStatus.expired'),
       color: '#f87171',
       bg: 'rgba(248,113,113,0.08)',
       border: 'rgba(248,113,113,0.2)',
@@ -66,7 +67,7 @@ const getTicketStatus = (ticket, order) => {
   }
   return {
     key: 'valid',
-    label: 'Có hiệu lực',
+    label: t('ticketStatus.valid'),
     color: '#34d399',
     bg: 'rgba(52,211,153,0.1)',
     border: 'rgba(52,211,153,0.25)',
@@ -75,13 +76,22 @@ const getTicketStatus = (ticket, order) => {
   };
 };
 
-const orderStatusConfig = s => ({
-  paid:      { label: 'Đã thanh toán', color: '#34d399', bg: 'rgba(52,211,153,0.1)',  border: 'rgba(52,211,153,0.25)'  },
-  confirmed: { label: 'Đã xác nhận',   color: '#34d399', bg: 'rgba(52,211,153,0.1)',  border: 'rgba(52,211,153,0.25)'  },
-  active:    { label: 'Đang hoạt động',color: '#34d399', bg: 'rgba(52,211,153,0.1)',  border: 'rgba(52,211,153,0.25)'  },
-  used:      { label: 'Đã sử dụng',    color: 'rgba(255,255,255,0.3)', bg: 'rgba(255,255,255,0.05)', border: 'rgba(255,255,255,0.09)' },
-  cancelled: { label: 'Đã huỷ',        color: '#f87171', bg: 'rgba(248,113,113,0.1)', border: 'rgba(248,113,113,0.25)' },
+const orderStatusConfig = (s, t) => ({
+  paid:      { label: t('ticketStatus.paid'), color: '#34d399', bg: 'rgba(52,211,153,0.1)',  border: 'rgba(52,211,153,0.25)'  },
+  confirmed: { label: t('ticketStatus.confirmed'),   color: '#34d399', bg: 'rgba(52,211,153,0.1)',  border: 'rgba(52,211,153,0.25)'  },
+  active:    { label: t('ticketStatus.active'),color: '#34d399', bg: 'rgba(52,211,153,0.1)',  border: 'rgba(52,211,153,0.25)'  },
+  used:      { label: t('ticketStatus.used'),    color: 'rgba(255,255,255,0.3)', bg: 'rgba(255,255,255,0.05)', border: 'rgba(255,255,255,0.09)' },
+  cancelled: { label: t('ticketStatus.cancelled'),        color: '#f87171', bg: 'rgba(248,113,113,0.1)', border: 'rgba(248,113,113,0.25)' },
 }[s] || { label: s || 'Đang xử lý', color: '#60a5fa', bg: 'rgba(96,165,250,0.1)', border: 'rgba(96,165,250,0.25)' });
+
+const getDisplayOrderStatus = (order) => {
+  const rawStatus = String(order?.status || '').toLowerCase();
+  const hasTickets = Array.isArray(order?.tickets) && order.tickets.length > 0;
+
+  // If tickets are already issued, treat pending as effectively paid in UI.
+  if (rawStatus === 'pending' && hasTickets) return 'paid';
+  return rawStatus || 'pending';
+};
 
 // ─── LOADING ──────────────────────────────────────────────────────────────
 const LoadingScreen = () => (
@@ -95,16 +105,16 @@ const LoadingScreen = () => (
 );
 
 // ─── EMPTY ────────────────────────────────────────────────────────────────
-const EmptyState = ({ navigate }) => (
+const EmptyState = ({ navigate, t }) => (
   <div style={{ minHeight: '100svh', background: '#060606', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Be Vietnam Pro',sans-serif" }}>
     <div style={{ textAlign: 'center', maxWidth: 360, padding: '0 24px' }}>
       <div style={{ width: 72, height: 72, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 22px' }}>
         <Ticket style={{ width: 30, height: 30, color: 'rgba(255,255,255,0.12)' }}/>
       </div>
-      <h2 style={{ fontSize: 'clamp(1.3rem,3vw,1.8rem)', fontWeight: 900, color: 'white', marginBottom: 10, fontFamily: "'Clash Display','Be Vietnam Pro',sans-serif", letterSpacing: '-0.02em' }}>Chưa có vé nào</h2>
-      <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 13, marginBottom: 28, lineHeight: 1.7, fontFamily: "'Be Vietnam Pro',sans-serif" }}>Bạn chưa đặt vé sự kiện nào. Hãy khám phá ngay!</p>
+      <h2 style={{ fontSize: 'clamp(1.3rem,3vw,1.8rem)', fontWeight: 900, color: 'white', marginBottom: 10, fontFamily: "'Clash Display','Be Vietnam Pro',sans-serif", letterSpacing: '-0.02em' }}>{t('ticketStatus.noTickets')}</h2>
+      <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 13, marginBottom: 28, lineHeight: 1.7, fontFamily: "'Be Vietnam Pro',sans-serif" }}>{t('ticketStatus.noTicketsDesc')}</p>
       <button onClick={() => navigate('/')} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'linear-gradient(135deg,#f97316,#a855f7)', color: 'white', fontSize: 13, fontWeight: 800, padding: '12px 28px', borderRadius: 999, border: 'none', cursor: 'pointer', fontFamily: "'Be Vietnam Pro',sans-serif", boxShadow: '0 6px 24px rgba(249,115,22,0.28)' }}>
-        Khám phá sự kiện <ArrowRight style={{ width: 14, height: 14 }}/>
+        {t('ticketStatus.exploreEvents')} <ArrowRight style={{ width: 14, height: 14 }}/>
       </button>
     </div>
   </div>
@@ -112,6 +122,7 @@ const EmptyState = ({ navigate }) => (
 
 // ─── MAIN ─────────────────────────────────────────────────────────────────
 const TicketHistoryPage = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { isAuthenticated } = useAuthStore();
   const token = useAuthStore(state => state.accessToken || state.token);
@@ -139,7 +150,7 @@ const TicketHistoryPage = () => {
   }, [isAuthenticated, navigate, token]);
 
   if (loading) return <LoadingScreen />;
-  if (orders.length === 0) return <EmptyState navigate={navigate} />;
+  if (orders.length === 0) return <EmptyState navigate={navigate} t={t} />;
 
   return (
     <div style={{ minHeight: '100svh', background: '#060606', fontFamily: "'Be Vietnam Pro',sans-serif", color: 'white' }}>
@@ -173,7 +184,8 @@ const TicketHistoryPage = () => {
         {/* Order list */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {orders.map(order => {
-            const sc = orderStatusConfig(order.status);
+           const displayOrderStatus = getDisplayOrderStatus(order);
+           const sc = orderStatusConfig(displayOrderStatus, t);  
             const isOpen = expandedOrder === order._id;
 
             return (
@@ -233,7 +245,7 @@ const TicketHistoryPage = () => {
                 {isOpen && (
                   <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(0,0,0,0.12)' }}>
                     {order.tickets?.map((ticket, idx) => {
-                      const ticketStatus = getTicketStatus(ticket, order);
+                      const ticketStatus = getTicketStatus(ticket, order, t);
                       const StatusIcon = ticketStatus.icon;
                       const qrOpen = expandedTicket === ticket._id;
 

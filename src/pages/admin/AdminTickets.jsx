@@ -9,6 +9,37 @@ const ITEMS_PER_PAGE = 10;
 
 const emptyForm = { name: '', price: '', quantity: '', description: '', isActive: true, eventId: '' };
 
+const toNumber = (value, fallback = 0) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const getTicketStats = (ticket) => {
+  const quantity = Math.max(0, toNumber(ticket?.quantity, 0));
+  const soldRaw = Number(ticket?.sold);
+  const sold = Number.isFinite(soldRaw) && soldRaw >= 0 ? soldRaw : null;
+
+  const remainingRaw = Number(ticket?.remaining);
+  const hasRemaining =
+    ticket?.remaining !== undefined &&
+    ticket?.remaining !== null &&
+    Number.isFinite(remainingRaw);
+
+  let remaining = hasRemaining
+    ? remainingRaw
+    : Math.max(0, quantity - (sold ?? 0));
+
+  // Legacy guard: old data may store remaining=0 while sold is still 0.
+  if (hasRemaining && remaining === 0 && quantity > 0 && sold === 0) {
+    remaining = quantity;
+  }
+
+  remaining = Math.max(0, Math.min(quantity || remaining, remaining));
+  const soldCount = sold ?? Math.max(0, quantity - remaining);
+
+  return { quantity, sold: soldCount, remaining };
+};
+
 const AdminTickets = () => {
   const [events, setEvents] = useState([]);
   const [ticketTypes, setTicketTypes] = useState([]);
@@ -52,14 +83,24 @@ const AdminTickets = () => {
     try {
       setLoading(true);
       const config = { headers: { Authorization: `Bearer ${accessToken}` } };
+      const quantity = Number(form.quantity);
       const payload = {
         event: form.eventId,
         name: form.name,
         price: Number(form.price),
-        quantity: Number(form.quantity),
+        quantity,
         description: form.description,
         isActive: form.isActive,
       };
+
+      if (editing !== null) {
+        const currentTicket = ticketTypes[editing];
+        const currentStats = getTicketStats(currentTicket);
+        payload.remaining = Math.max(0, quantity - currentStats.sold);
+      } else {
+        payload.remaining = quantity;
+      }
+
       if (editing !== null) {
         await axios.put(`${API_URL}/api/admin/ticket-types/${ticketTypes[editing]._id}`, payload, config);
         toast.success('Cập nhật loại vé thành công!');
@@ -131,10 +172,9 @@ const AdminTickets = () => {
       setFillLoading(true);
       const config = { headers: { Authorization: `Bearer ${accessToken}` } };
       const ticket = fillModal.ticket;
-      const newQuantity = ticket.quantity + amount;
-      const currentRemaining = ticket.remaining !== undefined
-        ? ticket.remaining
-        : ticket.quantity - (ticket.sold || 0);
+      const currentStats = getTicketStats(ticket);
+      const newQuantity = currentStats.quantity + amount;
+      const currentRemaining = currentStats.remaining;
       const newRemaining = currentRemaining + amount;
       await axios.put(
         `${API_URL}/api/admin/ticket-types/${ticket._id}`,
@@ -307,8 +347,9 @@ const AdminTickets = () => {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {paginatedTickets.map((t, i) => {
-                  const remaining = t.remaining !== undefined ? t.remaining : (t.quantity - (t.sold || 0));
-                  const pct = Math.round(((t.sold || 0) / t.quantity) * 100);
+                  const stats = getTicketStats(t);
+                  const remaining = stats.remaining;
+                  const pct = stats.quantity ? Math.round((stats.sold / stats.quantity) * 100) : 0;
                   const globalIndex = startIndex + i;
                   return (
                     <tr key={t._id} className="hover:bg-gray-50 transition-colors">
@@ -319,13 +360,13 @@ const AdminTickets = () => {
                       </td>
                       <td className="px-4 py-3 text-xs text-gray-500 max-w-[140px] truncate">{getEventName(t.event)}</td>
                       <td className="px-4 py-3 text-xs font-bold text-orange-600 whitespace-nowrap">{formatPrice(t.price)}</td>
-                      <td className="px-4 py-3 text-xs text-gray-700 font-medium">{t.quantity}</td>
+                      <td className="px-4 py-3 text-xs text-gray-700 font-medium">{stats.quantity}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <div className="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                             <div className="h-full bg-gradient-to-r from-orange-500 to-purple-600 rounded-full" style={{ width: `${pct}%` }} />
                           </div>
-                          <span className="text-xs text-gray-600 font-medium">{t.sold || 0}</span>
+                          <span className="text-xs text-gray-600 font-medium">{stats.sold}</span>
                         </div>
                       </td>
                       <td className="px-4 py-3">
@@ -394,21 +435,19 @@ const AdminTickets = () => {
             <div className="flex gap-3 mb-4">
               <div className="flex-1 bg-gray-50 rounded-xl px-3 py-2.5 text-center">
                 <p className="text-xs text-gray-400 mb-0.5">Tổng hiện tại</p>
-                <p className="text-sm font-bold text-gray-800">{fillModal.ticket.quantity}</p>
+                <p className="text-sm font-bold text-gray-800">{getTicketStats(fillModal.ticket).quantity}</p>
               </div>
               <div className="flex-1 bg-gray-50 rounded-xl px-3 py-2.5 text-center">
                 <p className="text-xs text-gray-400 mb-0.5">Còn lại</p>
                 <p className="text-sm font-bold text-emerald-600">
-                  {fillModal.ticket.remaining !== undefined
-                    ? fillModal.ticket.remaining
-                    : fillModal.ticket.quantity - (fillModal.ticket.sold || 0)}
+                  {getTicketStats(fillModal.ticket).remaining}
                 </p>
               </div>
               <div className="flex-1 bg-orange-50 rounded-xl px-3 py-2.5 text-center">
                 <p className="text-xs text-gray-400 mb-0.5">Sau khi thêm</p>
                 <p className="text-sm font-bold text-orange-600">
                   {fillAmount && Number(fillAmount) > 0
-                    ? fillModal.ticket.quantity + Number(fillAmount)
+                    ? getTicketStats(fillModal.ticket).quantity + Number(fillAmount)
                     : '—'}
                 </p>
               </div>

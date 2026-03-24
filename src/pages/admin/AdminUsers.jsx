@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import { Users, Search, Plus, Edit2, Trash2, Shield, User as UserIcon, Mail, Calendar, Loader2, X, Check } from 'lucide-react';
 import useAuthStore from '../../store/authStore';

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import { TrendingUp, Ticket, ShoppingBag, Calendar, ChevronRight, ArrowUp, Loader2 } from 'lucide-react';
 import useAuthStore from '../../store/authStore';

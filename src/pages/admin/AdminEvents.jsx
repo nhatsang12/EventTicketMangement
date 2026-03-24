@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Plus, Edit2, Trash2, Image as ImageIcon, Calendar, MapPin, Search, X, Save, ChevronLeft, ChevronRight } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import useAuthStore from '../../store/authStore';
 import API_URL from '../../config/api';

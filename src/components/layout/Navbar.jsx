@@ -1,17 +1,20 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Search, MapPin, Menu, X, Ticket, User, LogOut,
   ShoppingCart, ChevronDown, History, QrCode, Settings,
-  Sparkles, HelpCircle, MessageSquare
+  Sparkles, HelpCircle, MessageSquare, Globe
 } from 'lucide-react';
 import useAuthStore from '../../store/authStore.js';
 import useCartStore from '../../store/cartStore.js';
 
 const Navbar = () => {
+  const { t, i18n } = useTranslation();
   const [isMenuOpen, setIsMenuOpen]         = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isHelpMenuOpen, setIsHelpMenuOpen] = useState(false);
+  const [isLangMenuOpen, setIsLangMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery]       = useState('');
   const [scrolled, setScrolled]             = useState(false);
   const [searchFocused, setSearchFocused]   = useState(false);
@@ -21,6 +24,11 @@ const Navbar = () => {
   const navigate   = useNavigate();
   const location   = useLocation();
   const totalItems = getTotalQuantity();
+
+  const toggleLanguage = () => {
+    const newLang = i18n.language === 'vi' ? 'en' : 'vi';
+    i18n.changeLanguage(newLang);
+  };
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
@@ -172,6 +180,56 @@ const Navbar = () => {
               </div>
 
               <div style={{ width: 1, height: 20, background: 'rgba(255,255,255,0.08)', margin: '0 4px' }} />
+
+              {/* Language Toggle */}
+              <div style={{ position: 'relative' }}>
+                <button onClick={() => { setIsLangMenuOpen(v => !v); setIsUserMenuOpen(false); setIsHelpMenuOpen(false); }}
+                  className="nb-nav-link"
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 4,
+                    padding: '7px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+                    color: isLangMenuOpen ? '#fb923c' : 'rgba(255,255,255,0.55)',
+                    background: isLangMenuOpen ? 'rgba(249,115,22,0.1)' : 'transparent',
+                    border: 'none', cursor: 'pointer',
+                    fontFamily: "'Be Vietnam Pro',sans-serif", transition: 'all 0.2s',
+                  }}>
+                  <Globe style={{ width: 14, height: 14 }} />
+                  {i18n.language === 'vi' ? 'VI' : 'EN'}
+                </button>
+                {isLangMenuOpen && (
+                  <>
+                    <div style={{ position: 'fixed', inset: 0, zIndex: 10 }} onClick={() => setIsLangMenuOpen(false)} />
+                    <div className="nb-dropdown" style={{
+                      position: 'absolute', top: 'calc(100% + 8px)', right: 0, width: 140, zIndex: 20,
+                      background: '#111', border: '1px solid rgba(255,255,255,0.1)',
+                      borderRadius: 14, boxShadow: '0 20px 60px rgba(0,0,0,0.7)', overflow: 'hidden',
+                    }}>
+                      <button onClick={() => { i18n.changeLanguage('vi'); setIsLangMenuOpen(false); }}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 10,
+                          padding: '12px 16px', fontSize: 12, fontWeight: 500,
+                          color: i18n.language === 'vi' ? '#fb923c' : 'rgba(255,255,255,0.6)',
+                          background: 'transparent', border: 'none', width: '100%',
+                          cursor: 'pointer', textAlign: 'left',
+                          fontFamily: "'Be Vietnam Pro',sans-serif", transition: 'all 0.15s',
+                        }}>
+                        🇻🇳 Tiếng Việt
+                      </button>
+                      <button onClick={() => { i18n.changeLanguage('en'); setIsLangMenuOpen(false); }}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 10,
+                          padding: '12px 16px', fontSize: 12, fontWeight: 500,
+                          color: i18n.language === 'en' ? '#fb923c' : 'rgba(255,255,255,0.6)',
+                          background: 'transparent', border: 'none', width: '100%',
+                          cursor: 'pointer', textAlign: 'left',
+                          fontFamily: "'Be Vietnam Pro',sans-serif", transition: 'all 0.15s',
+                        }}>
+                        🇬🇧 English
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
 
               {isAuthenticated ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -411,6 +469,30 @@ const Navbar = () => {
                 textDecoration: 'none', fontFamily: "'Be Vietnam Pro',sans-serif",
               }}>{label}</Link>
             ))}
+          </div>
+
+          <div style={{ height: 1, background: 'rgba(255,255,255,0.07)', marginBottom: 14 }} />
+
+          {/* Mobile Language Toggle */}
+          <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
+            <button onClick={() => i18n.changeLanguage('vi')}
+              style={{
+                flex: 1, padding: '10px', borderRadius: 10, fontSize: 12, fontWeight: 600,
+                background: i18n.language === 'vi' ? 'linear-gradient(135deg,#f97316,#a855f7)' : 'rgba(255,255,255,0.05)',
+                border: '1px solid', borderColor: i18n.language === 'vi' ? 'transparent' : 'rgba(255,255,255,0.09)',
+                color: 'white', cursor: 'pointer', fontFamily: "'Be Vietnam Pro',sans-serif",
+              }}>
+              🇻🇳 Tiếng Việt
+            </button>
+            <button onClick={() => i18n.changeLanguage('en')}
+              style={{
+                flex: 1, padding: '10px', borderRadius: 10, fontSize: 12, fontWeight: 600,
+                background: i18n.language === 'en' ? 'linear-gradient(135deg,#f97316,#a855f7)' : 'rgba(255,255,255,0.05)',
+                border: '1px solid', borderColor: i18n.language === 'en' ? 'transparent' : 'rgba(255,255,255,0.09)',
+                color: 'white', cursor: 'pointer', fontFamily: "'Be Vietnam Pro',sans-serif",
+              }}>
+              🇬🇧 English
+            </button>
           </div>
 
           <div style={{ height: 1, background: 'rgba(255,255,255,0.07)', marginBottom: 14 }} />

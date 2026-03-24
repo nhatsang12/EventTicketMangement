@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import { QrCode, CheckCircle, XCircle, Search, Download, Users, RefreshCw, Loader2, Clock, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';

@@ -1,8 +1,52 @@
+import { useEffect, useState } from 'react';
 import { XCircle, ArrowLeft, ArrowRight, RefreshCw } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import API_URL from '../config/api';
 
 const PaymentFail = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const [secondsLeft, setSecondsLeft] = useState(30);
+
+  const orderId = searchParams.get('order_id');
+
+  useEffect(() => {
+    if (!orderId) return undefined;
+
+    let isMounted = true;
+
+    const markCancelled = async () => {
+      try {
+        await fetch(`${API_URL}/api/payments/mark-cancelled`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderId }),
+        });
+      } catch {
+        // silent fallback
+      }
+    };
+
+    markCancelled();
+
+    const startedAt = Date.now();
+    const intervalId = window.setInterval(() => {
+      if (!isMounted) return;
+      const elapsedSeconds = Math.floor((Date.now() - startedAt) / 1000);
+      const remaining = Math.max(0, 30 - elapsedSeconds);
+      setSecondsLeft(remaining);
+      if (remaining <= 0) {
+        window.clearInterval(intervalId);
+      }
+    }, 1000);
+
+    return () => {
+      isMounted = false;
+      window.clearInterval(intervalId);
+    };
+  }, [orderId]);
 
   return (
     <div style={{ minHeight: '100svh', background: '#060606', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Be Vietnam Pro',sans-serif", position: 'relative', overflow: 'hidden' }}>
@@ -18,27 +62,33 @@ const PaymentFail = () => {
 
         {/* Title */}
         <h1 style={{ fontSize: 'clamp(1.5rem,4vw,2rem)', fontWeight: 900, color: 'white', marginBottom: 10, fontFamily: "'Clash Display','Be Vietnam Pro',sans-serif", letterSpacing: '-0.02em' }}>
-          Thanh toán thất bại
+          {t('paymentPage.paymentFailed')}
         </h1>
 
         {/* Description */}
         <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 13, marginBottom: 32, lineHeight: 1.75, fontFamily: "'Be Vietnam Pro',sans-serif" }}>
-          Giao dịch đã bị hủy hoặc có lỗi xảy ra.<br/>
-          <span style={{ color: '#34d399', fontWeight: 700 }}>Đừng lo — tiền của bạn chưa bị trừ.</span>
+          {t('paymentPage.paymentFailedDesc')}<br/>
+          <span style={{ color: '#34d399', fontWeight: 700 }}>{t('paymentPage.dontWorry')}</span>
         </p>
+
+        {orderId ? (
+          <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12, marginTop: -16, marginBottom: 22, lineHeight: 1.6 }}>
+            Đã ghi nhận hủy thanh toán. Vé sẽ được hoàn lại sau khoảng <strong>{secondsLeft}s</strong>.
+          </p>
+        ) : null}
 
         {/* Buttons */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <button onClick={() => navigate('/checkout')}
             style={{ width: '100%', padding: '14px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg,#f97316,#a855f7)', color: 'white', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: "'Be Vietnam Pro',sans-serif", display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 6px 24px rgba(249,115,22,0.28)', transition: 'all 0.25s' }}
             className="pfail-cta">
-            <RefreshCw style={{ width: 15, height: 15 }}/> Thử lại thanh toán
+            <RefreshCw style={{ width: 15, height: 15 }}/> {t('common.retry')}
           </button>
 
           <button onClick={() => navigate('/')}
             style={{ width: '100%', padding: '13px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.09)', background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.55)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: "'Be Vietnam Pro',sans-serif", display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, transition: 'all 0.2s' }}
             className="pfail-outline">
-            <ArrowLeft style={{ width: 13, height: 13 }}/> Về trang chủ
+            <ArrowLeft style={{ width: 13, height: 13 }}/> {t('footer.home')}
           </button>
         </div>
       </div>

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import { TrendingUp, ShoppingBag, Ticket, BarChart3, Download, Calendar, ArrowUp, Loader2 } from 'lucide-react';
 import useAuthStore from '../../store/authStore';

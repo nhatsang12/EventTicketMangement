@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import {
   CheckCircle, Ticket, ArrowRight, XCircle, Download,
@@ -7,6 +8,8 @@ import {
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import API_URL from '../config/api';
+import { clearPendingOrderTrackingBatch, extractOrderId } from '../utils/pendingOrderTimeout.js';
+
 // ─── HELPERS ──────────────────────────────────────────────────────────────
 const fmtPrice = p =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(p || 0);
@@ -14,36 +17,65 @@ const fmtPrice = p =>
 const generateQRCode = data =>
   `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(data)}`;
 
+const findLikelyOrder = (orders, candidates = []) => {
+  if (!Array.isArray(orders) || orders.length === 0) return null;
+  const normalizedCandidates = candidates
+    .filter(Boolean)
+    .map(v => String(v).trim().toLowerCase());
+  if (normalizedCandidates.length === 0) return orders[0];
+
+  return (
+    orders.find(o =>
+      normalizedCandidates.includes(String(o?._id || '').toLowerCase()) ||
+      normalizedCandidates.includes(String(o?.id || '').toLowerCase()) ||
+      normalizedCandidates.includes(String(o?.orderCode || '').toLowerCase()) ||
+      normalizedCandidates.includes(String(o?.code || '').toLowerCase())
+    ) || orders[0]
+  );
+};
+
+const normalizePaidDisplayOrder = (order, forcePaid) => {
+  if (!order) return order;
+  if (!forcePaid) return order;
+  return {
+    ...order,
+    status: 'paid',
+    tickets: Array.isArray(order.tickets)
+      ? order.tickets.map(t => ({ ...t, status: t?.status || 'active' }))
+      : order.tickets,
+  };
+};
+
 // ─── LOADING ──────────────────────────────────────────────────────────────
-const LoadingScreen = () => (
+const LoadingScreen = ({ t }) => (
   <div style={{ minHeight: '100svh', background: '#060606', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: "'Be Vietnam Pro',sans-serif" }}>
     <div style={{ position: 'relative', width: 52, height: 52, marginBottom: 18 }}>
       <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '3px solid rgba(255,255,255,0.05)' }}/>
       <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '3px solid transparent', borderTopColor: '#f97316', borderRightColor: '#a855f7' }} className="psp-spin"/>
     </div>
-    <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, fontFamily: "'Be Vietnam Pro',sans-serif", marginBottom: 4 }}>Đang xác nhận thanh toán...</p>
-    <p style={{ color: 'rgba(255,255,255,0.2)', fontSize: 12, fontFamily: "'Be Vietnam Pro',sans-serif" }}>Vui lòng đợi trong giây lát</p>
+    <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, fontFamily: "'Be Vietnam Pro',sans-serif", marginBottom: 4 }}>{t('paymentPage.confirming')}</p>
+    <p style={{ color: 'rgba(255,255,255,0.2)', fontSize: 12, fontFamily: "'Be Vietnam Pro',sans-serif" }}>{t('paymentPage.pleaseWait')}</p>
     <style>{`@keyframes psp-spin{to{transform:rotate(360deg)}}.psp-spin{animation:psp-spin 0.85s linear infinite}`}</style>
   </div>
 );
 
 // ─── ERROR ────────────────────────────────────────────────────────────────
-const ErrorScreen = ({ error, navigate }) => (
+const ErrorScreen = ({ error, navigate, t }) => (
   <div style={{ minHeight: '100svh', background: '#060606', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Be Vietnam Pro',sans-serif" }}>
     <div style={{ textAlign: 'center', maxWidth: 400, padding: '0 24px' }}>
       <div style={{ width: 72, height: 72, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 22px' }}>
         <XCircle style={{ width: 32, height: 32, color: '#f87171' }}/>
       </div>
-      <h1 style={{ fontSize: 'clamp(1.3rem,3vw,1.8rem)', fontWeight: 900, color: 'white', marginBottom: 10, fontFamily: "'Clash Display','Be Vietnam Pro',sans-serif", letterSpacing: '-0.02em' }}>Có lỗi xảy ra</h1>
-      <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 13, marginBottom: 28, lineHeight: 1.7, fontFamily: "'Be Vietnam Pro',sans-serif" }}>{error || 'Không tìm thấy thông tin đơn hàng.'}</p>
+      <h1 style={{ fontSize: 'clamp(1.3rem,3vw,1.8rem)', fontWeight: 900, color: 'white', marginBottom: 10, fontFamily: "'Clash Display','Be Vietnam Pro',sans-serif", letterSpacing: '-0.02em' }}>{t('paymentPage.error')}</h1>
+      <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 13, marginBottom: 28, lineHeight: 1.7, fontFamily: "'Be Vietnam Pro',sans-serif" }}>{error || t('paymentPage.orderNotFound')}</p>
       <div style={{ display: 'flex', gap: 12 }}>
         <button onClick={() => navigate('/ticket-history')}
           style={{ flex: 1, padding: '12px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg,#f97316,#a855f7)', color: 'white', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: "'Be Vietnam Pro',sans-serif", boxShadow: '0 6px 24px rgba(249,115,22,0.25)' }}>
-          Xem lịch sử vé
+          {t('ticket.ticketHistory')}
         </button>
         <button onClick={() => navigate('/')}
           style={{ flex: 1, padding: '12px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: "'Be Vietnam Pro',sans-serif" }}>
-          Về trang chủ
+          {t('footer.home')}
         </button>
       </div>
     </div>
@@ -52,6 +84,7 @@ const ErrorScreen = ({ error, navigate }) => (
 
 // ─── MAIN ─────────────────────────────────────────────────────────────────
 const PaymentSuccessPage = () => {
+  const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const token = useAuthStore(state => state.accessToken || state.token);
@@ -60,6 +93,7 @@ const PaymentSuccessPage = () => {
   const [order, setOrder]                 = useState(null);
   const [error, setError]                 = useState(null);
   const [paymentMethod, setPaymentMethod] = useState('unknown');
+  const [forcePaidDisplay, setForcePaidDisplay] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -67,13 +101,21 @@ const PaymentSuccessPage = () => {
         setLoading(true);
         const config = { headers: { Authorization: `Bearer ${token}` } };
 
-        const payosCode   = searchParams.get('code');
-        const payosStatus = searchParams.get('status');
-        if (payosCode === '00' && payosStatus === 'PAID') {
+        const payosCode = (searchParams.get('code') || '').toUpperCase();
+        const payosStatus = (searchParams.get('status') || '').toUpperCase();
+        const isPayosPaid = payosCode === '00' && payosStatus === 'PAID';
+        if (isPayosPaid) {
           setPaymentMethod('payos');
+          setForcePaidDisplay(true);
+
+          const payosOrderId = searchParams.get('orderId') || searchParams.get('order_id');
+          const payosOrderCode = searchParams.get('orderCode') || searchParams.get('order_code');
+          const payosTxnId = searchParams.get('id');
+
           const res = await axios.get(`${API_URL}/api/orders/my-orders`, config);
           const orders = res.data?.data || res.data || [];
-          if (orders[0]) setOrder(orders[0]);
+          const likelyOrder = findLikelyOrder(orders, [payosOrderId, payosOrderCode, payosTxnId]);
+          if (likelyOrder) setOrder(normalizePaidDisplayOrder(likelyOrder, true));
           setLoading(false);
           return;
         }
@@ -105,13 +147,30 @@ const PaymentSuccessPage = () => {
     })();
   }, [searchParams, token]);
 
+  useEffect(() => {
+    if (!order) return;
+    const idsToClear = [
+      extractOrderId(order),
+      order?.orderId,
+      order?.orderCode,
+      searchParams.get('orderId'),
+      searchParams.get('order_id'),
+      searchParams.get('orderCode'),
+      searchParams.get('order_code'),
+      searchParams.get('id'),
+    ];
+    clearPendingOrderTrackingBatch(idsToClear);
+  }, [order, searchParams]);
+
   const downloadQR = (url, id) => {
     const a = document.createElement('a');
     a.href = url; a.download = `ticket-${id}.png`; a.click();
   };
 
-  if (loading) return <LoadingScreen />;
-  if (error || !order) return <ErrorScreen error={error} navigate={navigate} />;
+  if (loading) return <LoadingScreen t={t} />;
+  if (error || !order) return <ErrorScreen error={error} navigate={navigate} t={t} />;
+
+  const displayOrderStatus = forcePaidDisplay ? 'paid' : order.status;
 
   const paymentLabel = paymentMethod === 'payos'
     ? { text: 'Thanh toán qua PayOS thành công', color: '#34d399' }
@@ -171,14 +230,14 @@ const PaymentSuccessPage = () => {
             {/* Status */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', fontFamily: "'Be Vietnam Pro',sans-serif" }}>Trạng thái</span>
-              <span style={{ fontSize: 10, fontWeight: 800, padding: '4px 12px', borderRadius: 999, background: order.status === 'paid' ? 'rgba(52,211,153,0.1)' : 'rgba(245,158,11,0.1)', color: order.status === 'paid' ? '#34d399' : '#fbbf24', border: `1px solid ${order.status === 'paid' ? 'rgba(52,211,153,0.25)' : 'rgba(245,158,11,0.25)'}`, fontFamily: "'Be Vietnam Pro',sans-serif", textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                {order.status === 'paid' ? 'Đã thanh toán' : 'Đang xử lý'}
+              <span style={{ fontSize: 10, fontWeight: 800, padding: '4px 12px', borderRadius: 999, background: displayOrderStatus === 'paid' ? 'rgba(52,211,153,0.1)' : 'rgba(245,158,11,0.1)', color: displayOrderStatus === 'paid' ? '#34d399' : '#fbbf24', border: `1px solid ${displayOrderStatus === 'paid' ? 'rgba(52,211,153,0.25)' : 'rgba(245,158,11,0.25)'}`, fontFamily: "'Be Vietnam Pro',sans-serif", textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                {displayOrderStatus === 'paid' ? 'Đã thanh toán' : 'Đang xử lý'}
               </span>
             </div>
           </div>
 
           {/* Pending warning */}
-          {order.status === 'pending' && (
+          {displayOrderStatus === 'pending' && (
             <div style={{ marginTop: 14, padding: '12px 14px', background: 'rgba(245,158,11,0.07)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 12 }}>
               <p style={{ fontSize: 12, fontWeight: 700, color: '#fbbf24', fontFamily: "'Be Vietnam Pro',sans-serif", marginBottom: 4 }}>⏳ Đơn hàng đang chờ xác nhận</p>
               <p style={{ fontSize: 11, color: 'rgba(245,158,11,0.7)', fontFamily: "'Be Vietnam Pro',sans-serif", lineHeight: 1.6 }}>

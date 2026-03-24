@@ -1,7 +1,9 @@
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Home, Search, Ticket, ArrowLeft } from 'lucide-react';
 
 const NotFoundPage = () => {
+  const { t } = useTranslation();
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 relative overflow-hidden">
       {/* Decorative background */}
@@ -23,10 +25,10 @@ const NotFoundPage = () => {
 
         {/* Text content */}
         <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-3">
-          Oops! Không tìm thấy trang
+          {t('notFound.pageNotFound')}
         </h2>
         <p className="text-gray-600 mb-8 text-base md:text-lg max-w-md mx-auto leading-relaxed">
-          Trang bạn đang tìm kiếm không tồn tại hoặc đã bị di chuyển. Hãy quay về trang chủ để khám phá các sự kiện thú vị!
+          {t('notFound.pageNotFoundDesc')}
         </p>
 
         {/* Action buttons */}
@@ -36,14 +38,14 @@ const NotFoundPage = () => {
             className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-gradient-to-r from-orange-600 to-purple-600 hover:from-orange-700 hover:to-purple-700 text-white font-bold rounded-2xl shadow-lg shadow-orange-200 transition-all hover:scale-105 text-base"
           >
             <Home className="w-5 h-5" />
-            Về trang chủ
+            {t('notFound.backToHome')}
           </Link>
           <Link
             to="/"
             className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-white hover:bg-gray-50 text-gray-700 font-semibold rounded-2xl border-2 border-gray-200 hover:border-orange-400 transition-all hover:shadow-md text-base"
           >
             <Search className="w-5 h-5" />
-            Tìm sự kiện
+            {t('notFound.findEvent')}
           </Link>
         </div>
 
@@ -53,7 +55,7 @@ const NotFoundPage = () => {
           className="mt-8 inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-orange-600 transition-colors group"
         >
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-          Quay lại trang trước
+          {t('notFound.goBack')}
         </button>
       </div>
 

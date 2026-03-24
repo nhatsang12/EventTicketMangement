@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import useAuthStore from '../../store/authStore';
 import toast from 'react-hot-toast';
 import axios from 'axios';
@@ -7,6 +8,7 @@ import { Mail, Lock, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import API_URL from '../../config/api';
 
 const LoginPage = () => {
+  const { t } = useTranslation();
   const { setAuth } = useAuthStore();
   const [loading, setLoading] = useState(false);
   const [showPass, setShowPass] = useState(false);
@@ -23,14 +25,14 @@ const LoginPage = () => {
     if (name === 'email') {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (value.length > 0 && !emailRegex.test(value)) {
-        newErrors.email = 'Email không hợp lệ';
+        newErrors.email = t('auth.invalidEmail');
       } else {
         delete newErrors.email;
       }
     }
     if (name === 'password') {
       if (value.length > 0 && value.length < 6) {
-        newErrors.password = 'Mật khẩu phải có ít nhất 6 ký tự';
+        newErrors.password = t('auth.passwordTooShort');
       } else {
         delete newErrors.password;
       }
@@ -56,11 +58,11 @@ const LoginPage = () => {
       const { accessToken, refreshToken, data } = response.data;
       const user = data.user;
       setAuth(user, accessToken, refreshToken);
-      toast.success(`👋 Xin chào ${user.name || user.username}!`);
+      toast.success(`👋 ${t('auth.welcome')} ${user.name || user.username}!`);
       if (user.role === 'admin') navigate('/admin', { replace: true });
       else navigate(from, { replace: true });
     } catch (error) {
-      const message = error.response?.data?.message || 'Đăng nhập thất bại. Vui lòng thử lại!';
+      const message = error.response?.data?.message || t('auth.loginFailed');
       setServerError(message); // ← hiện inline
     } finally {
       setLoading(false);
@@ -103,14 +105,11 @@ const LoginPage = () => {
         <div style={{ width:'100%', maxWidth:380, position:'relative' }}>
 
           <div style={{ marginBottom:36 }}>
-            <p style={{ fontSize:11, fontWeight:700, color:'rgba(255,255,255,0.25)', textTransform:'uppercase', letterSpacing:'0.15em', marginBottom:10 }}>Đăng nhập</p>
-            <h1 style={{ fontSize:'clamp(1.8rem,3vw,2.4rem)', fontWeight:900, color:'white', lineHeight:1.1, letterSpacing:'-0.03em', fontFamily:"'Clash Display','Be Vietnam Pro',sans-serif", marginBottom:8 }}>
-              Chào mừng<br/>
-              <span style={{ background:'linear-gradient(90deg,#f97316,#a855f7)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>quay trở lại!</span>
-            </h1>
+            <p style={{ fontSize:11, fontWeight:700, color:'rgba(255,255,255,0.25)', textTransform:'uppercase', letterSpacing:'0.15em', marginBottom:10 }}>{t('auth.signIn')}</p>
+            <h1 style={{ fontSize:'clamp(1.8rem,3vw,2.4rem)', fontWeight:900, color:'white', lineHeight:1.1, letterSpacing:'-0.03em', fontFamily:"'Clash Display','Be Vietnam Pro',sans-serif", marginBottom:8 }} dangerouslySetInnerHTML={{ __html: t('auth.welcomeBack') }}></h1>
             {from !== '/' && (
               <div style={{ marginTop:14, display:'flex', alignItems:'center', gap:8, background:'rgba(249,115,22,0.08)', border:'1px solid rgba(249,115,22,0.2)', borderRadius:10, padding:'10px 14px', fontSize:12, color:'#fb923c' }}>
-                <span style={{ fontSize:14 }}>🎟</span> Đăng nhập xong sẽ tiếp tục đặt vé
+                <span style={{ fontSize:14 }}>🎟</span> {t('auth.continueToBook')}
               </div>
             )}
           </div>
@@ -125,7 +124,7 @@ const LoginPage = () => {
                   type="email" name="email" value={formData.email}
                   onChange={handleChange}
                   onFocus={()=>setFocused('email')} onBlur={()=>setFocused('')}
-                  required placeholder="Email"
+                  required placeholder={t('auth.email')}
                   style={{
                     width:'100%', padding:'14px 14px 14px 42px',
                     background: focused==='email' ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.04)',
@@ -152,7 +151,7 @@ const LoginPage = () => {
                   type={showPass ? 'text' : 'password'} name="password" value={formData.password}
                   onChange={handleChange}
                   onFocus={()=>setFocused('password')} onBlur={()=>setFocused('')}
-                  required placeholder="Mật khẩu"
+                  required placeholder={t('auth.password')}
                   style={{
                     width:'100%', padding:'14px 44px 14px 42px',
                     background: focused==='password' ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.04)',
@@ -177,7 +176,7 @@ const LoginPage = () => {
 
             {/* Forgot */}
             <div style={{ textAlign:'right', marginTop:-6 }}>
-              <a href="#" style={{ fontSize:12, color:'rgba(255,255,255,0.35)', textDecoration:'none', transition:'color 0.2s' }} className="lp-forgot">Quên mật khẩu?</a>
+              <a href="/forgot-password" style={{ fontSize:12, color:'rgba(255,255,255,0.35)', textDecoration:'none', transition:'color 0.2s' }} className="lp-forgot">{t('auth.forgotPassword')}</a>
             </div>
 
             {/* ✅ Lỗi từ server (sai email/mật khẩu) */}
@@ -210,7 +209,7 @@ const LoginPage = () => {
               {loading ? (
                 <><span style={{ width:16, height:16, border:'2px solid rgba(255,255,255,0.3)', borderTopColor:'white', borderRadius:'50%', display:'inline-block' }} className="lp-spin"/> Đang xử lý...</>
               ) : (
-                <>Đăng nhập <ArrowRight style={{ width:16, height:16 }}/></>
+                <> {t('auth.signIn')} <ArrowRight style={{ width:16, height:16 }}/></>
               )}
             </button>
           </form>
@@ -230,9 +229,9 @@ const LoginPage = () => {
           </div>
 
           <p style={{ textAlign:'center', fontSize:13, color:'rgba(255,255,255,0.35)', marginTop:24 }}>
-            Chưa có tài khoản?{' '}
+            {t('auth.dontHaveAccount')}{' '}
             <Link to="/register" state={{ from }} style={{ fontWeight:700, background:'linear-gradient(90deg,#f97316,#a855f7)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', textDecoration:'none' }}>
-              Đăng ký ngay
+              {t('auth.registerNow')}
             </Link>
           </p>
         </div>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import API_URL from '../config/api';
 import {
@@ -11,6 +12,7 @@ import {
 import useCartStore from '../store/cartStore';
 import useAuthStore from '../store/authStore';
 import toast from 'react-hot-toast';
+import { clearPendingOrderTracking, trackPendingOrder } from '../utils/pendingOrderTimeout.js';
 
 const fmtPrice = p =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(p || 0);
@@ -18,8 +20,49 @@ const fmtPrice = p =>
 const generateQRCode = data =>
   `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(data)}`;
 
+const getApiErrorMessage = (err, fallback) => {
+  const data = err?.response?.data;
+  if (typeof data === 'string' && data.trim()) return data;
+  return (
+    data?.message ||
+    data?.error ||
+    data?.details ||
+    data?.msg ||
+    fallback
+  );
+};
+
+const extractOrderId = (orderData) => (
+  orderData?.orderId ||
+  orderData?.orderID ||
+  orderData?._id ||
+  orderData?.id ||
+  orderData?.order?._id ||
+  orderData?.order?.id ||
+  orderData?.order?.orderId ||
+  null
+);
+
+const extractPaymentUrl = (paymentData) => (
+  paymentData?.url ||
+  paymentData?.checkoutUrl ||
+  paymentData?.checkout_url ||
+  paymentData?.sessionUrl ||
+  paymentData?.session_url ||
+  paymentData?.paymentUrl ||
+  paymentData?.payment_url ||
+  paymentData?.data?.url ||
+  paymentData?.data?.checkoutUrl ||
+  paymentData?.data?.checkout_url ||
+  paymentData?.data?.sessionUrl ||
+  paymentData?.data?.session_url ||
+  paymentData?.data?.paymentUrl ||
+  paymentData?.data?.payment_url ||
+  null
+);
+
 // ─── SOLD OUT MODAL ───────────────────────────────────────────────────────
-const SoldOutModal = ({ message, onClose, onGoHome }) => (
+const SoldOutModal = ({ message, onClose, onGoHome, t }) => (
   <div style={{
     position: 'fixed', inset: 0, zIndex: 9999,
     background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(12px)',
@@ -229,6 +272,7 @@ const SuccessScreen = ({ orderResponse, formData, event, navigate }) => (
 
 // ─── MAIN PAGE ─────────────────────────────────────────────────────────────
 const CheckoutPage = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuthStore();
   const token = useAuthStore(state => state.accessToken || state.token);
@@ -267,34 +311,107 @@ const CheckoutPage = () => {
       const config = { headers: { Authorization: `Bearer ${token}` } };
       const res = await axios.post(`${API_URL}/api/orders/buy`, payload, config);
       const orderData = res.data?.data || res.data;
-      const orderId = orderData._id || orderData.id;
+      const orderId = extractOrderId(orderData);
       if (!orderId) { toast.error('Không lấy được mã đơn hàng'); setLoading(false); return; }
+      trackPendingOrder(orderId, orderData?.createdAt || res.data?.createdAt);
+
+      // Some backends return checkout URL directly from the order creation API.
+      const directPaymentUrl = extractPaymentUrl(res.data) || extractPaymentUrl(orderData);
+      if (directPaymentUrl) {
+        clearCart();
+        window.location.href = directPaymentUrl;
+        return;
+      }
 
       if (formData.paymentMethod === 'credit_card') {
         toast.loading('Đang chuyển hướng đến Stripe...');
-        const stripeRes = await axios.post(`${API_URL}/api/payments/create-checkout-session`, { orderId }, config);
-        if (stripeRes.data?.url) {
+        const stripeAttempts = [
+          {
+            url: `${API_URL}/api/payments/create-checkout-session`,
+            body: { orderId },
+          },
+          {
+            url: `${API_URL}/api/payments/create-checkout-session`,
+            body: { orderID: orderId },
+          },
+          {
+            url: `${API_URL}/api/payments/create-checkout-session`,
+            body: { id: orderId },
+          },
+          {
+            url: `${API_URL}/api/payments/create-checkout-session`,
+            body: { order: orderId },
+          },
+          {
+            url: `${API_URL}/api/payments/create-checkout-session?orderId=${encodeURIComponent(orderId)}`,
+            body: {},
+          },
+          {
+            url: `${API_URL}/api/payments/create-checkout-session/${encodeURIComponent(orderId)}`,
+            body: {},
+          },
+        ];
+
+        let stripeRes = null;
+        let stripeErr = null;
+        for (const attempt of stripeAttempts) {
+          try {
+            stripeRes = await axios.post(attempt.url, attempt.body, config);
+            break;
+          } catch (error) {
+            stripeErr = error;
+            const messageText = JSON.stringify(error?.response?.data || {}).toLowerCase();
+            const status = error?.response?.status;
+            const shouldRetryWithNextKey = [400, 404, 422].includes(status) &&
+              (messageText.includes('orderid') ||
+               messageText.includes('order id') ||
+               messageText.includes('order') ||
+               messageText.includes('required') ||
+               messageText.includes('invalid'));
+            if (!shouldRetryWithNextKey) break;
+          }
+        }
+
+        if (!stripeRes) throw stripeErr || new Error('Không thể tạo phiên thanh toán Stripe');
+
+        const stripeUrl = extractPaymentUrl(stripeRes.data);
+        if (stripeUrl) {
           clearCart();
-          window.location.href = stripeRes.data.url;
+          window.location.href = stripeUrl;
           return;
         }
+        throw new Error('Không nhận được đường dẫn thanh toán Stripe');
       }
       if (formData.paymentMethod === 'bank_transfer' || formData.paymentMethod === 'e_wallet') {
         toast.loading('Đang khởi tạo mã QR...');
         const payosRes = await axios.post(`${API_URL}/api/payments/create-payos-link`, { orderId }, config);
-        if (payosRes.data?.url) {
+        const payosUrl = extractPaymentUrl(payosRes.data);
+        if (payosUrl) {
           clearCart();
-          window.location.href = payosRes.data.url;
+
+          // Open payment in a new tab so this app tab can keep running
+          // pending-order cleanup (30s quick release + 15m stale cleanup).
+          const paymentWindow = window.open(payosUrl, '_blank', 'noopener,noreferrer');
+          if (paymentWindow) {
+            toast.success('Đã mở trang thanh toán ở tab mới. Đơn sẽ tự hủy nếu quá hạn chưa thanh toán.');
+            navigate('/ticket-history');
+            return;
+          }
+
+          // Popup blocked fallback.
+          window.location.href = payosUrl;
           return;
         }
+        throw new Error('Không nhận được đường dẫn thanh toán PayOS');
       }
+      clearPendingOrderTracking(orderId);
       setOrderResponse(orderData);
       clearCart();
       setStep(3);
       toast.success('Đơn hàng đã được ghi nhận!');
     } catch (err) {
       toast.dismiss();
-      const msg = err.response?.data?.message || 'Không thể khởi tạo thanh toán, vui lòng thử lại';
+      const msg = getApiErrorMessage(err, 'Không thể khởi tạo thanh toán, vui lòng thử lại');
 
       // ← HIỆN MODAL NẾU HẾT VÉ
       if (msg.includes('hết') || msg.includes('không đủ')) {
@@ -455,7 +572,7 @@ const CheckoutPage = () => {
                   <div style={{ marginTop: 4, padding: '12px 14px', background: 'rgba(59,130,246,0.07)', border: '1px solid rgba(59,130,246,0.15)', borderRadius: 12, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                     <Sparkles style={{ width: 13, height: 13, color: '#60a5fa', flexShrink: 0, marginTop: 1 }}/>
                     <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', fontFamily: "'Be Vietnam Pro',sans-serif", lineHeight: 1.6 }}>
-                      Hệ thống sẽ chuyển bạn sang cổng <span style={{ color: '#93c5fd', fontWeight: 700 }}>PayOS</span> để quét mã QR. Vé sẽ được <span style={{ color: '#93c5fd', fontWeight: 700 }}>kích hoạt tự động</span> ngay sau khi thanh toán thành công.
+                      Hệ thống sẽ chuyển bạn sang cổng <span style={{ color: '#93c5fd', fontWeight: 700 }}>PayOS</span> để quét mã QR. Vé sẽ được <span style={{ color: '#93c5fd', fontWeight: 700 }}>kích hoạt tự động</span> ngay sau khi thanh toán thành công. Đơn giữ vé chưa thanh toán sẽ tự hủy sau <span style={{ color: '#93c5fd', fontWeight: 700 }}>30 giây</span>, và mọi đơn pending quá <span style={{ color: '#93c5fd', fontWeight: 700 }}>15 phút</span> cũng được tự động hoàn vé.
                     </p>
                   </div>
                 )}

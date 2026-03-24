@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Mail, Lock, User, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import axios from 'axios';
 import useAuthStore from '../../store/authStore';
@@ -7,6 +8,7 @@ import toast from 'react-hot-toast';
 import API_URL from '../../config/api';
 
 const RegisterPage = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { setAuth } = useAuthStore();
   const [loading, setLoading] = useState(false);
@@ -14,7 +16,7 @@ const RegisterPage = () => {
   const [showConfirm, setShowConfirm] = useState(false);
   const [focused, setFocused] = useState('');
   const [errors, setErrors] = useState({});
-  const [serverError, setServerError] = useState(''); // ← lỗi từ server
+  const [serverError, setServerError] = useState(''); 
 
   const [formData, setFormData] = useState({
     username: '', email: '', password: '', confirmPassword: '',
@@ -24,19 +26,19 @@ const RegisterPage = () => {
     const newErrors = { ...errors };
     if (name === 'password') {
       if (value.length > 0 && value.length < 6) {
-        newErrors.password = 'Mật khẩu phải có ít nhất 6 ký tự';
+        newErrors.password = t('auth.passwordTooShort');
       } else {
         delete newErrors.password;
       }
       if (formData.confirmPassword && value !== formData.confirmPassword) {
-        newErrors.confirmPassword = 'Mật khẩu xác nhận không khớp';
+        newErrors.confirmPassword = t('auth.confirmPasswordMismatch');
       } else if (formData.confirmPassword) {
         delete newErrors.confirmPassword;
       }
     }
     if (name === 'confirmPassword') {
       if (value !== formData.password) {
-        newErrors.confirmPassword = 'Mật khẩu xác nhận không khớp';
+        newErrors.confirmPassword = t('auth.confirmPasswordMismatch');
       } else {
         delete newErrors.confirmPassword;
       }
@@ -65,10 +67,10 @@ const RegisterPage = () => {
       const { accessToken, refreshToken, data } = response.data;
       const user = data.user;
       setAuth(user, accessToken, refreshToken);
-      toast.success('Đăng ký thành công! Chào mừng bạn.');
+      toast.success(t('auth.registerSuccess'));
       navigate('/');
     } catch (error) {
-      const message = error.response?.data?.message || 'Đăng ký thất bại. Vui lòng thử lại!';
+      const message = error.response?.data?.message || t('auth.registerFailed');
       setServerError(message); 
     } finally {
       setLoading(false);
@@ -121,7 +123,7 @@ const RegisterPage = () => {
         <div style={{ width: '100%', maxWidth: 380, position: 'relative' }}>
 
           <div style={{ marginBottom: 28 }}>
-            <p style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.25)', textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: 10 }}>Đăng ký</p>
+            <p style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.25)', textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: 10 }}>{t('auth.signUp')}</p>
             <h1 style={{ fontSize: 'clamp(1.8rem,3vw,2.4rem)', fontWeight: 900, color: 'white', lineHeight: 1.1, letterSpacing: '-0.03em', fontFamily: "'Clash Display','Be Vietnam Pro',sans-serif", marginBottom: 8 }}>
               Tạo tài khoản<br/>
               <span style={{ background: 'linear-gradient(90deg,#f97316,#a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>tham gia ngay!</span>
@@ -136,7 +138,7 @@ const RegisterPage = () => {
                 <User style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', width: 15, height: 15, color: iconColor('username'), transition: 'color 0.2s', zIndex: 1 }}/>
                 <input type="text" name="username" value={formData.username} onChange={handleChange}
                   onFocus={() => setFocused('username')} onBlur={() => setFocused('')}
-                  required placeholder="Username" style={inputStyle('username')}/>
+                  required placeholder={t('auth.fullName')} style={inputStyle('username')}/>
               </div>
             </div>
 
@@ -146,7 +148,7 @@ const RegisterPage = () => {
                 <Mail style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', width: 15, height: 15, color: iconColor('email'), transition: 'color 0.2s', zIndex: 1 }}/>
                 <input type="email" name="email" value={formData.email} onChange={handleChange}
                   onFocus={() => setFocused('email')} onBlur={() => setFocused('')}
-                  required placeholder="Email" style={inputStyle('email')}/>
+                  required placeholder={t('auth.email')} style={inputStyle('email')}/>
               </div>
             </div>
 
@@ -156,7 +158,7 @@ const RegisterPage = () => {
                 <Lock style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', width: 15, height: 15, color: iconColor('password'), transition: 'color 0.2s', zIndex: 1 }}/>
                 <input type={showPass ? 'text' : 'password'} name="password" value={formData.password} onChange={handleChange}
                   onFocus={() => setFocused('password')} onBlur={() => setFocused('')}
-                  required placeholder="Mật khẩu (tối thiểu 6 ký tự)" style={inputStyle('password', { paddingRight: 44 })}/>
+                  required placeholder={`${t('auth.password')} (${t('auth.passwordTooShort').toLowerCase()})`} style={inputStyle('password', { paddingRight: 44 })}/>
                 <button type="button" onClick={() => setShowPass(v => !v)}
                   style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.28)', padding: 0, display: 'flex' }}>
                   {showPass ? <EyeOff style={{ width: 15, height: 15 }}/> : <Eye style={{ width: 15, height: 15 }}/>}
@@ -173,7 +175,7 @@ const RegisterPage = () => {
                 <Lock style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', width: 15, height: 15, color: iconColor('confirmPassword'), transition: 'color 0.2s', zIndex: 1 }}/>
                 <input type={showConfirm ? 'text' : 'password'} name="confirmPassword" value={formData.confirmPassword} onChange={handleChange}
                   onFocus={() => setFocused('confirmPassword')} onBlur={() => setFocused('')}
-                  required placeholder="Xác nhận mật khẩu" style={inputStyle('confirmPassword', { paddingRight: 44 })}/>
+                  required placeholder={t('auth.confirmPassword')} style={inputStyle('confirmPassword', { paddingRight: 44 })}/>
                 <button type="button" onClick={() => setShowConfirm(v => !v)}
                   style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.28)', padding: 0, display: 'flex' }}>
                   {showConfirm ? <EyeOff style={{ width: 15, height: 15 }}/> : <Eye style={{ width: 15, height: 15 }}/>}
@@ -183,7 +185,7 @@ const RegisterPage = () => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, fontSize: 12, color: '#f87171' }}>⚠️ {errors.confirmPassword}</div>
               )}
               {formData.confirmPassword && !errors.confirmPassword && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, fontSize: 12, color: '#4ade80' }}>✅ Mật khẩu khớp!</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, fontSize: 12, color: '#4ade80' }}>✅ {t('auth.passwordMatch')}</div>
               )}
             </div>
 
@@ -215,9 +217,9 @@ const RegisterPage = () => {
                 opacity: loading || hasErrors ? 0.5 : 1, marginTop: 4,
               }} className="rp-submit">
               {loading ? (
-                <><span style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: 'white', borderRadius: '50%', display: 'inline-block' }} className="rp-spin"/> Đang xử lý...</>
+                <><span style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: 'white', borderRadius: '50%', display: 'inline-block' }} className="rp-spin"/> {t('common.loading')}</>
               ) : (
-                <>Tạo tài khoản <ArrowRight style={{ width: 16, height: 16 }}/></>
+                <>{t('auth.createAccount')} <ArrowRight style={{ width: 16, height: 16 }}/></>
               )}
             </button>
           </form>
@@ -237,9 +239,9 @@ const RegisterPage = () => {
           </div>
 
           <p style={{ textAlign: 'center', fontSize: 13, color: 'rgba(255,255,255,0.35)', marginTop: 24 }}>
-            Đã có tài khoản?{' '}
+            {t('auth.alreadyHaveAccount')}{' '}
             <Link to="/login" style={{ fontWeight: 700, background: 'linear-gradient(90deg,#f97316,#a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', textDecoration: 'none' }}>
-              Đăng nhập ngay
+              {t('auth.loginNow')}
             </Link>
           </p>
         </div>

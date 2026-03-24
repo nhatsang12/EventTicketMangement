@@ -1,8 +1,11 @@
 import { Outlet } from 'react-router-dom';
 import Navbar from '../layout/Navbar.jsx';
 import Footer from '../layout/Footer.jsx';
+import usePendingOrderCleanup from '../../hooks/usePendingOrderCleanup.js';
 
 const Layout = () => {
+  usePendingOrderCleanup();
+
   return (
     <div className="min-h-screen flex flex-col font-body bg-[rgb(var(--bg))] text-[rgb(var(--text))]">
       <Navbar />

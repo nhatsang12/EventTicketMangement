@@ -38,6 +38,38 @@ const fmtTime = d => {
   } catch { return ''; }
 };
 
+const toNumber = (value, fallback = 0) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const getTicketAvailability = (ticket) => {
+  const quantity = Math.max(0, toNumber(ticket?.quantity, 0));
+  const soldRaw = Number(ticket?.sold);
+  const sold = Number.isFinite(soldRaw) && soldRaw >= 0 ? soldRaw : null;
+
+  const remainingRaw = Number(ticket?.remaining);
+  const hasRemaining =
+    ticket?.remaining !== undefined &&
+    ticket?.remaining !== null &&
+    Number.isFinite(remainingRaw);
+
+  let remaining = hasRemaining
+    ? remainingRaw
+    : Math.max(0, quantity - (sold ?? 0));
+
+  // Legacy guard: old records may have remaining=0 while sold is still 0.
+  if (hasRemaining && remaining === 0 && quantity > 0 && sold === 0) {
+    remaining = quantity;
+  }
+
+  remaining = Math.max(0, Math.min(quantity || remaining, remaining));
+  const soldCount = sold ?? Math.max(0, quantity - remaining);
+  const pct = quantity ? Math.min(100, Math.round((soldCount / quantity) * 100)) : 0;
+
+  return { quantity, sold: soldCount, remaining, pct };
+};
+
 const getStatusInfo = s => ({
   published: { label: 'Đang mở bán', color: '#10b981', bg: 'rgba(16,185,129,0.12)' },
   active:    { label: 'Đang mở bán', color: '#10b981', bg: 'rgba(16,185,129,0.12)' },
@@ -163,7 +195,10 @@ const EventDetailPage = () => {
   const handleQuantityChange = (ticketId, delta) => {
     setSelectedTickets(prev => {
       const cur = prev[ticketId] || 0;
-      return { ...prev, [ticketId]: Math.max(0, cur + delta) };
+      const ticket = ticketTypes.find(t => t._id === ticketId);
+      const { remaining } = getTicketAvailability(ticket);
+      const next = Math.max(0, Math.min(cur + delta, remaining));
+      return { ...prev, [ticketId]: next };
     });
   };
 
@@ -171,7 +206,9 @@ const EventDetailPage = () => {
     Object.entries(selectedTickets).forEach(([tid, qty]) => {
       if (qty > 0) {
         const t = ticketTypes.find(t => t._id === tid);
-        addItem(t, qty, event);
+        const { remaining } = getTicketAvailability(t);
+        const safeQty = Math.min(qty, remaining);
+        if (safeQty > 0) addItem(t, safeQty, event);
       }
     });
     toast.success('Đã thêm vào giỏ hàng!');
@@ -364,12 +401,9 @@ const EventDetailPage = () => {
               {ticketTypes.length > 0 ? (
                 <>
                   {ticketTypes.map(ticket => {
-                    const remaining = ticket.remaining !== undefined
-                      ? ticket.remaining
-                      : (ticket.quantity - (ticket.sold || 0));
+                    const { quantity, remaining, pct } = getTicketAvailability(ticket);
                     const isAvailable = ticket.isActive !== false && remaining > 0;
                     const qty = selectedTickets[ticket._id] || 0;
-                    const pct = ticket.quantity ? Math.min(100, Math.round(((ticket.quantity - remaining) / ticket.quantity) * 100)) : 0;
 
                     return (
                       <div key={ticket._id}
@@ -390,7 +424,7 @@ const EventDetailPage = () => {
                           </span>
                         </div>
 
-                        {ticket.quantity > 0 && (
+                        {quantity > 0 && (
                           <div style={{ marginBottom: 12 }}>
                             <div style={{ height: 3, background: 'rgba(255,255,255,0.07)', borderRadius: 3, overflow: 'hidden', marginBottom: 4 }}>
                               <div style={{ height: '100%', width: `${pct}%`, background: pct >= 80 ? 'linear-gradient(90deg,#ef4444,#f97316)' : 'linear-gradient(90deg,#f97316,#a855f7)', borderRadius: 3, transition: 'width 0.6s ease' }}/>
