@@ -13,14 +13,28 @@ import {
 } from "lucide-react";
 
 // ─── STATIC DATA ──────────────────────────────────────────────────────────
-const TICKETS_JSON = [
-  { "_id": { "$oid": "699879e3368dece455a7b336" }, "event": { "$oid": "6998676d583716785f91782b" }, "price": 100 },
-  { "_id": { "$oid": "699998a685ed6156a6221fb2" }, "event": { "$oid": "69998c4a85ed6156a6221ef9" }, "price": 100000 },
-];
-const ticketsByEvent = TICKETS_JSON.reduce((acc, t) => {
-  const id = t.event?.$oid || t.event;
-  if (!acc[id]) acc[id] = [];
-  if (typeof t.price === "number") acc[id].push(t.price);
+const getEntityId = (value) => {
+  if (!value) return null;
+  if (typeof value === "string" || typeof value === "number") return String(value);
+  if (typeof value === "object") {
+    if (value.$oid) return String(value.$oid);
+    if (value._id) return getEntityId(value._id);
+    if (value.id) return String(value.id);
+  }
+  return null;
+};
+
+const toNumber = (value) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const buildMinPriceByEvent = (tickets) => (Array.isArray(tickets) ? tickets : []).reduce((acc, ticket) => {
+  if (!ticket || ticket.isActive === false || ticket.isEnabled === false) return acc;
+  const eventId = getEntityId(ticket.event);
+  const price = toNumber(ticket.price);
+  if (!eventId || price === null || price < 0) return acc;
+  if (acc[eventId] === undefined || price < acc[eventId]) acc[eventId] = price;
   return acc;
 }, {});
 
@@ -80,10 +94,15 @@ const fmtDate = d => { if (!d) return "Chưa cập nhật"; const dt = new Date(
 const fmtTime = d => { if (!d) return ""; try { const dt = new Date(d); return isNaN(dt) ? "" : dt.toLocaleTimeString("vi-VN", { hour:"2-digit", minute:"2-digit" }); } catch { return ""; } };
 const fmtPrice = p => (p === null || p === undefined || p === 0) ? "Miễn phí" : new Intl.NumberFormat("vi-VN", { style:"currency", currency:"VND" }).format(p);
 const getPriceRange = event => {
-  const id = event._id?.$oid || event._id;
-  const tp = ticketsByEvent[id] || [];
-  if (tp.length > 0) { const v = tp.filter(p => typeof p === "number" && p >= 0); return v.length ? { min:Math.min(...v), max:Math.max(...v) } : { min:0, max:0 }; }
-  if (event.ticketTypes?.length) { const prices = event.ticketTypes.map(t => t.price).filter(p => typeof p === "number" && p !== null); if (prices.length) return { min:Math.min(...prices), max:Math.max(...prices) }; }
+  if (!event) return { min:null, max:null };
+  if (event.ticketTypes?.length) {
+    const prices = event.ticketTypes
+      .filter(t => t?.isActive !== false && t?.isEnabled !== false)
+      .map(t => toNumber(t?.price))
+      .filter(p => p !== null && p >= 0);
+    if (prices.length) return { min:Math.min(...prices), max:Math.max(...prices) };
+  }
+  if (typeof event.lowestPrice === "number") return { min:event.lowestPrice, max:event.lowestPrice };
   if (typeof event.minPrice === "number") return { min:event.minPrice, max:event.minPrice };
   if (typeof event.price === "number") return { min:event.price, max:event.price };
   return { min:null, max:null };
@@ -654,9 +673,23 @@ const HomePage = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const res = await axios.get(`${API_URL}/api/events`);
-        let data = res.data?.data || res.data || [];
+        const [eventRes, ticketRes] = await Promise.all([
+          axios.get(`${API_URL}/api/events`),
+          axios.get(`${API_URL}/api/tickets`).catch(() => ({ data: [] })),
+        ]);
+
+        let data = eventRes.data?.data || eventRes.data || [];
         if (!Array.isArray(data)) data = [];
+
+        const allTickets = ticketRes.data?.data || ticketRes.data || [];
+        const minPriceByEvent = buildMinPriceByEvent(allTickets);
+
+        data = data.map(event => {
+          const eventId = getEntityId(event?._id || event?.id);
+          const minPrice = eventId ? minPriceByEvent[eventId] : undefined;
+          if (typeof minPrice !== "number") return event;
+          return { ...event, minPrice, lowestPrice: minPrice };
+        });
 
         // ── Ẩn event đã hủy hoặc đã hết hạn dựa trên endDate/startDate ──
         const now = new Date();

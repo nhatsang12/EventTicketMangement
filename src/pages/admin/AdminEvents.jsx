@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Edit2, Trash2, Image as ImageIcon, Calendar, MapPin, Search, X, Save, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Edit2, Trash2, Image as ImageIcon, Calendar, MapPin, Search, X, Save, ChevronLeft, ChevronRight, AlertTriangle, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import axios from 'axios';
@@ -14,6 +14,7 @@ const statusOptions = [
   { value: 'active',    label: 'Đang mở' },
   { value: 'draft',     label: 'Nháp' },
   { value: 'cancelled', label: 'Đã hủy' },
+  { value: 'refunded',  label: 'Đã hoàn tiền' },
   { value: 'ended',     label: 'Đã kết thúc' },
 ];
 const dateFilterOptions = [
@@ -54,8 +55,123 @@ const getStatusBadge = (status) => {
     ended:     { cls: 'bg-gray-100 text-gray-500',       label: 'Đã kết thúc' },
     draft:     { cls: 'bg-yellow-100 text-yellow-700',   label: 'Nháp' },
     cancelled: { cls: 'bg-red-100 text-red-600',         label: 'Đã hủy' },
+    refunded:  { cls: 'bg-blue-100 text-blue-700',       label: 'Đã hoàn tiền' },
   };
   return map[status] || map['active'];
+};
+
+const normalizeStatus = (value) => String(value || '').trim().toLowerCase();
+
+const getEntityId = (value) => {
+  if (!value) return '';
+  if (typeof value === 'string' || typeof value === 'number') return String(value);
+  if (typeof value === 'object') {
+    if (value.$oid) return String(value.$oid);
+    if (value._id) return getEntityId(value._id);
+    if (value.id) return String(value.id);
+  }
+  return '';
+};
+
+const isCancelledOrRefundedStatus = (value) => {
+  const status = normalizeStatus(value);
+  return ['cancelled', 'canceled', 'refunded', 'refund', 'refund_completed'].includes(status);
+};
+
+const getApiErrorMessage = (error, fallback) => {
+  const data = error?.response?.data;
+  if (typeof data === 'string' && data.trim()) return data;
+  return data?.message || data?.error || data?.details || fallback;
+};
+
+const getEventOrderStats = (orders) => {
+  const map = {};
+  const safeOrders = Array.isArray(orders) ? orders : [];
+
+  safeOrders.forEach((order) => {
+    const eventId = getEntityId(order?.event?._id || order?.event);
+    if (!eventId) return;
+
+    const orderStatus = normalizeStatus(order?.status);
+    const ticketCount = Array.isArray(order?.tickets) ? order.tickets.length : Number(order?.ticketCount || 0);
+    const isResolved = isCancelledOrRefundedStatus(orderStatus);
+
+    if (!map[eventId]) {
+      map[eventId] = { soldTickets: 0, paidOrders: 0, totalOrders: 0 };
+    }
+
+    map[eventId].totalOrders += 1;
+    if (!isResolved) {
+      map[eventId].paidOrders += 1;
+      map[eventId].soldTickets += Math.max(0, Number(ticketCount) || 0);
+    }
+  });
+
+  return map;
+};
+
+const getSoldTicketsCount = (event, orderStats) => {
+  const eventId = getEntityId(event?._id || event?.id);
+  if (eventId && orderStats?.[eventId]?.soldTickets !== undefined) {
+    return Math.max(0, Number(orderStats[eventId].soldTickets) || 0);
+  }
+
+  const directFields = [
+    event?.soldTickets,
+    event?.ticketsSold,
+    event?.soldCount,
+    event?.totalSold,
+    event?.stats?.soldTickets,
+    event?.stats?.ticketsSold,
+  ];
+  for (const value of directFields) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed) && parsed >= 0) return parsed;
+  }
+
+  return 0;
+};
+
+const createEventCancelAttempts = (eventId, reason) => [
+  { method: 'post', url: `${API_URL}/api/admin/events/${eventId}/cancel-refund`, data: { reason } },
+  { method: 'post', url: `${API_URL}/api/admin/events/${eventId}/cancel-and-refund`, data: { reason } },
+  { method: 'post', url: `${API_URL}/api/admin/events/${eventId}/refund-and-cancel`, data: { reason } },
+  { method: 'post', url: `${API_URL}/api/admin/events/${eventId}/refund`, data: { reason } },
+];
+
+const createEventStatusAttempts = (eventId, reason) => [
+  { method: 'patch', url: `${API_URL}/api/admin/events/${eventId}/status`, data: { status: 'cancelled', reason } },
+  { method: 'put', url: `${API_URL}/api/admin/events/${eventId}/status`, data: { status: 'cancelled', reason } },
+  { method: 'put', url: `${API_URL}/api/admin/events/${eventId}`, data: { status: 'cancelled', reason } },
+];
+
+const createOrderRefundAttempts = (orderId, reason) => [
+  { method: 'post', url: `${API_URL}/api/orders/${orderId}/refund`, data: { reason } },
+  { method: 'post', url: `${API_URL}/api/orders/refund`, data: { orderId, reason } },
+  { method: 'patch', url: `${API_URL}/api/orders/${orderId}/status`, data: { status: 'refunded', reason } },
+  { method: 'put', url: `${API_URL}/api/orders/${orderId}/status`, data: { status: 'refunded', reason } },
+  { method: 'post', url: `${API_URL}/api/orders/${orderId}/cancel`, data: { reason } },
+  { method: 'patch', url: `${API_URL}/api/orders/${orderId}/status`, data: { status: 'cancelled', reason } },
+];
+
+const runApiAttempts = async (attempts, config) => {
+  let lastError = null;
+  for (const attempt of attempts) {
+    try {
+      const response = await axios.request({
+        method: attempt.method,
+        url: attempt.url,
+        data: attempt.data,
+        headers: config?.headers,
+      });
+      return { ok: true, response };
+    } catch (error) {
+      lastError = error;
+      const status = error?.response?.status;
+      if (![400, 404, 405, 409, 422].includes(status)) break;
+    }
+  }
+  return { ok: false, error: lastError };
 };
 
 const AdminEvents = () => {
@@ -71,6 +187,10 @@ const AdminEvents = () => {
   const [editing, setEditing]                 = useState(null);
   const [form, setForm]                       = useState(emptyForm);
   const [deleteConfirm, setDeleteConfirm]     = useState(null);
+  const [refundTarget, setRefundTarget]       = useState(null);
+  const [refundReason, setRefundReason]       = useState('');
+  const [refundLoading, setRefundLoading]     = useState(false);
+  const [eventOrderStats, setEventOrderStats] = useState({});
   const [loading, setLoading]                 = useState(false);
   const [currentPage, setCurrentPage]         = useState(1);
 
@@ -80,8 +200,16 @@ const AdminEvents = () => {
   const fetchEvents = async () => {
     try {
       const config = { headers: { Authorization: `Bearer ${accessToken}` } };
-      const res = await axios.get(`${API_URL}/api/admin/events/`, config);
-      setEvents(res.data.data || []);
+      const [eventRes, ordersRes] = await Promise.all([
+        axios.get(`${API_URL}/api/admin/events/`, config),
+        axios.get(`${API_URL}/api/orders`, config).catch(() => ({ data: [] })),
+      ]);
+
+      const allEvents = Array.isArray(eventRes.data?.data) ? eventRes.data.data : (eventRes.data || []);
+      const allOrders = Array.isArray(ordersRes.data?.data) ? ordersRes.data.data : (ordersRes.data || []);
+
+      setEvents(Array.isArray(allEvents) ? allEvents : []);
+      setEventOrderStats(getEventOrderStats(allOrders));
       setCurrentPage(1);
     } catch {
       toast.error('Lỗi khi tải dữ liệu sự kiện');
@@ -97,6 +225,91 @@ const AdminEvents = () => {
     setForm(f => ({ ...f, imageFile: file, imagePreview: URL.createObjectURL(file) }));
   };
 
+  const closeRefundModal = () => {
+    if (refundLoading) return;
+    setRefundTarget(null);
+    setRefundReason('');
+  };
+
+  const openRefundModal = (eventIndex, fromDateChange = false) => {
+    const event = events[eventIndex];
+    if (!event) return;
+    const soldCount = getSoldTicketsCount(event, eventOrderStats);
+    setRefundTarget({ eventIndex, fromDateChange, soldCount });
+    setRefundReason(`Huỷ sự kiện để hoàn tiền tự động cho các vé đã bán. Lý do: đổi lịch / vận hành.`);
+  };
+
+  const handleCancelAndRefund = async () => {
+    if (!refundTarget) return;
+    const event = events[refundTarget.eventIndex];
+    const eventId = getEntityId(event?._id || event?.id);
+    if (!event || !eventId) {
+      toast.error('Không tìm thấy sự kiện cần xử lý');
+      return;
+    }
+
+    const reason = (refundReason || '').trim() || 'event_cancelled_by_admin';
+    const config = { headers: { Authorization: `Bearer ${accessToken}` } };
+
+    try {
+      setRefundLoading(true);
+      let refundedCount = 0;
+      let impactedOrders = 0;
+      let usedDirectEndpoint = false;
+
+      const directResult = await runApiAttempts(createEventCancelAttempts(eventId, reason), config);
+      if (directResult.ok) {
+        usedDirectEndpoint = true;
+        const payload = directResult.response?.data?.data || directResult.response?.data || {};
+        refundedCount = Number(payload.refundedOrders || payload.refundedCount || payload.refunds || 0);
+        impactedOrders = Number(payload.impactedOrders || payload.ordersAffected || payload.totalOrders || refundedCount || 0);
+      } else {
+        await runApiAttempts(createEventStatusAttempts(eventId, reason), config);
+      }
+
+      if (!usedDirectEndpoint) {
+        const ordersRes = await axios.get(`${API_URL}/api/orders`, config).catch(() => ({ data: [] }));
+        const allOrders = Array.isArray(ordersRes.data?.data) ? ordersRes.data.data : (ordersRes.data || []);
+        const targetOrders = (Array.isArray(allOrders) ? allOrders : []).filter((order) => {
+          const orderEventId = getEntityId(order?.event?._id || order?.event);
+          return orderEventId === eventId && !isCancelledOrRefundedStatus(order?.status);
+        });
+
+        impactedOrders = targetOrders.length;
+        for (const order of targetOrders) {
+          const orderId = getEntityId(order?._id || order?.id || order?.orderId);
+          if (!orderId) continue;
+          const refundResult = await runApiAttempts(createOrderRefundAttempts(orderId, reason), config);
+          if (refundResult.ok) refundedCount += 1;
+        }
+      }
+
+      await fetchEvents();
+      closeRefundModal();
+      setShowForm(false);
+      setEditing(null);
+      setForm(emptyForm);
+
+      if (impactedOrders === 0) {
+        toast.success('Đã hủy sự kiện. Không có đơn cần hoàn tiền.');
+        return;
+      }
+      if (refundedCount >= impactedOrders) {
+        toast.success(`Đã hủy sự kiện và hoàn tiền thành công ${refundedCount}/${impactedOrders} đơn.`);
+        return;
+      }
+      if (refundedCount > 0) {
+        toast.error(`Đã hủy sự kiện nhưng mới hoàn tiền ${refundedCount}/${impactedOrders} đơn. Cần xử lý phần còn lại.`);
+        return;
+      }
+      toast.error('Đã hủy sự kiện nhưng chưa hoàn tiền tự động. Vui lòng kiểm tra backend refund.');
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, 'Lỗi khi hủy sự kiện và hoàn tiền'));
+    } finally {
+      setRefundLoading(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.title?.trim() || !form.date || !form.location?.trim()) {
@@ -107,6 +320,24 @@ const AdminEvents = () => {
     }
     if (form.endDate && form.endDate < form.date) {
       toast.error('Ngày kết thúc không thể trước ngày bắt đầu'); return;
+    }
+
+    if (editing !== null) {
+      const existing = events[editing];
+      const existingStart = existing?.startDate ? new Date(existing.startDate).getTime() : null;
+      const existingEnd = existing?.endDate ? new Date(existing.endDate).getTime() : null;
+      const nextStartIso = toLocalISO(form.date, form.time || '19:00');
+      const nextEndIso = toLocalISO(form.endDate || form.date, form.endTime || '23:59');
+      const nextStart = nextStartIso ? new Date(nextStartIso).getTime() : null;
+      const nextEnd = nextEndIso ? new Date(nextEndIso).getTime() : null;
+      const hasDateChanged = existingStart !== nextStart || existingEnd !== nextEnd;
+      const soldCount = getSoldTicketsCount(existing, eventOrderStats);
+
+      if (hasDateChanged && soldCount > 0) {
+        openRefundModal(editing, true);
+        toast.error(`Sự kiện đã có ${soldCount} vé bán. Cần huỷ + hoàn tiền thay vì đổi ngày trực tiếp.`);
+        return;
+      }
     }
 
     try {
@@ -193,6 +424,14 @@ const AdminEvents = () => {
   };
 
   const handleDelete = async (i) => {
+    const soldCount = getSoldTicketsCount(events[i], eventOrderStats);
+    if (soldCount > 0) {
+      setDeleteConfirm(null);
+      openRefundModal(i, false);
+      toast.error(`Sự kiện đã có ${soldCount} vé bán. Không thể xóa trực tiếp, hãy dùng "Hủy + hoàn tiền".`);
+      return;
+    }
+
     try {
       const config = { headers: { Authorization: `Bearer ${accessToken}` } };
       const eventId = events[i]._id;
@@ -205,7 +444,13 @@ const AdminEvents = () => {
     }
   };
 
-  const closeForm = () => { setShowForm(false); setEditing(null); setForm(emptyForm); };
+  const closeForm = () => {
+    setShowForm(false);
+    setEditing(null);
+    setForm(emptyForm);
+    setRefundTarget(null);
+    setRefundReason('');
+  };
 
   const filtered = events.filter(e => {
     const matchSearch   = e.title?.toLowerCase().includes(search.toLowerCase());
@@ -245,7 +490,7 @@ const AdminEvents = () => {
 
   const now = new Date();
   const endedCount  = events.filter(e =>
-    e.status === 'ended' || e.status === 'cancelled' ||
+    e.status === 'ended' || e.status === 'cancelled' || e.status === 'refunded' ||
     (e.endDate ? new Date(e.endDate) < now : e.startDate && (() => { const d = new Date(e.startDate); d.setHours(23,59,59,999); return d < now; })())
   ).length;
   const activeCount = events.length - endedCount;
@@ -419,7 +664,9 @@ const AdminEvents = () => {
             {paginatedEvents.map((event, i) => {
               const globalIndex = startIndex + i;
 
-              const isEnded = event.status === 'ended' || event.status === 'cancelled' ||
+              const soldTicketsCount = getSoldTicketsCount(event, eventOrderStats);
+
+              const isEnded = event.status === 'ended' || event.status === 'cancelled' || event.status === 'refunded' ||
                 (event.endDate
                   ? new Date(event.endDate) < new Date()
                   : event.startDate && (() => {
@@ -431,6 +678,7 @@ const AdminEvents = () => {
 
               const effectiveStatus = isEnded && event.status === 'active' ? 'ended' : event.status;
               const badge = getStatusBadge(effectiveStatus);
+              const canCancelAndRefund = soldTicketsCount > 0 && !isCancelledOrRefundedStatus(event.status) && event.status !== 'ended';
 
               const d              = new Date(event.startDate);
               const displayDate    = d.toLocaleDateString('vi-VN');
@@ -465,6 +713,12 @@ const AdminEvents = () => {
                   <div className="p-4">
                     <h3 className="text-sm font-bold text-gray-900 mb-2 line-clamp-1">{event.title}</h3>
                     <div className="space-y-1 mb-4">
+                      {soldTicketsCount > 0 && (
+                        <div className="inline-flex items-center gap-1.5 rounded-full border border-orange-200 bg-orange-50 px-2 py-0.5 text-[10px] font-semibold text-orange-700">
+                          <AlertTriangle className="h-3 w-3" />
+                          Đã bán {soldTicketsCount} vé
+                        </div>
+                      )}
                       <div className="flex items-center gap-2 text-xs text-gray-500">
                         <Calendar className="w-3 h-3 text-orange-400" />
                         <span>Bắt đầu: {displayDate} · {displayTime}</span>
@@ -486,15 +740,23 @@ const AdminEvents = () => {
                         className="flex-1 flex items-center justify-center gap-1.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-medium rounded-lg transition-colors">
                         <Edit2 className="w-3 h-3" /> Sửa
                       </button>
-                      <button onClick={() => setDeleteConfirm(globalIndex)}
-                        className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-                          isEnded
-                            ? 'bg-gray-100 hover:bg-gray-200 text-gray-500'
-                            : 'bg-red-50 hover:bg-red-100 text-red-600'
-                        }`}>
-                        <Trash2 className="w-3 h-3" />
-                        {isEnded ? 'Dọn dẹp' : 'Xóa'}
-                      </button>
+                      {canCancelAndRefund ? (
+                        <button onClick={() => openRefundModal(globalIndex, false)}
+                          className="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium rounded-lg transition-colors bg-red-50 hover:bg-red-100 text-red-600">
+                          <RefreshCw className="w-3 h-3" />
+                          Hủy + hoàn tiền
+                        </button>
+                      ) : (
+                        <button onClick={() => setDeleteConfirm(globalIndex)}
+                          className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                            isEnded
+                              ? 'bg-gray-100 hover:bg-gray-200 text-gray-500'
+                              : 'bg-red-50 hover:bg-red-100 text-red-600'
+                          }`}>
+                          <Trash2 className="w-3 h-3" />
+                          {isEnded ? 'Dọn dẹp' : 'Xóa'}
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -520,6 +782,63 @@ const AdminEvents = () => {
         </>
       )}
 
+      {/* Cancel + Refund confirm */}
+      {refundTarget !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="bg-white border border-gray-200 rounded-2xl p-6 max-w-md w-full shadow-2xl">
+            <h3 className="text-sm font-bold text-gray-900 mb-2">Hủy sự kiện và hoàn tiền</h3>
+            <p className="text-xs text-gray-500 mb-4">
+              Sự kiện{' '}
+              <span className="font-semibold text-gray-800">
+                "{events[refundTarget.eventIndex]?.title}"
+              </span>{' '}
+              đã có{' '}
+              <span className="font-semibold text-red-600">
+                {refundTarget.soldCount || 0} vé
+              </span>{' '}
+              được bán. Hệ thống sẽ hủy sự kiện và cố gắng hoàn tiền tự động cho các đơn liên quan.
+            </p>
+
+            <div className="mb-5">
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">
+                Lý do hủy / hoàn tiền
+              </label>
+              <textarea
+                value={refundReason}
+                onChange={(e) => setRefundReason(e.target.value)}
+                rows={3}
+                placeholder="Ví dụ: thay đổi lịch đột xuất, vấn đề vận hành..."
+                className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-orange-400 focus:bg-white resize-none transition-all"
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={closeRefundModal}
+                disabled={refundLoading}
+                className="flex-1 py-2 border border-gray-200 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors disabled:opacity-60"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleCancelAndRefund}
+                disabled={refundLoading}
+                className="flex-1 py-2 text-white rounded-xl text-sm font-semibold bg-red-500 hover:bg-red-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {refundLoading ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    Đang xử lý...
+                  </>
+                ) : (
+                  'Xác nhận hủy + hoàn tiền'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Delete confirm */}
       {deleteConfirm !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
@@ -527,14 +846,14 @@ const AdminEvents = () => {
             <h3 className="text-sm font-bold text-gray-900 mb-2">
               {(() => {
                 const ev = events[deleteConfirm];
-                const expired = ev && (ev.status === 'ended' || (ev.endDate ? new Date(ev.endDate) < new Date() : false));
+                const expired = ev && ((ev.status === 'ended' || ev.status === 'cancelled' || ev.status === 'refunded') || (ev.endDate ? new Date(ev.endDate) < new Date() : false));
                 return expired ? 'Xác nhận dọn dẹp' : 'Xác nhận xóa';
               })()}
             </h3>
             <p className="text-xs text-gray-500 mb-5">
               {(() => {
                 const ev = events[deleteConfirm];
-                const expired = ev && (ev.status === 'ended' || (ev.endDate ? new Date(ev.endDate) < new Date() : false));
+                const expired = ev && ((ev.status === 'ended' || ev.status === 'cancelled' || ev.status === 'refunded') || (ev.endDate ? new Date(ev.endDate) < new Date() : false));
                 return expired
                   ? <span>Sự kiện <span className="text-gray-900 font-semibold">"{ev?.title}"</span> đã kết thúc. Bạn có muốn xóa khỏi hệ thống?</span>
                   : <span>Bạn có chắc muốn xóa sự kiện <span className="text-gray-900 font-semibold">"{ev?.title}"</span>?</span>;
@@ -547,7 +866,7 @@ const AdminEvents = () => {
                 className={`flex-1 py-2 text-white rounded-xl text-sm font-semibold transition-colors ${
                   (() => {
                     const ev = events[deleteConfirm];
-                    return ev && (ev.status === 'ended' || (ev.endDate ? new Date(ev.endDate) < new Date() : false))
+                    return ev && ((ev.status === 'ended' || ev.status === 'cancelled' || ev.status === 'refunded') || (ev.endDate ? new Date(ev.endDate) < new Date() : false))
                       ? 'bg-gray-500 hover:bg-gray-600'
                       : 'bg-red-500 hover:bg-red-600';
                   })()

@@ -30,6 +30,17 @@ const isTicketCheckedIn = t =>
   t.status === 'used' || t.status === 'checked' ||
   t.isCheckedIn === true || t.checkedIn === true || !!t.checkedInAt;
 
+const normalizeStatus = value => String(value || '').trim().toLowerCase();
+
+const isCancelledOrRefunded = (ticket, order) => {
+  const ticketStatus = normalizeStatus(ticket?.status);
+  const orderStatus = normalizeStatus(order?.status);
+  const eventStatus = normalizeStatus(order?.event?.status);
+
+  const cancelledSet = new Set(['cancelled', 'canceled', 'refunded', 'refund', 'refund_completed']);
+  return cancelledSet.has(ticketStatus) || cancelledSet.has(orderStatus) || cancelledSet.has(eventStatus);
+};
+
 // Kiểm tra vé đã hết hạn chưa — dựa vào ngày kết thúc sự kiện hoặc expiresAt của vé
 const isTicketExpired = (ticket, order) => {
   // Ưu tiên: expiresAt của vé
@@ -51,6 +62,20 @@ const getTicketStatus = (ticket, order, t) => {
       bg: 'rgba(255,255,255,0.05)',
       border: 'rgba(255,255,255,0.08)',
       icon: CheckCircle2,
+      canShowQR: false,
+    };
+  }
+  if (isCancelledOrRefunded(ticket, order)) {
+    const isRefunded =
+      normalizeStatus(ticket?.status).includes('refund') ||
+      normalizeStatus(order?.status).includes('refund');
+    return {
+      key: isRefunded ? 'refunded' : 'cancelled',
+      label: isRefunded ? (t('ticketStatus.refunded') || 'Đã hoàn tiền') : t('ticketStatus.cancelled'),
+      color: '#f87171',
+      bg: 'rgba(248,113,113,0.08)',
+      border: 'rgba(248,113,113,0.2)',
+      icon: XCircle,
       canShowQR: false,
     };
   }
@@ -82,6 +107,8 @@ const orderStatusConfig = (s, t) => ({
   active:    { label: t('ticketStatus.active'),color: '#34d399', bg: 'rgba(52,211,153,0.1)',  border: 'rgba(52,211,153,0.25)'  },
   used:      { label: t('ticketStatus.used'),    color: 'rgba(255,255,255,0.3)', bg: 'rgba(255,255,255,0.05)', border: 'rgba(255,255,255,0.09)' },
   cancelled: { label: t('ticketStatus.cancelled'),        color: '#f87171', bg: 'rgba(248,113,113,0.1)', border: 'rgba(248,113,113,0.25)' },
+  refunded:  { label: t('ticketStatus.refunded') || 'Đã hoàn tiền', color: '#f87171', bg: 'rgba(248,113,113,0.1)', border: 'rgba(248,113,113,0.25)' },
+  refund:    { label: t('ticketStatus.refunded') || 'Đã hoàn tiền', color: '#f87171', bg: 'rgba(248,113,113,0.1)', border: 'rgba(248,113,113,0.25)' },
 }[s] || { label: s || 'Đang xử lý', color: '#60a5fa', bg: 'rgba(96,165,250,0.1)', border: 'rgba(96,165,250,0.25)' });
 
 const getDisplayOrderStatus = (order) => {

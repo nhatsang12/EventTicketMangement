@@ -6,6 +6,9 @@ import toast from 'react-hot-toast';
 import useAuthStore from '../../store/authStore';
 import API_URL from '../../config/api';
 
+const normalizeStatus = (value) => String(value || '').trim().toLowerCase();
+const isCancelledOrRefunded = (status) => ['cancelled', 'canceled', 'refunded', 'refund', 'refund_completed'].includes(normalizeStatus(status));
+
 const normalizeTicket = (t) => {
   const isCheckedIn =
     t.status === 'used' ||
@@ -16,9 +19,12 @@ const normalizeTicket = (t) => {
 
   const eventDate    = t.event?.startDate || t.event?.date || t.event?.eventDate || null;
   const eventEndDate = t.event?.endDate || null;
+  const eventStatus  = t.event?.status || null;
 
   let dateStatus = 'valid';
-  if (eventDate) {
+  if (isCancelledOrRefunded(eventStatus)) {
+    dateStatus = 'cancelled';
+  } else if (eventDate) {
     const now   = new Date();
     const start = new Date(eventDate);
     const end   = eventEndDate
@@ -41,6 +47,7 @@ const normalizeTicket = (t) => {
       t.event?.title || t.event?.name || t.eventName || t.eventTitle || '—',
     eventDate,
     eventEndDate,
+    eventStatus,
     dateStatus,
     customerName:
       t.user?.name || t.user?.fullName ||
@@ -70,6 +77,7 @@ const DateBadge = ({ dateStatus, eventDate }) => {
     valid:    { cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', label: 'Hôm nay',   Icon: CheckCircle },
     expired:  { cls: 'bg-red-50 text-red-600 border-red-200',            label: 'Đã qua',    Icon: XCircle },
     upcoming: { cls: 'bg-blue-50 text-blue-600 border-blue-200',         label: 'Chưa tới',  Icon: Clock },
+    cancelled:{ cls: 'bg-red-50 text-red-600 border-red-200',            label: 'Đã hủy',    Icon: AlertTriangle },
   }[dateStatus] || {};
 
   return (
@@ -122,6 +130,12 @@ const AdminCheckIn = () => {
       return {
         valid: false, reason: 'upcoming',
         message: `Sự kiện chưa tới (${formatDateOnly(ticket.eventDate)}). Không thể check-in.`,
+      };
+    }
+    if (ticket.dateStatus === 'cancelled') {
+      return {
+        valid: false, reason: 'cancelled',
+        message: 'Sự kiện đã bị hủy/hoàn tiền. Vé này không thể check-in.',
       };
     }
     if (ticket.dateStatus === 'expired') {
@@ -210,6 +224,7 @@ const AdminCheckIn = () => {
   const checkedInCount = allTickets.filter((t) => t.isCheckedIn).length;
   const totalCount     = allTickets.length;
   const expiredCount   = allTickets.filter((t) => t.dateStatus === 'expired' && !t.isCheckedIn).length;
+  const cancelledCount = allTickets.filter((t) => t.dateStatus === 'cancelled' && !t.isCheckedIn).length;
   const progressPct    = totalCount > 0 ? Math.round((checkedInCount / totalCount) * 100) : 0;
 
   const filtered = allTickets.filter((t) => {
@@ -232,6 +247,7 @@ const AdminCheckIn = () => {
     used:     'bg-yellow-50 border-yellow-200',
     expired:  'bg-red-50 border-red-200',
     upcoming: 'bg-blue-50 border-blue-200',
+    cancelled:'bg-red-50 border-red-200',
     invalid:  'bg-red-50 border-red-200',
   };
 
@@ -248,14 +264,14 @@ const AdminCheckIn = () => {
     <div className="space-y-6">
       {/* KPI */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        {[
-          { label: 'Tổng vé',     value: totalCount,                                 color: 'text-gray-900',    bg: 'bg-gray-50',    border: 'border-gray-200' },
-          { label: 'Đã check-in', value: checkedInCount,                             color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200' },
-          { label: 'Chờ vào',     value: totalCount - checkedInCount - expiredCount, color: 'text-orange-600',  bg: 'bg-orange-50',  border: 'border-orange-200' },
-          { label: 'Vé hết hạn',  value: expiredCount,                               color: 'text-red-500',     bg: 'bg-red-50',     border: 'border-red-200' },
-        ].map((s) => (
-          <div key={s.label} className={`${s.bg} border ${s.border} rounded-2xl p-4 text-center shadow-sm`}>
-            <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
+          {[
+            { label: 'Tổng vé',     value: totalCount,                                 color: 'text-gray-900',    bg: 'bg-gray-50',    border: 'border-gray-200' },
+            { label: 'Đã check-in', value: checkedInCount,                             color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200' },
+            { label: 'Chờ vào',     value: totalCount - checkedInCount - expiredCount - cancelledCount, color: 'text-orange-600',  bg: 'bg-orange-50',  border: 'border-orange-200' },
+            { label: 'Hết hạn / hủy',  value: expiredCount + cancelledCount,                               color: 'text-red-500',     bg: 'bg-red-50',     border: 'border-red-200' },
+          ].map((s) => (
+            <div key={s.label} className={`${s.bg} border ${s.border} rounded-2xl p-4 text-center shadow-sm`}>
+              <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
             <p className="text-[10px] text-gray-500 mt-0.5 font-bold uppercase tracking-wider">{s.label}</p>
           </div>
         ))}
@@ -271,10 +287,10 @@ const AdminCheckIn = () => {
           <div className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-1000"
             style={{ width: `${progressPct}%` }} />
         </div>
-        {expiredCount > 0 && (
+        {(expiredCount > 0 || cancelledCount > 0) && (
           <p className="text-[10px] text-red-400 mt-2 flex items-center gap-1">
             <AlertTriangle className="w-3 h-3" />
-            {expiredCount} vé không thể check-in do sự kiện đã qua
+            {expiredCount + cancelledCount} vé không thể check-in (sự kiện đã qua hoặc đã hủy)
           </p>
         )}
       </div>
@@ -381,6 +397,7 @@ const AdminCheckIn = () => {
               <option value="valid">Hôm nay</option>
               <option value="upcoming">Chưa tới</option>
               <option value="expired">Đã qua</option>
+              <option value="cancelled">Đã hủy</option>
             </select>
           </div>
 
@@ -391,12 +408,14 @@ const AdminCheckIn = () => {
               filtered.map((t) => (
                 <div key={t.id} className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${
                   t.isCheckedIn               ? 'bg-gray-50 border-transparent hover:border-gray-200' :
+                  t.dateStatus === 'cancelled'? 'bg-red-50/60 border-red-100'                          :
                   t.dateStatus === 'expired'  ? 'bg-red-50/50 border-red-100'                        :
                   t.dateStatus === 'upcoming' ? 'bg-blue-50/40 border-blue-100'                      :
                                                 'bg-emerald-50/40 border-emerald-100'
                 }`}>
                   <div className={`w-1.5 h-8 rounded-full shrink-0 ${
                     t.isCheckedIn               ? 'bg-emerald-500' :
+                    t.dateStatus === 'cancelled'? 'bg-red-400'     :
                     t.dateStatus === 'expired'  ? 'bg-red-300'     :
                     t.dateStatus === 'upcoming' ? 'bg-blue-300'    :
                                                   'bg-emerald-300'
@@ -412,6 +431,10 @@ const AdminCheckIn = () => {
                         <span className="text-[10px] font-black text-emerald-600 uppercase">Vào</span>
                         {t.checkedInAt && <p className="text-[9px] text-gray-400 mt-0.5">{formatDate(t.checkedInAt)}</p>}
                       </>
+                    ) : t.dateStatus === 'cancelled' ? (
+                      <span className="text-[10px] font-black text-red-500 uppercase flex items-center gap-0.5 justify-end">
+                        <XCircle className="w-2.5 h-2.5" /> Đã hủy
+                      </span>
                     ) : t.dateStatus === 'expired' ? (
                       <span className="text-[10px] font-black text-red-400 uppercase flex items-center gap-0.5 justify-end">
                         <XCircle className="w-2.5 h-2.5" /> Hết hạn

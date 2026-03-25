@@ -303,6 +303,7 @@
     "confirmed": "Confirmed",
     "active": "Active",
     "cancelled": "Cancelled",
+    "refunded": "Refunded",
     "noTickets": "No Tickets Yet",
     "noTicketsDesc": "You haven't booked any event tickets yet. Let's explore now!",
     "exploreEvents": "Explore Events"

@@ -20,7 +20,15 @@ const getQRCodeImage = qr => {
 const fmtDate = iso =>
   iso ? new Date(iso).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
 
-const getDateStatus = eventDate => {
+const normalizeStatus = value => String(value || '').trim().toLowerCase();
+
+const isCancelledOrRefundedEvent = (eventStatus) => {
+  const status = normalizeStatus(eventStatus);
+  return ['cancelled', 'canceled', 'refunded', 'refund', 'refund_completed'].includes(status);
+};
+
+const getDateStatus = (eventDate, eventStatus) => {
+  if (isCancelledOrRefundedEvent(eventStatus)) return 'cancelled';
   if (!eventDate) return 'unknown';
   const evDay  = new Date(new Date(eventDate).toDateString());
   const today  = new Date(new Date().toDateString());
@@ -65,6 +73,7 @@ const CheckInPage = () => {
           eventName:     o.event?.title || o.event?.name,
           eventLocation: o.event?.location,
           eventDate:     o.event?.startDate || o.event?.date || null,
+          eventStatus:   o.event?.status || null,
           orderId:       o._id,
         }))
       );
@@ -82,7 +91,12 @@ const CheckInPage = () => {
   }, [isAuthenticated, navigate, token]);
 
   const handleSimulateScan = async ticket => {
-    const dateStatus = getDateStatus(ticket.eventDate);
+    const dateStatus = getDateStatus(ticket.eventDate, ticket.eventStatus);
+    if (dateStatus === 'cancelled') {
+      setScanResult('cancelled');
+      setScanMessage('Sự kiện đã bị hủy/hoàn tiền. Vé không còn hiệu lực check-in.');
+      return;
+    }
     if (dateStatus === 'expired') {
       setScanResult('date_error');
       setScanMessage(`Sự kiện đã kết thúc ngày ${fmtDate(ticket.eventDate)}. Vé không còn hiệu lực.`);
@@ -123,11 +137,13 @@ const CheckInPage = () => {
     today:   { label: 'Hôm nay',    color: '#34d399', bg: 'rgba(52,211,153,0.1)',  border: 'rgba(52,211,153,0.25)',  Icon: CheckCircle },
     expired: { label: 'Đã qua',     color: '#f87171', bg: 'rgba(248,113,113,0.1)', border: 'rgba(248,113,113,0.25)', Icon: XCircle     },
     upcoming:{ label: 'Chưa tới',   color: '#60a5fa', bg: 'rgba(96,165,250,0.1)',  border: 'rgba(96,165,250,0.25)',  Icon: Clock       },
+    cancelled:{ label: 'Đã hủy',    color: '#f87171', bg: 'rgba(248,113,113,0.1)', border: 'rgba(248,113,113,0.25)', Icon: AlertTriangle },
     unknown: { label: 'Không rõ',   color: 'rgba(255,255,255,0.3)', bg: 'rgba(255,255,255,0.04)', border: 'rgba(255,255,255,0.08)', Icon: Calendar },
   }[status] || {});
 
   const ticketBadge = (ticket, dateStatus) => {
     if (ticket.isCheckedIn) return { label: 'Đã dùng', color: 'rgba(255,255,255,0.3)', bg: 'rgba(255,255,255,0.05)', border: 'rgba(255,255,255,0.09)' };
+    if (dateStatus === 'cancelled') return { label: 'Đã hủy', color: '#f87171', bg: 'rgba(248,113,113,0.1)', border: 'rgba(248,113,113,0.25)' };
     if (dateStatus === 'expired')  return { label: 'Hết hạn',  color: '#f87171', bg: 'rgba(248,113,113,0.1)', border: 'rgba(248,113,113,0.25)' };
     if (dateStatus === 'upcoming') return { label: 'Chưa tới', color: '#60a5fa', bg: 'rgba(96,165,250,0.1)',  border: 'rgba(96,165,250,0.25)'  };
     return { label: 'Active', color: '#34d399', bg: 'rgba(52,211,153,0.1)', border: 'rgba(52,211,153,0.25)' };
@@ -173,7 +189,7 @@ const CheckInPage = () => {
                   <p style={{ fontSize: 12, color: '#34d399', fontFamily: "'Be Vietnam Pro',sans-serif", marginBottom: 8 }}>{scanMessage || 'Chào mừng! Bạn đã vào sự kiện.'}</p>
                   <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)', fontFamily: "'Space Mono',monospace" }}>{selectedTicket?._id}</p>
                 </>
-              ) : scanResult === 'date_error' ? (
+              ) : scanResult === 'date_error' || scanResult === 'cancelled' ? (
                 <>
                   <div style={{ width: 60, height: 60, borderRadius: '50%', background: scanMessage.includes('chưa') ? 'rgba(96,165,250,0.1)' : 'rgba(239,68,68,0.1)', border: `1px solid ${scanMessage.includes('chưa') ? 'rgba(96,165,250,0.25)' : 'rgba(239,68,68,0.25)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
                     {scanMessage.includes('chưa')
@@ -225,7 +241,7 @@ const CheckInPage = () => {
                 </div>
 
                 {tickets.map(ticket => {
-                  const dateStatus = getDateStatus(ticket.eventDate);
+                  const dateStatus = getDateStatus(ticket.eventDate, ticket.eventStatus);
                   const isSelected = selectedTicket?._id === ticket._id;
                   const db = dateBadge(dateStatus);
                   const tb = ticketBadge(ticket, dateStatus);
@@ -280,6 +296,13 @@ const CheckInPage = () => {
                               <p style={{ fontSize: 11, color: 'rgba(96,165,250,0.6)', fontFamily: "'Be Vietnam Pro',sans-serif" }}>Ngày tổ chức: {fmtDate(ticket.eventDate)}</p>
                             </div>
                           )}
+                          {dateStatus === 'cancelled' && (
+                            <div style={{ padding: '12px 16px', background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 12, textAlign: 'center', maxWidth: 280 }}>
+                              <AlertTriangle style={{ width: 16, height: 16, color: '#f87171', margin: '0 auto 6px' }}/>
+                              <p style={{ fontSize: 12, fontWeight: 700, color: '#f87171', fontFamily: "'Be Vietnam Pro',sans-serif", marginBottom: 3 }}>Sự kiện đã bị hủy</p>
+                              <p style={{ fontSize: 11, color: 'rgba(248,113,113,0.6)', fontFamily: "'Be Vietnam Pro',sans-serif" }}>Vé không thể sử dụng để check-in.</p>
+                            </div>
+                          )}
                           {dateStatus === 'expired' && (
                             <div style={{ padding: '12px 16px', background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 12, textAlign: 'center', maxWidth: 280 }}>
                               <AlertTriangle style={{ width: 16, height: 16, color: '#f87171', margin: '0 auto 6px' }}/>
@@ -305,6 +328,8 @@ const CheckInPage = () => {
                             className={canCheckIn && !scanning ? 'cip-cta-btn' : ''}>
                             {scanning ? (
                               <><span style={{ width: 14, height: 14, border: '2px solid rgba(255,255,255,0.25)', borderTopColor: 'white', borderRadius: '50%', display: 'inline-block' }} className="cip-spin"/> Đang quét hệ thống...</>
+                            ) : dateStatus === 'cancelled' ? (
+                              <><XCircle style={{ width: 14, height: 14 }}/> Sự kiện đã hủy</>
                             ) : dateStatus !== 'today' ? (
                               <><XCircle style={{ width: 14, height: 14 }}/> Không thể check-in</>
                             ) : (

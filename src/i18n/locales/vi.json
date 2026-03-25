@@ -303,6 +303,7 @@
     "confirmed": "Đã xác nhận",
     "active": "Đang hoạt động",
     "cancelled": "Đã huỷ",
+    "refunded": "Đã hoàn tiền",
     "noTickets": "Chưa có vé nào",
     "noTicketsDesc": "Bạn chưa đặt vé sự kiện nào. Hãy khám phá ngay!",
     "exploreEvents": "Khám phá sự kiện"
