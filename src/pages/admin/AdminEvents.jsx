@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Edit2, Trash2, Image as ImageIcon, Calendar, MapPin, Search, X, Save, ChevronLeft, ChevronRight, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Plus, Edit2, Trash2, Image as ImageIcon, Calendar, MapPin, Search, X, Save, ChevronLeft, ChevronRight, AlertTriangle, RefreshCw, Ticket, ToggleRight, ToggleLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import axios from 'axios';
@@ -8,6 +8,7 @@ import API_URL from '../../config/api';
 
 const ITEMS_PER_PAGE = 6;
 const emptyForm = { title: '', description: '', date: '', time: '19:00', endDate: '', endTime: '21:00', location: '', category: '', imageFile: null, imagePreview: '' };
+const emptyTicketRow = () => ({ name: '', price: '', quantity: '', description: '', isActive: true });
 const categories = ['Âm nhạc', 'Công nghệ', 'Thể thao', 'Nghệ thuật', 'Ẩm thực', 'Giáo dục', 'Khác'];
 const statusOptions = [
   { value: 'all',       label: 'Tất cả trạng thái' },
@@ -134,24 +135,16 @@ const getSoldTicketsCount = (event, orderStats) => {
 
 const createEventCancelAttempts = (eventId, reason) => [
   { method: 'post', url: `${API_URL}/api/admin/events/${eventId}/cancel-refund`, data: { reason } },
-  { method: 'post', url: `${API_URL}/api/admin/events/${eventId}/cancel-and-refund`, data: { reason } },
-  { method: 'post', url: `${API_URL}/api/admin/events/${eventId}/refund-and-cancel`, data: { reason } },
-  { method: 'post', url: `${API_URL}/api/admin/events/${eventId}/refund`, data: { reason } },
+  { method: 'put',  url: `${API_URL}/api/admin/events/${eventId}`, data: { status: 'cancelled', reason } },
 ];
 
 const createEventStatusAttempts = (eventId, reason) => [
-  { method: 'patch', url: `${API_URL}/api/admin/events/${eventId}/status`, data: { status: 'cancelled', reason } },
-  { method: 'put', url: `${API_URL}/api/admin/events/${eventId}/status`, data: { status: 'cancelled', reason } },
   { method: 'put', url: `${API_URL}/api/admin/events/${eventId}`, data: { status: 'cancelled', reason } },
 ];
 
 const createOrderRefundAttempts = (orderId, reason) => [
-  { method: 'post', url: `${API_URL}/api/orders/${orderId}/refund`, data: { reason } },
-  { method: 'post', url: `${API_URL}/api/orders/refund`, data: { orderId, reason } },
-  { method: 'patch', url: `${API_URL}/api/orders/${orderId}/status`, data: { status: 'refunded', reason } },
-  { method: 'put', url: `${API_URL}/api/orders/${orderId}/status`, data: { status: 'refunded', reason } },
   { method: 'post', url: `${API_URL}/api/orders/${orderId}/cancel`, data: { reason } },
-  { method: 'patch', url: `${API_URL}/api/orders/${orderId}/status`, data: { status: 'cancelled', reason } },
+  { method: 'post', url: `${API_URL}/api/orders/cancel`, data: { orderId, reason } },
 ];
 
 const runApiAttempts = async (attempts, config) => {
@@ -184,6 +177,7 @@ const AdminEvents = () => {
   const [customEndDate, setCustomEndDate]     = useState('');
   const [locationFilter, setLocationFilter]   = useState('');
   const [showForm, setShowForm]               = useState(false);
+  const [ticketRows, setTicketRows]           = useState([emptyTicketRow()]);
   const [editing, setEditing]                 = useState(null);
   const [form, setForm]                       = useState(emptyForm);
   const [deleteConfirm, setDeleteConfirm]     = useState(null);
@@ -373,8 +367,35 @@ const AdminEvents = () => {
         await axios.put(`${API_URL}/api/admin/events/${eventId}`, formData, multipartConfig);
         toast.success('Cập nhật sự kiện thành công!');
       } else {
-        await axios.post(`${API_URL}/api/admin/events/`, formData, multipartConfig);
-        toast.success('Tạo sự kiện thành công!');
+        const eventRes = await axios.post(`${API_URL}/api/admin/events/`, formData, multipartConfig);
+        const newEventId = eventRes.data?.data?._id || eventRes.data?._id;
+
+        // Tạo loại vé nếu có
+        const validTickets = ticketRows.filter(r => r.name.trim() && Number(r.price) >= 0 && Number(r.quantity) > 0);
+        if (newEventId && validTickets.length > 0) {
+          const ticketResults = await Promise.allSettled(
+            validTickets.map(r =>
+              axios.post(`${API_URL}/api/admin/ticket-types/`, {
+                event: newEventId,
+                name: r.name.trim(),
+                price: Number(r.price),
+                quantity: Number(r.quantity),
+                remaining: Number(r.quantity),
+                description: r.description,
+                isActive: r.isActive,
+              }, config)
+            )
+          );
+          const failed = ticketResults.filter(r => r.status === 'rejected').length;
+          if (failed === 0) {
+            toast.success(`Tạo sự kiện và ${validTickets.length} loại vé thành công!`);
+          } else {
+            toast.success(`Tạo sự kiện thành công! (${validTickets.length - failed}/${validTickets.length} loại vé được tạo)`);
+          }
+        } else {
+          toast.success('Tạo sự kiện thành công!');
+        }
+        setTicketRows([emptyTicketRow()]);
       }
       fetchEvents();
       setShowForm(false);
@@ -448,6 +469,7 @@ const AdminEvents = () => {
     setShowForm(false);
     setEditing(null);
     setForm(emptyForm);
+    setTicketRows([emptyTicketRow()]);
     setRefundTarget(null);
     setRefundReason('');
   };
@@ -637,6 +659,77 @@ const AdminEvents = () => {
                 {categories.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
+
+            {/* ─── Loại vé (chỉ hiện khi TẠO MỚI) ─── */}
+            {editing === null && (
+              <div className="md:col-span-2">
+                <div className="flex items-center justify-between mb-3">
+                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+                    <Ticket className="w-3.5 h-3.5 text-orange-400" /> Loại vé
+                  </label>
+                  <button type="button"
+                    onClick={() => setTicketRows(r => [...r, emptyTicketRow()])}
+                    className="flex items-center gap-1 text-xs text-orange-500 font-semibold hover:text-orange-600 transition-colors">
+                    <Plus className="w-3.5 h-3.5" /> Thêm loại vé
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  {ticketRows.map((row, idx) => (
+                    <div key={idx} className="bg-gray-50 border border-gray-200 rounded-xl p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-bold text-gray-500">Loại vé #{idx + 1}</span>
+                        <div className="flex items-center gap-2">
+                          {/* Toggle isActive */}
+                          <button type="button"
+                            onClick={() => setTicketRows(r => r.map((x, i) => i === idx ? { ...x, isActive: !x.isActive } : x))}
+                            className="flex items-center gap-1">
+                            {row.isActive
+                              ? <><ToggleRight className="w-4 h-4 text-emerald-500" /><span className="text-[10px] text-emerald-600 font-semibold">Đang bán</span></>
+                              : <><ToggleLeft className="w-4 h-4 text-gray-300" /><span className="text-[10px] text-gray-400">Tắt</span></>}
+                          </button>
+                          {ticketRows.length > 1 && (
+                            <button type="button"
+                              onClick={() => setTicketRows(r => r.filter((_, i) => i !== idx))}
+                              className="text-red-400 hover:text-red-600 transition-colors">
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Tên loại vé *</label>
+                          <input type="text" value={row.name} placeholder="VIP, Standard..." required={idx === 0}
+                            onChange={e => setTicketRows(r => r.map((x, i) => i === idx ? { ...x, name: e.target.value } : x))}
+                            className={inputCls} />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Giá (VNĐ) *</label>
+                            <input type="number" min="0" value={row.price} placeholder="500000" required={idx === 0}
+                              onChange={e => setTicketRows(r => r.map((x, i) => i === idx ? { ...x, price: e.target.value } : x))}
+                              className={inputCls} />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Số lượng *</label>
+                            <input type="number" min="1" value={row.quantity} placeholder="100" required={idx === 0}
+                              onChange={e => setTicketRows(r => r.map((x, i) => i === idx ? { ...x, quantity: e.target.value } : x))}
+                              className={inputCls} />
+                          </div>
+                        </div>
+                        <div className="col-span-2">
+                          <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Mô tả quyền lợi</label>
+                          <input type="text" value={row.description} placeholder="Bao gồm meet &amp; greet, chỗ ngồi VIP..." 
+                            onChange={e => setTicketRows(r => r.map((x, i) => i === idx ? { ...x, description: e.target.value } : x))}
+                            className={inputCls} />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[10px] text-gray-400 mt-2">💡 Bạn có thể thêm/sửa loại vé sau trong tab "Quản lý vé"</p>
+              </div>
+            )}
 
             {/* Buttons */}
             <div className="md:col-span-2 flex gap-3 pt-2">

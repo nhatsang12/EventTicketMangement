@@ -27,14 +27,23 @@ const isCancelledOrRefundedEvent = (eventStatus) => {
   return ['cancelled', 'canceled', 'refunded', 'refund', 'refund_completed'].includes(status);
 };
 
-const getDateStatus = (eventDate, eventStatus) => {
+const getDateStatus = (eventDate, eventEndDate, eventStatus) => {
   if (isCancelledOrRefundedEvent(eventStatus)) return 'cancelled';
   if (!eventDate) return 'unknown';
-  const evDay  = new Date(new Date(eventDate).toDateString());
-  const today  = new Date(new Date().toDateString());
-  if (evDay < today) return 'expired';
-  if (evDay > today) return 'upcoming';
-  return 'today';
+  
+  const now   = new Date();
+  const start = new Date(eventDate);
+  const end   = eventEndDate
+    ? new Date(eventEndDate)
+    : (() => { const e = new Date(eventDate); e.setHours(23, 59, 59, 999); return e; })();
+  
+  if (now > end) {
+    return 'expired'; // quá giờ kết thúc
+  } else if (now.toDateString() !== start.toDateString() && now < start) {
+    return 'upcoming'; // khác ngày, chưa tới
+  } else {
+    return 'today'; // đúng ngày → cho quét dù chưa tới giờ
+  }
 };
 
 // ─── LOADING ──────────────────────────────────────────────────────────────
@@ -44,7 +53,7 @@ const LoadingScreen = () => (
       <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '3px solid rgba(255,255,255,0.05)' }}/>
       <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '3px solid transparent', borderTopColor: '#f97316', borderRightColor: '#a855f7' }} className="cip-spin"/>
     </div>
-    <style>{`@keyframes cip-spin{to{transform:rotate(360deg)}}.cip-spin{animation:cip-spin 0.85s linear infinite}`}</style>
+      <style>{`@keyframes cip-spin{to{transform:rotate(360deg)}}.cip-spin{animation:cip-spin 0.85s linear infinite}.cip-refresh-btn:hover{background:rgba(255,255,255,0.12);color:rgba(255,255,255,0.8)}.cip-refresh-btn.spinning{animation:cip-spin 1s linear infinite}`}</style>
   </div>
 );
 
@@ -73,6 +82,7 @@ const CheckInPage = () => {
           eventName:     o.event?.title || o.event?.name,
           eventLocation: o.event?.location,
           eventDate:     o.event?.startDate || o.event?.date || null,
+          eventEndDate:  o.event?.endDate || null,
           eventStatus:   o.event?.status || null,
           orderId:       o._id,
         }))
@@ -91,7 +101,7 @@ const CheckInPage = () => {
   }, [isAuthenticated, navigate, token]);
 
   const handleSimulateScan = async ticket => {
-    const dateStatus = getDateStatus(ticket.eventDate, ticket.eventStatus);
+    const dateStatus = getDateStatus(ticket.eventDate, ticket.eventEndDate, ticket.eventStatus);
     if (dateStatus === 'cancelled') {
       setScanResult('cancelled');
       setScanMessage('Sự kiện đã bị hủy/hoàn tiền. Vé không còn hiệu lực check-in.');
@@ -99,7 +109,7 @@ const CheckInPage = () => {
     }
     if (dateStatus === 'expired') {
       setScanResult('date_error');
-      setScanMessage(`Sự kiện đã kết thúc ngày ${fmtDate(ticket.eventDate)}. Vé không còn hiệu lực.`);
+      setScanMessage(`Sự kiện đã kết thúc. Vé không còn hiệu lực.`);
       return;
     }
     if (dateStatus === 'upcoming') {
@@ -119,6 +129,8 @@ const CheckInPage = () => {
         setScanMessage(res.data.message);
         setTickets(prev => prev.map(t => t._id === ticket._id ? { ...t, isCheckedIn: true } : t));
         setSelectedTicket(prev => prev ? { ...prev, isCheckedIn: true } : prev);
+        // Gọi lại để cập nhật dữ liệu từ server
+        setTimeout(() => fetchTickets(), 1000);
       }
     } catch (error) {
       const msg = error.response?.data?.message || 'Có lỗi xảy ra khi quét vé';
@@ -162,14 +174,22 @@ const CheckInPage = () => {
           <ArrowLeft style={{ width: 13, height: 13 }}/> Quay lại
         </button>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 32 }}>
-          <div style={{ width: 48, height: 48, background: 'linear-gradient(135deg,#f97316,#a855f7)', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 6px 20px rgba(249,115,22,0.28)' }}>
-            <QrCode style={{ width: 22, height: 22, color: 'white' }}/>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, marginBottom: 32 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div style={{ width: 48, height: 48, background: 'linear-gradient(135deg,#f97316,#a855f7)', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 6px 20px rgba(249,115,22,0.28)' }}>
+              <QrCode style={{ width: 22, height: 22, color: 'white' }}/>
+            </div>
+            <div>
+              <h1 style={{ fontSize: 'clamp(1.3rem,3vw,1.7rem)', fontWeight: 900, color: 'white', fontFamily: "'Clash Display','Be Vietnam Pro',sans-serif", letterSpacing: '-0.02em', lineHeight: 1.1 }}>QR Check-in</h1>
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', fontFamily: "'Be Vietnam Pro',sans-serif", marginTop: 3 }}>Mô phỏng quét QR vào cổng sự kiện</p>
+            </div>
           </div>
-          <div>
-            <h1 style={{ fontSize: 'clamp(1.3rem,3vw,1.7rem)', fontWeight: 900, color: 'white', fontFamily: "'Clash Display','Be Vietnam Pro',sans-serif", letterSpacing: '-0.02em', lineHeight: 1.1 }}>QR Check-in</h1>
-            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', fontFamily: "'Be Vietnam Pro',sans-serif", marginTop: 3 }}>Mô phỏng quét QR vào cổng sự kiện</p>
-          </div>
+          <button onClick={() => fetchTickets()}
+            style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s', flexShrink: 0 }}
+            className="cip-refresh-btn"
+            title="Làm mới danh sách vé">
+            <RefreshCw style={{ width: 18, height: 18 }}/>
+          </button>
         </div>
 
         {scanResult && (
@@ -241,7 +261,7 @@ const CheckInPage = () => {
                 </div>
 
                 {tickets.map(ticket => {
-                  const dateStatus = getDateStatus(ticket.eventDate, ticket.eventStatus);
+                  const dateStatus = getDateStatus(ticket.eventDate, ticket.eventEndDate, ticket.eventStatus);
                   const isSelected = selectedTicket?._id === ticket._id;
                   const db = dateBadge(dateStatus);
                   const tb = ticketBadge(ticket, dateStatus);

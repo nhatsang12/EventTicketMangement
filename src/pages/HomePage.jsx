@@ -86,7 +86,7 @@ const SORT_OPTIONS = [
   { value:"price_asc", label:"Giá tăng dần" },
   { value:"price_desc", label:"Giá giảm dần" },
 ];
-const CAT_ICONS = { "Âm nhạc":"🎵", "Thể thao":"⚽", "Văn hóa":"🎭", "Ẩm thực":"🍜", "Công nghệ":"💻", "Giải trí":"🎪" };
+const CAT_ICONS = {};
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────
 const getImageUrl = p => !p ? "https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=1000&auto=format&fit=crop&q=80" : p.startsWith("http") ? p : `${API_URL}${p}`;
@@ -215,7 +215,6 @@ const EventCard = ({ event, index = 0 }) => {
           <span style={{ fontSize:10, fontWeight:700, padding:"3px 9px", borderRadius:999, background:status.bg, color:status.color, border:`1px solid ${status.color}40`, backdropFilter:"blur(6px)", fontFamily:"'Be Vietnam Pro',sans-serif" }}>{status.label}</span>
           {urgency?.level==="critical" && <span style={{ fontSize:10, fontWeight:800, padding:"3px 9px", borderRadius:999, background:"rgba(239,68,68,0.25)", color:"#f87171", border:"1px solid rgba(239,68,68,0.5)", fontFamily:"'Be Vietnam Pro',sans-serif" }} className="hp2-pulse">{urgency.label}</span>}
         </div>
-        {event.category && <span style={{ position:"absolute", bottom:10, left:10, fontSize:10, fontWeight:700, padding:"3px 9px", borderRadius:999, background:"rgba(0,0,0,0.65)", backdropFilter:"blur(8px)", color:"rgba(255,255,255,0.88)", border:"1px solid rgba(255,255,255,0.12)", fontFamily:"'Be Vietnam Pro',sans-serif" }}>{CAT_ICONS[event.category]&&`${CAT_ICONS[event.category]} `}{event.category}</span>}
         <span style={{ position:"absolute", bottom:10, right:10, fontSize:10, color:"rgba(255,255,255,0.55)", display:"flex", alignItems:"center", gap:3, background:"rgba(0,0,0,0.5)", backdropFilter:"blur(6px)", padding:"3px 8px", borderRadius:999, fontFamily:"'Be Vietnam Pro',sans-serif" }}><Eye style={{ width:10,height:10 }}/>{getViewers(event._id?.$oid||event._id)}</span>
       </div>
       <div style={{ padding:"16px 18px 18px" }}>
@@ -283,7 +282,6 @@ const EventCardTall = ({ event }) => {
       <div style={{ position:"absolute", inset:0, background:"radial-gradient(ellipse at 0% 100%,rgba(249,115,22,0.1) 0%,transparent 60%)" }}/>
       <div style={{ position:"absolute", top:14, left:14, display:"flex", gap:6, flexWrap:"wrap" }}>
         <span style={{ fontSize:10, fontWeight:800, padding:"4px 10px", borderRadius:999, background:"linear-gradient(135deg,#f97316,#a855f7)", color:"white", fontFamily:"'Be Vietnam Pro',sans-serif", letterSpacing:"0.04em" }}><Flame style={{ width:10,height:10,display:"inline",marginRight:3 }}/>Nổi bật</span>
-        {event.category && <span style={{ fontSize:10, fontWeight:600, padding:"4px 10px", borderRadius:999, background:"rgba(255,255,255,0.1)", backdropFilter:"blur(8px)", color:"rgba(255,255,255,0.85)", border:"1px solid rgba(255,255,255,0.15)", fontFamily:"'Be Vietnam Pro',sans-serif" }}>{event.category}</span>}
       </div>
       <div style={{ position:"absolute", top:14, right:14, fontSize:10, color:"rgba(255,255,255,0.45)", background:"rgba(0,0,0,0.5)", backdropFilter:"blur(8px)", border:"1px solid rgba(255,255,255,0.08)", padding:"4px 10px", borderRadius:999, display:"flex", alignItems:"center", gap:4, fontFamily:"'Be Vietnam Pro',sans-serif" }}>
         <Eye style={{ width:11,height:11 }}/>{getViewers(event._id?.$oid||event._id)} đang xem
@@ -361,7 +359,6 @@ const EventListRow = ({ event, index = 0 }) => {
           style={{ width:"100%", height:"100%", objectFit:"cover", transition:"transform 0.4s" }}
           onError={e=>{e.target.src="https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=400&auto=format&fit=crop";}}/>
         <div style={{ position:"absolute", inset:0, background:"linear-gradient(to right,transparent 60%,rgba(30,30,32,0.5))" }}/>
-        {event.category && <span style={{ position:"absolute", bottom:8, left:8, fontSize:9, fontWeight:700, padding:"2px 7px", borderRadius:999, background:"rgba(0,0,0,0.7)", backdropFilter:"blur(6px)", color:"rgba(255,255,255,0.8)", fontFamily:"'Be Vietnam Pro',sans-serif" }}>{event.category}</span>}
       </div>
       <div style={{ flex:1, padding:"14px 16px", minWidth:0, display:"flex", flexDirection:"column", justifyContent:"center" }}>
         <div style={{ display:"flex", gap:6, marginBottom:7, alignItems:"center", flexWrap:"wrap" }}>
@@ -457,7 +454,7 @@ const AllEventsSection = ({ events, loading, clearFilters, catFilter, setCatFilt
                 cursor:"pointer", transition:"all 0.2s", whiteSpace:"nowrap", flexShrink:0,
                 fontFamily:"'Be Vietnam Pro',sans-serif",
               }}>
-                {CAT_ICONS[opt.label] && <span style={{ marginRight:4 }}>{CAT_ICONS[opt.label]}</span>}
+
                 {opt.label}
               </button>
             ))}
@@ -875,7 +872,6 @@ const HomePage = () => {
                     <div style={{ height:120,overflow:"hidden",background:"#1a1a1a",position:"relative" }}>
                       <img src={getImageUrl(event.image)} alt={event.title} className="hp2-strip-img" style={{ width:"100%",height:"100%",objectFit:"cover",transition:"transform 0.5s" }} onError={e=>{e.target.src="https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=400&auto=format&fit=crop";}}/>
                       <div style={{ position:"absolute",inset:0,background:"linear-gradient(to top,rgba(0,0,0,0.7) 0%,transparent 55%)" }}/>
-                      {event.category && <span style={{ position:"absolute",bottom:6,left:6,fontSize:9,fontWeight:600,padding:"1px 6px",borderRadius:999,background:"rgba(0,0,0,0.75)",color:"rgba(255,255,255,0.8)",fontFamily:"'Be Vietnam Pro',sans-serif" }}>{event.category}</span>}
                     </div>
                     <div style={{ padding:"10px 12px" }}>
                       <p style={{ fontSize:12,fontWeight:700,color:"white",lineHeight:1.35,marginBottom:4,display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden",fontFamily:"'Be Vietnam Pro','Clash Display',sans-serif" }}>{event.title}</p>

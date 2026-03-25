@@ -1,14 +1,14 @@
 // mockData.js
 
 export const mockCategories = [
-  { id: 1, name: 'Âm nhạc', slug: 'music', icon: '🎵', color: 'bg-purple-100 text-purple-600' },
-  { id: 2, name: 'Thể thao', slug: 'sports', icon: '⚽', color: 'bg-green-100 text-green-600' },
-  { id: 3, name: 'Hội thảo', slug: 'conference', icon: '🎤', color: 'bg-blue-100 text-blue-600' },
-  { id: 4, name: 'Nghệ thuật', slug: 'arts', icon: '🎨', color: 'bg-pink-100 text-pink-600' },
-  { id: 5, name: 'Festival', slug: 'festival', icon: '🎉', color: 'bg-yellow-100 text-yellow-600' },
-  { id: 6, name: 'Du lịch', slug: 'travel', icon: '✈️', color: 'bg-teal-100 text-teal-600' },
-  { id: 7, name: 'Ẩm thực', slug: 'food', icon: '🍴', color: 'bg-orange-100 text-orange-600' },
-  { id: 8, name: 'Hài kịch / Stand-up', slug: 'comedy', icon: '😂', color: 'bg-amber-100 text-amber-600' },
+  { id: 1, name: 'Âm nhạc', slug: 'music', color: 'bg-purple-100 text-purple-600' },
+  { id: 2, name: 'Thể thao', slug: 'sports', color: 'bg-green-100 text-green-600' },
+  { id: 3, name: 'Hội thảo', slug: 'conference', color: 'bg-blue-100 text-blue-600' },
+  { id: 4, name: 'Nghệ thuật', slug: 'arts', color: 'bg-pink-100 text-pink-600' },
+  { id: 5, name: 'Festival', slug: 'festival', color: 'bg-yellow-100 text-yellow-600' },
+  { id: 6, name: 'Du lịch', slug: 'travel', color: 'bg-teal-100 text-teal-600' },
+  { id: 7, name: 'Ẩm thực', slug: 'food', color: 'bg-orange-100 text-orange-600' },
+  { id: 8, name: 'Hài kịch / Stand-up', slug: 'comedy', color: 'bg-amber-100 text-amber-600' },
 ];
 
 export const mockTicketTypes = {
