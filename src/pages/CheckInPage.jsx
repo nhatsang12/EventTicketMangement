@@ -98,31 +98,91 @@ const CheckInPage = () => {
   useEffect(() => {
     if (!isAuthenticated) { navigate('/login', { state: { from: '/checkin' } }); return; }
     fetchTickets();
+    
+    // Polling mỗi 15 giây để cập nhật trạng thái vé từ server (im lặng, ko hiển thị loading)
+    const pollInterval = setInterval(async () => {
+      try {
+        const config = { headers: { Authorization: `Bearer ${token}` } };
+        const res = await axios.get(`${API_URL}/api/orders/my-orders`, config);
+        const orders = res.data?.data || res.data || [];
+        const allTickets = orders.flatMap(o =>
+          (o.tickets || []).map(t => ({
+            ...t,
+            eventName:     o.event?.title || o.event?.name,
+            eventLocation: o.event?.location,
+            eventDate:     o.event?.startDate || o.event?.date || null,
+            eventEndDate:  o.event?.endDate || null,
+            eventStatus:   o.event?.status || null,
+            orderId:       o._id,
+          }))
+        );
+        setTickets(allTickets);
+      } catch (err) {
+        // Lỗi polling - không hiển thị, chỉ bỏ qua
+      }
+    }, 15000);
+    
+    return () => clearInterval(pollInterval);
   }, [isAuthenticated, navigate, token]);
 
   const handleSimulateScan = async ticket => {
-    const dateStatus = getDateStatus(ticket.eventDate, ticket.eventEndDate, ticket.eventStatus);
-    if (dateStatus === 'cancelled') {
-      setScanResult('cancelled');
-      setScanMessage('Sự kiện đã bị hủy/hoàn tiền. Vé không còn hiệu lực check-in.');
-      return;
-    }
-    if (dateStatus === 'expired') {
-      setScanResult('date_error');
-      setScanMessage(`Sự kiện đã kết thúc. Vé không còn hiệu lực.`);
-      return;
-    }
-    if (dateStatus === 'upcoming') {
-      setScanResult('date_error');
-      setScanMessage(`Sự kiện chưa diễn ra (${fmtDate(ticket.eventDate)}). Chỉ được check-in đúng ngày tổ chức.`);
-      return;
-    }
     setScanning(true);
     setScanResult(null);
     setScanMessage('');
+    
     try {
-      const config  = { headers: { Authorization: `Bearer ${token}` } };
-      const payload = { qrCode: ticket.qrCode || ticket._id };
+      // Gọi server để kiểm tra trạng thái vé mới nhất (phòng admin check-in)
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      const freshRes = await axios.get(`${API_URL}/api/orders/my-orders`, config);
+      const freshOrders = freshRes.data?.data || freshRes.data || [];
+      const freshTicket = freshOrders.flatMap(o =>
+        (o.tickets || []).filter(t => t._id === ticket._id).map(t => ({
+          ...t,
+          eventDate: o.event?.startDate || o.event?.date || null,
+          eventEndDate: o.event?.endDate || null,
+          eventStatus: o.event?.status || null,
+        }))
+      )[0];
+      
+      if (!freshTicket) {
+        setScanResult('error');
+        setScanMessage('Không thể tìm thấy vé này');
+        setScanning(false);
+        return;
+      }
+      
+      // Kiểm tra nếu vé đã check-in từ admin hay bên khác
+      if (freshTicket.isCheckedIn || freshTicket.status === 'used' || freshTicket.status === 'checked') {
+        setScanResult('used');
+        setScanMessage('Vé này đã được check-in rồi!');
+        setTickets(prev => prev.map(t => t._id === ticket._id ? { ...freshTicket } : t));
+        setScanning(false);
+        return;
+      }
+      
+      // Kiểm tra ngày/giờ sự kiện
+      const dateStatus = getDateStatus(freshTicket.eventDate, freshTicket.eventEndDate, freshTicket.eventStatus);
+      if (dateStatus === 'cancelled') {
+        setScanResult('cancelled');
+        setScanMessage('Sự kiện đã bị hủy/hoàn tiền. Vé không còn hiệu lực check-in.');
+        setScanning(false);
+        return;
+      }
+      if (dateStatus === 'expired') {
+        setScanResult('date_error');
+        setScanMessage(`Sự kiện đã kết thúc. Vé không còn hiệu lực.`);
+        setScanning(false);
+        return;
+      }
+      if (dateStatus === 'upcoming') {
+        setScanResult('date_error');
+        setScanMessage(`Sự kiện chưa diễn ra (${fmtDate(freshTicket.eventDate)}). Chỉ được check-in đúng ngày tổ chức.`);
+        setScanning(false);
+        return;
+      }
+      
+      // Tiến hành check-in
+      const payload = { qrCode: freshTicket.qrCode || freshTicket._id };
       const res = await axios.post(`${API_URL}/api/admin/ticket-types/checkin`, payload, config);
       if (res.data.success) {
         setScanResult('success');
