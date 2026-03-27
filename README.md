@@ -144,9 +144,9 @@ Admin Event<img width="1920" height="1120" alt="Image" src="https://github.com/u
 
 | Role | Quyền truy cập |
 |---|---|
-| **Guest** | Xem trang chủ, chi tiết sự kiện |
+
 | **User** | Đặt vé, thanh toán, xem lịch sử, QR check-in cá nhân |
-| **Admin** | Toàn bộ + quản lý sự kiện, loại vé, users, dashboard, check-in |
+| **Admin** **Staff** | quản lý sự kiện, loại vé, users, dashboard, check-in |
 
 Protected Routes tự động redirect người dùng chưa đăng nhập về trang login.
 
