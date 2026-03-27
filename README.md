@@ -26,13 +26,13 @@ The first time the page loads may be a bit slow. Thank you for your understandin
 <img width="1920" height="1464" alt="Image" src="https://github.com/user-attachments/assets/27d7a7d5-ee92-47d8-a48b-262c403d1819" />
 
 ### Chi tiết sự kiện & Đặt vé
-<img width="1920" height="2304" alt="Image" src="https://github.com/user-attachments/assets/d5eea28d-f9d4-441f-bdd7-c8eb3caca130" />
+<img width="1920" height="2362" alt="Image" src="https://github.com/user-attachments/assets/d0c08c7f-44ce-4680-8bd5-ad733a750c6a" />
 <img width="1920" height="2078" alt="Image" src="https://github.com/user-attachments/assets/ee21af8f-05c0-489c-a58f-125af802815b" />
 
 ### Trang cá nhân người dùng
 <img width="1920" height="1533" alt="Image" src="https://github.com/user-attachments/assets/f84cfa3d-85a7-47ab-a86f-3a6edfd41b6a" />
-<img width="1920" height="1799" alt="Image" src="https://github.com/user-attachments/assets/62dd5d21-d548-4b6d-98a5-6387a372b8c9" />
-<img width="1920" height="1899" alt="Image" src="https://github.com/user-attachments/assets/f2bdd244-a22a-48dc-94c8-eecb6d2d0c67" />
+<img width="1920" height="2412" alt="Image" src="https://github.com/user-attachments/assets/e938a662-9303-416f-a722-b5134d9f5e33" />
+<img width="1919" height="866" alt="image" src="https://github.com/user-attachments/assets/6cf8f0b5-2f4b-466e-9a0a-dc04379ced69" />
 
 ###  Admin Panel
 Admin Dashboard
