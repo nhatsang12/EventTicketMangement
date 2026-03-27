@@ -15,53 +15,34 @@ The first time the page loads may be a bit slow. Thank you for your understandin
 | **event-ticketing-ui** | React frontend (repo này) | ← you are here |
 | **event-ticketing-server** | Node.js REST API + Database | [View Server Repo](https://github.com/nhatsang12/BEserverEventTicketingPlatform) |---
 
-## System Architecture
-
-```
-┌─────────────────────┐        REST API        ┌──────────────────────┐
-│                     │  ─────────────────────> │                      │
-│   React.js (UI)     │     HTTP / JSON         │  Node.js (Server)    │
-│   Tailwind CSS      │ <─────────────────────  │  Express.js          │
-│   React Router      │                         │  REST API            │
-│                     │                         │         │            │
-└─────────────────────┘                         │    [Database]        │
-                                                └──────────┬───────────┘
-                                                           │
-                                                ┌──────────┴──────────┐
-                                                │  Payment Gateways   │
-                                                │  Stripe / PayOS     │
-                                                └─────────────────────┘
-```
-
----
 
 ## Screenshots
 
 ### Trang chủ
-[Homepage]<img width="1919" height="914" alt="Image" src="https://github.com/user-attachments/assets/62207435-dc05-4b78-a7ea-8748bd83048e" />
+<img width="1919" height="914" alt="Image" src="https://github.com/user-attachments/assets/62207435-dc05-4b78-a7ea-8748bd83048e" />
 
 ### Đăng nhập / Đăng ký
-[Login]<img width="1920" height="1429" alt="Image" src="https://github.com/user-attachments/assets/f952850c-675f-4e54-9e39-44bb24c239c1" />
-![Register]<img width="1920" height="1464" alt="Image" src="https://github.com/user-attachments/assets/27d7a7d5-ee92-47d8-a48b-262c403d1819" />
+<img width="1920" height="1429" alt="Image" src="https://github.com/user-attachments/assets/f952850c-675f-4e54-9e39-44bb24c239c1" />
+<img width="1920" height="1464" alt="Image" src="https://github.com/user-attachments/assets/27d7a7d5-ee92-47d8-a48b-262c403d1819" />
 
 ### Chi tiết sự kiện & Đặt vé
-[Event Detail]<img width="1920" height="2304" alt="Image" src="https://github.com/user-attachments/assets/d5eea28d-f9d4-441f-bdd7-c8eb3caca130" />
-[Checkout]<img width="1920" height="2078" alt="Image" src="https://github.com/user-attachments/assets/ee21af8f-05c0-489c-a58f-125af802815b" />
+<img width="1920" height="2304" alt="Image" src="https://github.com/user-attachments/assets/d5eea28d-f9d4-441f-bdd7-c8eb3caca130" />
+<img width="1920" height="2078" alt="Image" src="https://github.com/user-attachments/assets/ee21af8f-05c0-489c-a58f-125af802815b" />
 
 ### Trang cá nhân người dùng
-[Profile]<img width="1920" height="1533" alt="Image" src="https://github.com/user-attachments/assets/f84cfa3d-85a7-47ab-a86f-3a6edfd41b6a" />
-[Ticket History]<img width="1920" height="1799" alt="Image" src="https://github.com/user-attachments/assets/62dd5d21-d548-4b6d-98a5-6387a372b8c9" />
-[QR Checkin]<img width="1920" height="1899" alt="Image" src="https://github.com/user-attachments/assets/f2bdd244-a22a-48dc-94c8-eecb6d2d0c67" />
+<img width="1920" height="1533" alt="Image" src="https://github.com/user-attachments/assets/f84cfa3d-85a7-47ab-a86f-3a6edfd41b6a" />
+<img width="1920" height="1799" alt="Image" src="https://github.com/user-attachments/assets/62dd5d21-d548-4b6d-98a5-6387a372b8c9" />
+<img width="1920" height="1899" alt="Image" src="https://github.com/user-attachments/assets/f2bdd244-a22a-48dc-94c8-eecb6d2d0c67" />
 
-### 🛠️ Admin Panel
-[Admin Dashboard]
+###  Admin Panel
+Admin Dashboard
 <img width="1920" height="1039" alt="Image" src="https://github.com/user-attachments/assets/23613c29-fcc9-421e-a22c-9c0d06cb2a42" />
-[Admin Statistics]<img width="1920" height="1312" alt="Image" src="https://github.com/user-attachments/assets/8248908f-0d4c-4b71-84b8-14492c365804" />
-[Admin Checkin]<img width="1920" height="1009" alt="Image" src="https://github.com/user-attachments/assets/a3720087-178a-429a-9521-1ab4717b7e6b" />
-[Admin Ticket Types]
+Admin Statistics<img width="1920" height="1312" alt="Image" src="https://github.com/user-attachments/assets/8248908f-0d4c-4b71-84b8-14492c365804" />
+Admin Checkin<img width="1920" height="1009" alt="Image" src="https://github.com/user-attachments/assets/a3720087-178a-429a-9521-1ab4717b7e6b" />
+Admin Ticket Types
 <img width="1920" height="869" alt="Image" src="https://github.com/user-attachments/assets/f41b87a6-abad-4067-8658-87e1d8eb52ac" />
-[Admin Users]<img width="1920" height="1229" alt="Image" src="https://github.com/user-attachments/assets/115d8b4b-3d66-4927-accc-49975ade17f5" />
-[Admin Event]<img width="1920" height="1120" alt="Image" src="https://github.com/user-attachments/assets/312814e6-a605-454d-b08a-dc37a27fb82e" />
+Admin Users<img width="1920" height="1229" alt="Image" src="https://github.com/user-attachments/assets/115d8b4b-3d66-4927-accc-49975ade17f5" />
+Admin Event<img width="1920" height="1120" alt="Image" src="https://github.com/user-attachments/assets/312814e6-a605-454d-b08a-dc37a27fb82e" />
 ---
 
 ## Tính năng
