@@ -8,14 +8,14 @@
 ---
 ## DEMO Event Ticket https://event-ticket-mangement-8s3y.vercel.app/
 The first time the page loads may be a bit slow. Thank you for your understanding.
-## 🗂️ Repositories
+## Repositories
 
 | Repo | Description | Link |
 |---|---|---|
 | **event-ticketing-ui** | React frontend (repo này) | ← you are here |
 | **event-ticketing-server** | Node.js REST API + Database | [View Server Repo](https://github.com/nhatsang12/BEserverEventTicketingPlatform) |---
 
-## 🏗️ System Architecture
+## System Architecture
 
 ```
 ┌─────────────────────┐        REST API        ┌──────────────────────┐
@@ -35,20 +35,20 @@ The first time the page loads may be a bit slow. Thank you for your understandin
 
 ---
 
-## 📸 Screenshots
+## Screenshots
 
-### 🏠 Trang chủ
+### Trang chủ
 [Homepage]<img width="1919" height="914" alt="Image" src="https://github.com/user-attachments/assets/62207435-dc05-4b78-a7ea-8748bd83048e" />
 
-### 🔐 Đăng nhập / Đăng ký
+### Đăng nhập / Đăng ký
 [Login]<img width="1920" height="1429" alt="Image" src="https://github.com/user-attachments/assets/f952850c-675f-4e54-9e39-44bb24c239c1" />
 ![Register]<img width="1920" height="1464" alt="Image" src="https://github.com/user-attachments/assets/27d7a7d5-ee92-47d8-a48b-262c403d1819" />
 
-### 🎭 Chi tiết sự kiện & Đặt vé
+### Chi tiết sự kiện & Đặt vé
 [Event Detail]<img width="1920" height="2304" alt="Image" src="https://github.com/user-attachments/assets/d5eea28d-f9d4-441f-bdd7-c8eb3caca130" />
 [Checkout]<img width="1920" height="2078" alt="Image" src="https://github.com/user-attachments/assets/ee21af8f-05c0-489c-a58f-125af802815b" />
 
-### 👤 Trang cá nhân người dùng
+### Trang cá nhân người dùng
 [Profile]<img width="1920" height="1533" alt="Image" src="https://github.com/user-attachments/assets/f84cfa3d-85a7-47ab-a86f-3a6edfd41b6a" />
 [Ticket History]<img width="1920" height="1799" alt="Image" src="https://github.com/user-attachments/assets/62dd5d21-d548-4b6d-98a5-6387a372b8c9" />
 [QR Checkin]<img width="1920" height="1899" alt="Image" src="https://github.com/user-attachments/assets/f2bdd244-a22a-48dc-94c8-eecb6d2d0c67" />
@@ -64,9 +64,9 @@ The first time the page loads may be a bit slow. Thank you for your understandin
 [Admin Event]<img width="1920" height="1120" alt="Image" src="https://github.com/user-attachments/assets/312814e6-a605-454d-b08a-dc37a27fb82e" />
 ---
 
-## ✨ Tính năng
+## Tính năng
 
-### 🌐 Trang chủ
+### Trang chủ
 - Hero banner với CTA nổi bật
 - Danh sách sự kiện nổi bật & sự kiện đề xuất
 - Lọc theo danh mục (Âm nhạc, Thể thao, Nghệ thuật...)
@@ -74,18 +74,18 @@ The first time the page loads may be a bit slow. Thank you for your understandin
 - Đánh giá từ khách hàng (testimonials)
 - Địa điểm phổ biến theo thành phố
 
-### 🔐 Xác thực
+### Xác thực
 - Đăng nhập / Đăng ký tài khoản
 - Đăng nhập nhanh với Google, Facebook, Apple
 - Bảo mật JWT token
 
-### 🎭 Sự kiện
+### Sự kiện
 - Tìm kiếm theo tên, nghệ sĩ, địa điểm
 - Lọc theo thành phố (TP.HCM, Hà Nội...)
 - Trang chi tiết: banner, mô tả, ngày giờ, địa điểm
 - Chọn loại vé (VIP, Early Bird...) và số lượng
 
-### 🛒 Đặt vé & Thanh toán (3 bước)
+### Đặt vé & Thanh toán (3 bước)
 - **Bước 1 — Thông tin:** Xem giỏ hàng, nhập thông tin người đặt
 - **Bước 2 — Thanh toán:** Chọn phương thức:
   - 💳 Thẻ tín dụng — Visa, Mastercard qua **Stripe**
@@ -93,7 +93,7 @@ The first time the page loads may be a bit slow. Thank you for your understandin
   - 📱 Ví MoMo qua **PayOS**
 - **Bước 3 — Hoàn tất:** Xác nhận đơn hàng, nhận E-Ticket
 
-### 👤 Trang cá nhân
+### Trang cá nhân
 - Thống kê: Đơn hàng, Vé đã mua, Tổng chi tiêu
 - Hệ thống hạng thành viên: Member → Silver → Gold (tích điểm qua mỗi vé)
 - Chỉnh sửa thông tin cá nhân
@@ -101,7 +101,7 @@ The first time the page loads may be a bit slow. Thank you for your understandin
 - **QR Check-in:** Hiển thị mã QR để quét vào cổng sự kiện
 - Tab Vé gần đây & Bảo mật tài khoản
 
-### 🔌 API Integration (Server Repo)
+### API Integration (Server Repo)
 - Authentication với JWT (login / register / logout)
 - Fetch danh sách events và chi tiết từ REST API
 - Tạo và quản lý orders qua API
@@ -110,35 +110,35 @@ The first time the page loads may be a bit slow. Thank you for your understandin
 
 ---
 
-## 🛠️ Admin Panel
+## Admin Panel
 
-### 📊 Dashboard
+### Dashboard
 - KPI cards: Tổng doanh thu, Đơn hàng, Vé đã bán, Sự kiện có doanh thu
 - Biểu đồ doanh thu theo từng sự kiện
 - Danh sách đơn hàng gần đây
 
-### 📈 Thống kê & Phân tích
+### Thống kê & Phân tích
 - Lọc dữ liệu theo: 7 ngày / 30 ngày / 90 ngày / Tất cả
 - Biểu đồ doanh thu theo ngày
 - Hiệu suất theo sự kiện: doanh thu, vé bán, tỷ lệ tham gia
 - Xuất báo cáo **CSV**
 
-### 🗓️ Quản lý sự kiện
+### Quản lý sự kiện
 - Tạo / Sửa / Xóa sự kiện
 - Thông tin: tên, mô tả, ngày, địa điểm, banner
 
-### 🎟️ Quản lý loại vé
+### Quản lý loại vé
 - Tạo nhiều loại vé cho mỗi sự kiện (VIP, Early Bird, Standard...)
 - Theo dõi: số lượng, đã bán, còn lại, trạng thái Bật/Tắt
 - Lọc theo sự kiện, trạng thái, sắp xếp theo giá
 
-### ✅ Check-in
+### Check-in
 - Quét mã QR hoặc nhập ID vé thủ công để xác minh
 - Thống kê real-time: Tổng vé / Đã check-in / Chờ vào / Vé hết hạn
 - Tiến độ tham gia theo %
 - Lịch sử vào cổng & Danh sách điểm danh có thể xuất file
 
-### 👥 Quản lý Users
+### Quản lý Users
 - Danh sách tất cả users với phân quyền (Admin / User)
 - Tìm kiếm theo tên, email, username
 - Tạo user mới / Sửa / Xóa
@@ -146,7 +146,7 @@ The first time the page loads may be a bit slow. Thank you for your understandin
 
 ---
 
-## 🚀 Tech Stack
+## Tech Stack
 
 | Technology | Purpose |
 |---|---|
@@ -159,7 +159,7 @@ The first time the page loads may be a bit slow. Thank you for your understandin
 
 ---
 
-## 🔐 Role-Based Access
+## Role-Based Access
 
 | Role | Quyền truy cập |
 |---|---|
@@ -181,15 +181,12 @@ VITE_STRIPE_PUBLIC_KEY=your_stripe_public_key
 ```
 
 ---
-
-## 👨‍💻 Tác giả
+## Tác giả
 
 **Tiêu Nhật Sang**
-- 📧 nhatsang58@gmail.com
-- 🐙 GitHub: [@nhatsang12](https://github.com/nhatsang12)
+- nhatsang58@gmail.com
+- GitHub: [@nhatsang12](https://github.com/nhatsang12)
 
 ---
 
-## 📄 License
 
-Project này được xây dựng cho mục đích học tập tại **HUTECH University** (2022 – nay).
