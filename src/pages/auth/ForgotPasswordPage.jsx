@@ -112,8 +112,7 @@ const ForgotPasswordPage = () => {
             {t('auth.signIn')}
           </Link>
         </div>
-        )}
-
+        
         {/* Back */}
         <div className="mt-6 text-center">
           <Link
