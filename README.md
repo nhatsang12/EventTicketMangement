@@ -183,9 +183,11 @@ Protected Routes tự động redirect người dùng chưa đăng nhập về t
 
 Tạo file `.env` tại thư mục gốc:
 ```env
-VITE_API_URL=http://localhost:3000
+VITE_API_URL=http://localhost:8000
 VITE_STRIPE_PUBLIC_KEY=your_stripe_public_key
 ```
+
+Với môi trường deploy (Vercel), bắt buộc set `VITE_API_URL` trỏ đúng backend production trong `Project Settings -> Environment Variables`, rồi redeploy frontend.
 
 ---
 
