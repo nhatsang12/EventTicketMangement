@@ -24,6 +24,14 @@ const fmtPrice = p =>
     ? 'Miễn phí'
     : new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(p);
 
+const fmtPercent = (value) => {
+  const safeValue = Number.isFinite(value) ? value : 0;
+  return `${safeValue.toLocaleString('vi-VN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}%`;
+};
+
 const fmtDate = d => {
   if (!d) return 'Chưa cập nhật';
   try { return format(new Date(d), 'EEEE, dd MMMM yyyy', { locale: vi }); }
@@ -41,6 +49,68 @@ const fmtTime = d => {
 const toNumber = (value, fallback = 0) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const getEntityId = (value) => {
+  if (!value) return null;
+  if (typeof value === 'string' || typeof value === 'number') return String(value);
+  if (typeof value === 'object') {
+    if (value.$oid) return String(value.$oid);
+    if (value._id) return getEntityId(value._id);
+    if (value.id) return String(value.id);
+  }
+  return null;
+};
+
+const extractTicketDescription = (ticket) => {
+  if (typeof ticket?.description === 'string' && ticket.description.trim()) return ticket.description.trim();
+  if (typeof ticket?.details === 'string' && ticket.details.trim()) return ticket.details.trim();
+  if (Array.isArray(ticket?.benefits) && ticket.benefits.length > 0) {
+    return ticket.benefits.map((item) => `- ${item}`).join('\n');
+  }
+  return '';
+};
+
+const normalizeTicketType = (ticket, fallbackEventId) => {
+  const ticketId = getEntityId(ticket?._id || ticket?.id || ticket?.ticketId);
+  const eventId = getEntityId(ticket?.event?._id || ticket?.event || ticket?.eventId || fallbackEventId);
+  return {
+    ...ticket,
+    _id: ticket?._id || ticket?.id || ticketId,
+    event: eventId,
+    description: extractTicketDescription(ticket),
+  };
+};
+
+const collectArrayPayload = (payload) => {
+  if (Array.isArray(payload?.data)) return payload.data;
+  if (Array.isArray(payload?.items)) return payload.items;
+  if (Array.isArray(payload?.ticketTypes)) return payload.ticketTypes;
+  if (Array.isArray(payload?.tickets)) return payload.tickets;
+  if (Array.isArray(payload)) return payload;
+  return [];
+};
+
+const fetchTicketTypesByEvent = async (eventId) => {
+  const attempts = [
+    `${API_URL}/api/ticket-types/event/${eventId}`,
+    `${API_URL}/api/ticket-types?event=${eventId}`,
+    `${API_URL}/api/tickets?event=${eventId}`,
+    `${API_URL}/api/tickets`,
+  ];
+
+  for (const url of attempts) {
+    try {
+      const res = await axios.get(url);
+      const rows = collectArrayPayload(res.data).map((ticket) => normalizeTicketType(ticket, eventId));
+      const filtered = rows.filter((ticket) => getEntityId(ticket?.event) === eventId);
+      if (filtered.length > 0) return filtered;
+      if (rows.length > 0 && url !== `${API_URL}/api/tickets`) return rows;
+    } catch {
+      // try next endpoint
+    }
+  }
+  return [];
 };
 
 const getTicketAvailability = (ticket) => {
@@ -65,7 +135,7 @@ const getTicketAvailability = (ticket) => {
 
   remaining = Math.max(0, Math.min(quantity || remaining, remaining));
   const soldCount = sold ?? Math.max(0, quantity - remaining);
-  const pct = quantity ? Math.min(100, Math.round((soldCount / quantity) * 100)) : 0;
+  const pct = quantity ? Math.min(100, (soldCount / quantity) * 100) : 0;
 
   return { quantity, sold: soldCount, remaining, pct };
 };
@@ -77,6 +147,27 @@ const getStatusInfo = s => ({
   cancelled: { label: 'Đã huỷ',      color: '#ef4444', bg: 'rgba(239,68,68,0.12)'  },
   ended:     { label: 'Đã kết thúc', color: '#6b7280', bg: 'rgba(107,114,128,0.12)'},
 }[s] || { label: 'Đang mở bán', color: '#10b981', bg: 'rgba(16,185,129,0.12)' });
+
+const getFavoriteStorageKey = (user) => {
+  const userKey = user?._id || user?.email || 'guest';
+  return `favorite-events-${String(userKey)}`;
+};
+
+const getFavoriteEventId = (item) => getEntityId(item?._id || item?.id || item?.eventId);
+
+const readFavorites = (user) => {
+  try {
+    const raw = localStorage.getItem(getFavoriteStorageKey(user));
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+const writeFavorites = (user, favorites) => {
+  localStorage.setItem(getFavoriteStorageKey(user), JSON.stringify(favorites));
+};
 
 // FIX: Be Vietnam Pro TRƯỚC Clash Display
 // Clash Display không có glyph tiếng Việt → đặt trước sẽ gây dính chữ
@@ -157,7 +248,7 @@ const ConflictModal = ({ cartEventName, onCancel, onConfirm }) => (
 const EventDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, user } = useAuthStore();
   const { addItem, clearCart } = useCartStore();
   const cartEvent = useCartStore(state => state.event);
 
@@ -170,19 +261,27 @@ const EventDetailPage = () => {
 
   useEffect(() => { fetchEventDetails(); }, [id]);
 
+  useEffect(() => {
+    if (!event || !isAuthenticated || !user) {
+      setWishlisted(false);
+      return;
+    }
+    const eventId = getEntityId(event?._id || event?.id);
+    const favorites = readFavorites(user);
+    const isFavorited = favorites.some((item) => getFavoriteEventId(item) === eventId);
+    setWishlisted(isFavorited);
+  }, [event, isAuthenticated, user]);
+
   const fetchEventDetails = async () => {
     try {
       setLoading(true);
       const eventRes = await axios.get(`${API_URL}/api/events`);
       const allEvents = eventRes.data?.data || eventRes.data || [];
-      const currentEvent = allEvents.find(e => e._id === id);
+      const currentEvent = allEvents.find(e => getEntityId(e?._id || e?.id) === id);
       if (!currentEvent) { setEventData(null); setLoading(false); return; }
 
-      const ticketRes = await axios.get(`${API_URL}/api/tickets`);
-      const allTickets = ticketRes.data?.data || ticketRes.data || [];
-      const eventTickets = allTickets.filter(t => (t.event?._id || t.event) === id);
-
       setEventData(currentEvent);
+      const eventTickets = await fetchTicketTypesByEvent(id);
       setTicketTypes(eventTickets);
     } catch (err) {
       console.error(err);
@@ -239,6 +338,45 @@ const EventDetailPage = () => {
     doAddToCart();
   };
 
+  const toggleFavorite = () => {
+    if (!isAuthenticated || !user) {
+      toast.error('Vui lòng đăng nhập để thêm yêu thích');
+      navigate('/login');
+      return;
+    }
+
+    const eventId = getEntityId(event?._id || event?.id);
+    if (!eventId) {
+      toast.error('Không thể thêm yêu thích cho sự kiện này');
+      return;
+    }
+
+    const favorites = readFavorites(user);
+    const existed = favorites.some((item) => getFavoriteEventId(item) === eventId);
+
+    if (existed) {
+      const nextFavorites = favorites.filter((item) => getFavoriteEventId(item) !== eventId);
+      writeFavorites(user, nextFavorites);
+      setWishlisted(false);
+      toast.success('Đã bỏ khỏi yêu thích');
+      return;
+    }
+
+    const favoriteItem = {
+      _id: event._id || event.id || eventId,
+      title: event.title || '',
+      image: event.image || '',
+      startDate: event.startDate || null,
+      location: event.location || '',
+      category: event.category || '',
+      addedAt: new Date().toISOString(),
+    };
+
+    writeFavorites(user, [...favorites, favoriteItem]);
+    setWishlisted(true);
+    toast.success('Đã thêm vào yêu thích');
+  };
+
   const getTotalPrice = () =>
     Object.entries(selectedTickets).reduce((sum, [tid, qty]) => {
       const t = ticketTypes.find(t => t._id === tid);
@@ -280,7 +418,7 @@ const EventDetailPage = () => {
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg,rgba(6,6,6,0.6) 0%,transparent 50%,rgba(168,85,247,0.08) 100%)' }}/>
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right,rgba(6,6,6,0.4) 0%,transparent 60%)' }}/>
 
-        <button onClick={() => navigate(-1)}
+        <button onClick={() => navigate('/', { state: { scrollTo: 'all-events' } })}
           style={{ position: 'absolute', top: 50, left: 28, display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.8)', fontSize: 12, fontWeight: 700, padding: '8px 14px', borderRadius: 999, cursor: 'pointer', transition: 'all 0.2s', zIndex: 10 }}
           className="edp-back-btn">
           <ArrowLeft style={{ width: 13, height: 13 }}/> Quay lại
@@ -292,7 +430,7 @@ const EventDetailPage = () => {
             className="edp-icon-btn">
             <Share2 style={{ width: 14, height: 14 }}/>
           </button>
-          <button onClick={() => setWishlisted(v => !v)}
+          <button onClick={toggleFavorite}
             style={{ width: 38, height: 38, borderRadius: '50%', background: wishlisted ? 'rgba(239,68,68,0.2)' : 'rgba(0,0,0,0.45)', backdropFilter: 'blur(10px)', border: `1px solid ${wishlisted ? 'rgba(239,68,68,0.4)' : 'rgba(255,255,255,0.12)'}`, color: wishlisted ? '#f87171' : 'rgba(255,255,255,0.7)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.25s' }}>
             <Heart style={{ width: 14, height: 14, fill: wishlisted ? 'currentColor' : 'none' }}/>
           </button>
@@ -364,6 +502,54 @@ const EventDetailPage = () => {
             </div>
           </div>
 
+          {/* Ticket detail */}
+          <div style={{ background: 'linear-gradient(180deg,#1a1a1c 0%,#161618 100%)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 20, padding: '28px 30px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
+              <div style={{ width: 3, height: 20, background: 'linear-gradient(180deg,#f97316,#a855f7)', borderRadius: 2 }}/>
+              <h2 style={{ fontSize: 16, fontWeight: 800, color: 'white', fontFamily: FONT_VN, letterSpacing: '-0.01em' }}>Chi tiết hạng vé</h2>
+              <Ticket style={{ width: 14, height: 14, color: '#f97316' }}/>
+            </div>
+
+            {ticketTypes.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {ticketTypes.map((ticket) => {
+                  const { quantity, remaining, sold } = getTicketAvailability(ticket);
+                  const detail = (ticket.description || '').split('\n').map((line) => line.trim()).filter(Boolean);
+                  return (
+                    <div key={`detail-${ticket._id}`} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '14px 16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 8 }}>
+                        <div>
+                          <p style={{ fontSize: 13, fontWeight: 800, color: 'white', fontFamily: FONT_VN }}>{ticket.name}</p>
+                          <p style={{ fontSize: 12, fontWeight: 700, color: '#fb923c', marginTop: 2 }}>{fmtPrice(ticket.price)}</p>
+                        </div>
+                        <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', fontFamily: "'Space Mono',monospace", textAlign: 'right' }}>
+                          Đã bán {sold}/{quantity || sold} · Còn {remaining}
+                        </span>
+                      </div>
+                      {detail.length > 0 ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          {detail.map((line, index) => (
+                            <p key={`${ticket._id}-line-${index}`} style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', lineHeight: 1.65, fontFamily: "'Be Vietnam Pro',sans-serif" }}>
+                              {line}
+                            </p>
+                          ))}
+                        </div>
+                      ) : (
+                        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.38)', lineHeight: 1.65 }}>
+                          Quyền lợi của hạng vé này đang được cập nhật.
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.38)', lineHeight: 1.65 }}>
+                Chưa có thông tin chi tiết hạng vé cho sự kiện này.
+              </p>
+            )}
+          </div>
+
           {/* Badges */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }} className="edp-badge-grid">
             {[
@@ -414,7 +600,6 @@ const EventDetailPage = () => {
                               <Ticket style={{ width: 12, height: 12, color: '#f97316', flexShrink: 0 }}/>
                               <h3 style={{ fontSize: 13, fontWeight: 800, color: 'white', fontFamily: FONT_VN, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ticket.name}</h3>
                             </div>
-                            {ticket.description && <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', lineHeight: 1.5, marginBottom: 6, fontFamily: "'Be Vietnam Pro',sans-serif" }}>{ticket.description}</p>}
                             <p style={{ fontSize: 18, fontWeight: 900, background: 'linear-gradient(90deg,#f97316,#a855f7)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontFamily: FONT_VN, letterSpacing: '-0.01em' }}>
                               {fmtPrice(ticket.price)}
                             </p>
@@ -431,7 +616,7 @@ const EventDetailPage = () => {
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                               <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', fontFamily: "'Space Mono',monospace" }}>{remaining} vé còn lại</span>
-                              <span style={{ fontSize: 10, fontWeight: 700, color: pct >= 80 ? '#f87171' : 'rgba(255,255,255,0.25)', fontFamily: "'Space Mono',monospace" }}>{pct}% đã bán</span>
+                              <span style={{ fontSize: 10, fontWeight: 700, color: pct >= 80 ? '#f87171' : 'rgba(255,255,255,0.25)', fontFamily: "'Space Mono',monospace" }}>{fmtPercent(pct)} đã bán</span>
                             </div>
                           </div>
                         )}

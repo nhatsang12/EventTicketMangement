@@ -6,6 +6,7 @@ const ticketTypeSchema = new mongoose.Schema({
     ref: "Event",
   },
   name: String,
+  description: String,
   price: Number,
   quantity: Number,
   remaining: Number,

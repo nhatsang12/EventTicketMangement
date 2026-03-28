@@ -20,6 +20,7 @@ import CheckInPage from './pages/CheckInPage.jsx'
 import EventDetailPage from './pages/EventDetailPage.jsx'
 import PaymentSuccessPage from './pages/PaymentSuccessPage'
 import PaymentFail from './pages/PaymentFail'
+import FavoriteEventsPage from './pages/FavoriteEventsPage.jsx'
 
 function App() {
   return (
@@ -65,6 +66,14 @@ function App() {
           element={
             <ProtectedRoute>
               <ProfilePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="favorites"
+          element={
+            <ProtectedRoute>
+              <FavoriteEventsPage />
             </ProtectedRoute>
           }
         />

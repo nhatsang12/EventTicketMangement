@@ -5,7 +5,7 @@ import axios from 'axios';
 import API_URL from '../config/api';
 import {
   QrCode, CheckCircle, XCircle, Ticket, ArrowLeft, RefreshCw,
-  Clock, AlertTriangle, MapPin, Calendar, ArrowRight, Shield, Zap
+  Clock, AlertTriangle, MapPin, Calendar, ArrowRight, Shield, Zap, Search
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import toast from 'react-hot-toast';
@@ -21,11 +21,59 @@ const fmtDate = iso =>
   iso ? new Date(iso).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
 
 const normalizeStatus = value => String(value || '').trim().toLowerCase();
+const CHECKED_STATUS_SET = new Set(['used', 'checked', 'checked_in', 'checkedin', 'scanned', 'consumed']);
+
+const getEntityId = (value) => {
+  if (!value) return null;
+  if (typeof value === 'string' || typeof value === 'number') return String(value);
+  if (typeof value === 'object') {
+    if (value.$oid) return String(value.$oid);
+    if (value._id) return getEntityId(value._id);
+    if (value.id) return String(value.id);
+  }
+  return null;
+};
+
+const isTruthyLike = (value) => {
+  const normalized = normalizeStatus(value);
+  return value === true || value === 1 || normalized === 'true' || normalized === '1' || normalized === 'yes';
+};
 
 const isCancelledOrRefundedEvent = (eventStatus) => {
   const status = normalizeStatus(eventStatus);
   return ['cancelled', 'canceled', 'refunded', 'refund', 'refund_completed'].includes(status);
 };
+
+// ✅ Check nếu vé đã được check-in - nhận nhiều format backend khác nhau
+const isTicketCheckedIn = (ticket = {}) => {
+  const status = normalizeStatus(ticket.status || ticket.ticketStatus || ticket.checkinStatus);
+  return (
+    isTruthyLike(ticket.isCheckedIn) ||
+    isTruthyLike(ticket.checkedIn) ||
+    isTruthyLike(ticket.isUsed) ||
+    CHECKED_STATUS_SET.has(status) ||
+    !!(ticket.checkedInAt || ticket.checkInAt || ticket.usedAt || ticket.scannedAt)
+  );
+};
+
+const mapOrdersToTickets = (orders) =>
+  (Array.isArray(orders) ? orders : []).flatMap((order) =>
+    (Array.isArray(order?.tickets) ? order.tickets : []).map((ticket) => {
+      const id = getEntityId(ticket?._id || ticket?.id || ticket?.ticketId || ticket);
+      return {
+        ...(typeof ticket === 'object' ? ticket : {}),
+        id,
+        _id: ticket?._id || ticket?.id || ticket?.ticketId || id,
+        eventName: order?.event?.title || order?.event?.name,
+        eventLocation: order?.event?.location,
+        eventDate: order?.event?.startDate || order?.event?.date || null,
+        eventEndDate: order?.event?.endDate || null,
+        eventStatus: order?.event?.status || null,
+        orderId: getEntityId(order?._id || order?.id),
+        checkedInAt: ticket?.checkedInAt || ticket?.checkInAt || ticket?.usedAt || ticket?.scannedAt || null,
+      };
+    })
+  ).filter((ticket) => ticket.id);
 
 const getDateStatus = (eventDate, eventEndDate, eventStatus) => {
   if (isCancelledOrRefundedEvent(eventStatus)) return 'cancelled';
@@ -69,6 +117,18 @@ const CheckInPage = () => {
   const [scanResult, setScanResult]     = useState(null);
   const [scanning, setScanning]         = useState(false);
   const [scanMessage, setScanMessage]   = useState('');
+  const [search, setSearch]             = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
+
+  const syncTicketState = (nextTickets) => {
+    setTickets(nextTickets);
+    setSelectedTicket((prev) => {
+      if (!prev) return null;
+      const prevId = getEntityId(prev?.id || prev?._id || prev?.ticketId);
+      if (!prevId) return null;
+      return nextTickets.find((ticket) => ticket.id === prevId) || null;
+    });
+  };
 
   const fetchTickets = async () => {
     try {
@@ -76,18 +136,7 @@ const CheckInPage = () => {
       const config = { headers: { Authorization: `Bearer ${token}` } };
       const res = await axios.get(`${API_URL}/api/orders/my-orders`, config);
       const orders = res.data?.data || res.data || [];
-      const allTickets = orders.flatMap(o =>
-        (o.tickets || []).map(t => ({
-          ...t,
-          eventName:     o.event?.title || o.event?.name,
-          eventLocation: o.event?.location,
-          eventDate:     o.event?.startDate || o.event?.date || null,
-          eventEndDate:  o.event?.endDate || null,
-          eventStatus:   o.event?.status || null,
-          orderId:       o._id,
-        }))
-      );
-      setTickets(allTickets);
+      syncTicketState(mapOrdersToTickets(orders));
     } catch {
       toast.error('Không thể tải danh sách vé');
     } finally {
@@ -105,18 +154,7 @@ const CheckInPage = () => {
         const config = { headers: { Authorization: `Bearer ${token}` } };
         const res = await axios.get(`${API_URL}/api/orders/my-orders`, config);
         const orders = res.data?.data || res.data || [];
-        const allTickets = orders.flatMap(o =>
-          (o.tickets || []).map(t => ({
-            ...t,
-            eventName:     o.event?.title || o.event?.name,
-            eventLocation: o.event?.location,
-            eventDate:     o.event?.startDate || o.event?.date || null,
-            eventEndDate:  o.event?.endDate || null,
-            eventStatus:   o.event?.status || null,
-            orderId:       o._id,
-          }))
-        );
-        setTickets(allTickets);
+        syncTicketState(mapOrdersToTickets(orders));
       } catch (err) {
         // Lỗi polling - không hiển thị, chỉ bỏ qua
       }
@@ -135,14 +173,9 @@ const CheckInPage = () => {
       const config = { headers: { Authorization: `Bearer ${token}` } };
       const freshRes = await axios.get(`${API_URL}/api/orders/my-orders`, config);
       const freshOrders = freshRes.data?.data || freshRes.data || [];
-      const freshTicket = freshOrders.flatMap(o =>
-        (o.tickets || []).filter(t => t._id === ticket._id).map(t => ({
-          ...t,
-          eventDate: o.event?.startDate || o.event?.date || null,
-          eventEndDate: o.event?.endDate || null,
-          eventStatus: o.event?.status || null,
-        }))
-      )[0];
+      const freshTickets = mapOrdersToTickets(freshOrders);
+      const targetId = getEntityId(ticket?.id || ticket?._id || ticket?.ticketId);
+      const freshTicket = freshTickets.find((ticketItem) => ticketItem.id === targetId);
       
       if (!freshTicket) {
         setScanResult('error');
@@ -152,10 +185,10 @@ const CheckInPage = () => {
       }
       
       // Kiểm tra nếu vé đã check-in từ admin hay bên khác
-      if (freshTicket.isCheckedIn || freshTicket.status === 'used' || freshTicket.status === 'checked') {
+      if (isTicketCheckedIn(freshTicket)) {
         setScanResult('used');
         setScanMessage('Vé này đã được check-in rồi!');
-        setTickets(prev => prev.map(t => t._id === ticket._id ? { ...freshTicket } : t));
+        syncTicketState(freshTickets);
         setScanning(false);
         return;
       }
@@ -182,13 +215,21 @@ const CheckInPage = () => {
       }
       
       // Tiến hành check-in
-      const payload = { qrCode: freshTicket.qrCode || freshTicket._id };
+      const payload = { qrCode: freshTicket.qrCode || freshTicket.id };
       const res = await axios.post(`${API_URL}/api/admin/ticket-types/checkin`, payload, config);
       if (res.data.success) {
+        const checkedInAt = new Date().toISOString();
+        const updatedTicket = {
+          ...freshTicket,
+          isCheckedIn: true,
+          checkedIn: true,
+          status: 'checked',
+          checkedInAt,
+        };
         setScanResult('success');
         setScanMessage(res.data.message);
-        setTickets(prev => prev.map(t => t._id === ticket._id ? { ...t, isCheckedIn: true } : t));
-        setSelectedTicket(prev => prev ? { ...prev, isCheckedIn: true } : prev);
+        setTickets(prev => prev.map(t => t.id === updatedTicket.id ? { ...t, ...updatedTicket } : t));
+        setSelectedTicket(prev => prev && prev.id === updatedTicket.id ? { ...prev, ...updatedTicket } : prev);
         // Gọi lại để cập nhật dữ liệu từ server
         setTimeout(() => fetchTickets(), 1000);
       }
@@ -196,12 +237,48 @@ const CheckInPage = () => {
       const msg = error.response?.data?.message || 'Có lỗi xảy ra khi quét vé';
       setScanResult(msg.includes('ĐÃ ĐƯỢC SỬ DỤNG') || msg.toLowerCase().includes('used') ? 'used' : 'error');
       setScanMessage(msg);
+      if (msg.toLowerCase().includes('đã sử dụng') || msg.toLowerCase().includes('used')) {
+        setTimeout(() => fetchTickets(), 500);
+      }
     } finally {
       setScanning(false);
     }
   };
 
   const resetScan = () => { setScanResult(null); setSelectedTicket(null); };
+
+  const normalizedSearch = search.trim().toLowerCase();
+  const ticketStats = tickets.reduce((acc, ticket) => {
+    const dateStatus = getDateStatus(ticket.eventDate, ticket.eventEndDate, ticket.eventStatus);
+    const used = isTicketCheckedIn(ticket);
+    if (used) acc.used += 1;
+    else if (dateStatus === 'today') acc.today += 1;
+    else if (dateStatus === 'upcoming') acc.upcoming += 1;
+    else if (dateStatus === 'expired') acc.expired += 1;
+    else if (dateStatus === 'cancelled') acc.cancelled += 1;
+    return acc;
+  }, { today: 0, used: 0, upcoming: 0, expired: 0, cancelled: 0 });
+
+  const filteredTickets = tickets.filter((ticket) => {
+    const dateStatus = getDateStatus(ticket.eventDate, ticket.eventEndDate, ticket.eventStatus);
+    const used = isTicketCheckedIn(ticket);
+    const ticketStatus = used ? 'used' : dateStatus;
+
+    const matchSearch =
+      !normalizedSearch ||
+      String(ticket.id || '').toLowerCase().includes(normalizedSearch) ||
+      String(ticket.qrCode || '').toLowerCase().includes(normalizedSearch) ||
+      String(ticket.eventName || '').toLowerCase().includes(normalizedSearch) ||
+      String(ticket.eventLocation || '').toLowerCase().includes(normalizedSearch) ||
+      String(ticket.ticketType?.name || '').toLowerCase().includes(normalizedSearch);
+
+    const matchFilter =
+      filterStatus === 'all' ||
+      (filterStatus === 'available' && !used && dateStatus === 'today') ||
+      ticketStatus === filterStatus;
+
+    return matchSearch && matchFilter;
+  });
 
   if (loading) return <LoadingScreen />;
 
@@ -214,7 +291,7 @@ const CheckInPage = () => {
   }[status] || {});
 
   const ticketBadge = (ticket, dateStatus) => {
-    if (ticket.isCheckedIn) return { label: 'Đã dùng', color: 'rgba(255,255,255,0.3)', bg: 'rgba(255,255,255,0.05)', border: 'rgba(255,255,255,0.09)' };
+    if (isTicketCheckedIn(ticket)) return { label: 'Đã dùng', color: 'rgba(255,255,255,0.3)', bg: 'rgba(255,255,255,0.05)', border: 'rgba(255,255,255,0.09)' };
     if (dateStatus === 'cancelled') return { label: 'Đã hủy', color: '#f87171', bg: 'rgba(248,113,113,0.1)', border: 'rgba(248,113,113,0.25)' };
     if (dateStatus === 'expired')  return { label: 'Hết hạn',  color: '#f87171', bg: 'rgba(248,113,113,0.1)', border: 'rgba(248,113,113,0.25)' };
     if (dateStatus === 'upcoming') return { label: 'Chưa tới', color: '#60a5fa', bg: 'rgba(96,165,250,0.1)',  border: 'rgba(96,165,250,0.25)'  };
@@ -267,7 +344,7 @@ const CheckInPage = () => {
                   </div>
                   <p style={{ fontSize: 18, fontWeight: 900, color: 'white', fontFamily: "'Clash Display','Be Vietnam Pro',sans-serif", marginBottom: 6 }}>Check-in thành công!</p>
                   <p style={{ fontSize: 12, color: '#34d399', fontFamily: "'Be Vietnam Pro',sans-serif", marginBottom: 8 }}>{scanMessage || 'Chào mừng! Bạn đã vào sự kiện.'}</p>
-                  <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)', fontFamily: "'Space Mono',monospace" }}>{selectedTicket?._id}</p>
+                  <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)', fontFamily: "'Space Mono',monospace" }}>{selectedTicket?.id || selectedTicket?._id}</p>
                 </>
               ) : scanResult === 'date_error' || scanResult === 'cancelled' ? (
                 <>
@@ -320,28 +397,76 @@ const CheckInPage = () => {
                   <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', fontFamily: "'Be Vietnam Pro',sans-serif" }}>Chọn một vé bên dưới để giả lập máy quét QR của bảo vệ</p>
                 </div>
 
-                {tickets.map(ticket => {
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 10, marginBottom: 6 }}>
+                  <div style={{ position: 'relative' }}>
+                    <Search style={{ width: 13, height: 13, color: 'rgba(255,255,255,0.35)', position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)' }} />
+                    <input
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      placeholder="Tìm theo sự kiện, ID vé, loại vé..."
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px 10px 32px',
+                        borderRadius: 10,
+                        border: '1px solid rgba(255,255,255,0.12)',
+                        background: 'rgba(255,255,255,0.04)',
+                        color: 'white',
+                        fontSize: 12,
+                        fontFamily: "'Be Vietnam Pro',sans-serif",
+                        outline: 'none',
+                      }}
+                    />
+                  </div>
+                  <select
+                    value={filterStatus}
+                    onChange={(e) => setFilterStatus(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      borderRadius: 10,
+                      border: '1px solid rgba(255,255,255,0.12)',
+                      background: 'rgba(255,255,255,0.04)',
+                      color: 'white',
+                      fontSize: 12,
+                      fontFamily: "'Be Vietnam Pro',sans-serif",
+                      outline: 'none',
+                    }}>
+                    <option value="all" style={{ color: 'black' }}>Tất cả ({tickets.length})</option>
+                    <option value="available" style={{ color: 'black' }}>Có thể vào ({ticketStats.today})</option>
+                    <option value="used" style={{ color: 'black' }}>Đã check-in ({ticketStats.used})</option>
+                    <option value="upcoming" style={{ color: 'black' }}>Chưa tới ({ticketStats.upcoming})</option>
+                    <option value="expired" style={{ color: 'black' }}>Hết hạn ({ticketStats.expired})</option>
+                    <option value="cancelled" style={{ color: 'black' }}>Đã hủy ({ticketStats.cancelled})</option>
+                  </select>
+                </div>
+
+                {filteredTickets.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '28px 16px', background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(255,255,255,0.08)', borderRadius: 14 }}>
+                    <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', fontFamily: "'Be Vietnam Pro',sans-serif", marginBottom: 3 }}>Không có vé phù hợp bộ lọc</p>
+                    <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.22)', fontFamily: "'Be Vietnam Pro',sans-serif" }}>Thử đổi trạng thái lọc hoặc từ khóa tìm kiếm.</p>
+                  </div>
+                ) : filteredTickets.map(ticket => {
                   const dateStatus = getDateStatus(ticket.eventDate, ticket.eventEndDate, ticket.eventStatus);
-                  const isSelected = selectedTicket?._id === ticket._id;
+                  const isSelected = selectedTicket?.id === ticket.id;
                   const db = dateBadge(dateStatus);
                   const tb = ticketBadge(ticket, dateStatus);
-                  const canCheckIn = !ticket.isCheckedIn && dateStatus === 'today';
+                  const canCheckIn = !isTicketCheckedIn(ticket) && dateStatus === 'today';
 
                   return (
-                    <div key={ticket._id}
+                    <div key={ticket.id}
                       onClick={() => !scanning && setSelectedTicket(isSelected ? null : ticket)}
                       style={{
                         background: isSelected ? 'linear-gradient(180deg,#201e1c 0%,#1a1818 100%)' : 'linear-gradient(180deg,#1e1e20 0%,#18181a 100%)',
                         border: isSelected ? '1px solid rgba(249,115,22,0.4)' : '1px solid rgba(255,255,255,0.08)',
                         borderRadius: 18, overflow: 'hidden', cursor: 'pointer', transition: 'all 0.25s',
                         boxShadow: isSelected ? '0 8px 32px rgba(249,115,22,0.12), 0 0 0 1px rgba(249,115,22,0.1)' : '0 4px 20px rgba(0,0,0,0.4)',
-                        opacity: ticket.isCheckedIn && !isSelected ? 0.6 : 1,
+                        opacity: isTicketCheckedIn(ticket) && !isSelected ? 0.6 : 1,
                       }}
                       className="cip-ticket-card">
 
                       <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px' }}>
                         <div style={{ width: 52, height: 52, borderRadius: 12, background: 'white', padding: 4, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <img src={getQRCodeImage(ticket.qrCode || ticket._id)} alt="QR" style={{ width: '100%', height: '100%', borderRadius: 8, display: 'block' }}/>
+                          <img src={getQRCodeImage(ticket.qrCode || ticket.id)} alt="QR" style={{ width: '100%', height: '100%', borderRadius: 8, display: 'block' }}/>
                         </div>
 
                         <div style={{ flex: 1, minWidth: 0 }}>
@@ -363,10 +488,10 @@ const CheckInPage = () => {
                         </span>
                       </div>
 
-                      {isSelected && !ticket.isCheckedIn && (
+                      {isSelected && !isTicketCheckedIn(ticket) && (
                         <div style={{ borderTop: '1px solid rgba(249,115,22,0.15)', background: 'rgba(249,115,22,0.03)', padding: '24px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
                           <div style={{ background: 'white', borderRadius: 16, padding: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.4)', display: 'inline-block' }}>
-                            <img src={getQRCodeImage(ticket.qrCode || ticket._id)} alt="QR" style={{ width: 160, height: 160, display: 'block', borderRadius: 8 }}/>
+                            <img src={getQRCodeImage(ticket.qrCode || ticket.id)} alt="QR" style={{ width: 160, height: 160, display: 'block', borderRadius: 8 }}/>
                           </div>
 
                           {dateStatus === 'upcoming' && (
@@ -416,11 +541,11 @@ const CheckInPage = () => {
                               <><QrCode style={{ width: 14, height: 14 }}/> Bấm để Check-in vé này</>
                             )}
                           </button>
-                          <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.15)', fontFamily: "'Space Mono',monospace" }}>ID: {ticket._id}</p>
+                          <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.15)', fontFamily: "'Space Mono',monospace" }}>ID: {ticket.id}</p>
                         </div>
                       )}
 
-                      {isSelected && ticket.isCheckedIn && (
+                      {isSelected && isTicketCheckedIn(ticket) && (
                         <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: 'rgba(0,0,0,0.1)' }}>
                           <XCircle style={{ width: 14, height: 14, color: 'rgba(255,255,255,0.2)' }}/>
                           <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', fontFamily: "'Be Vietnam Pro',sans-serif", fontWeight: 600 }}>Vé này đã được sử dụng</p>

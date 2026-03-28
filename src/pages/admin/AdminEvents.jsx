@@ -11,27 +11,26 @@ const emptyForm = { title: '', description: '', date: '', time: '19:00', endDate
 const emptyTicketRow = () => ({ name: '', price: '', quantity: '', description: '', isActive: true });
 const categories = ['Âm nhạc', 'Công nghệ', 'Thể thao', 'Nghệ thuật', 'Ẩm thực', 'Giáo dục', 'Khác'];
 const statusOptions = [
-  { value: 'all',       label: 'Tất cả trạng thái' },
-  { value: 'active',    label: 'Đang mở' },
-  { value: 'draft',     label: 'Nháp' },
+  { value: 'all', label: 'Tất cả trạng thái' },
+  { value: 'active', label: 'Đang mở' },
+  { value: 'draft', label: 'Nháp' },
   { value: 'cancelled', label: 'Đã hủy' },
-  { value: 'refunded',  label: 'Đã hoàn tiền' },
-  { value: 'ended',     label: 'Đã kết thúc' },
+  { value: 'refunded', label: 'Đã hoàn tiền' },
+  { value: 'ended', label: 'Đã kết thúc' },
 ];
 const dateFilterOptions = [
-  { value: 'all',       label: 'Tất cả ngày' },
-  { value: 'today',     label: 'Hôm nay' },
-  { value: 'thisWeek',  label: 'Tuần này' },
+  { value: 'all', label: 'Tất cả ngày' },
+  { value: 'today', label: 'Hôm nay' },
+  { value: 'thisWeek', label: 'Tuần này' },
   { value: 'thisMonth', label: 'Tháng này' },
-  { value: 'custom',    label: 'Tùy chỉnh' },
+  { value: 'custom', label: 'Tùy chỉnh' },
 ];
 
 const todayStr = () => {
   const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
-// Chuyển giờ local → UTC ISO string để gửi lên server
 const toLocalISO = (dateStr, timeStr) => {
   if (!dateStr) return null;
   const t = timeStr && timeStr.length === 5 ? timeStr : '00:00';
@@ -40,10 +39,9 @@ const toLocalISO = (dateStr, timeStr) => {
   return d.toISOString();
 };
 
-// Đọc local time từ Date object (tránh toISOString() trả về UTC)
 const toLocalDateStr = (d) => {
   const pad = n => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 };
 const toLocalTimeStr = (d) => {
   const pad = n => String(n).padStart(2, '0');
@@ -52,11 +50,11 @@ const toLocalTimeStr = (d) => {
 
 const getStatusBadge = (status) => {
   const map = {
-    active:    { cls: 'bg-emerald-100 text-emerald-700', label: 'Đang mở' },
-    ended:     { cls: 'bg-gray-100 text-gray-500',       label: 'Đã kết thúc' },
-    draft:     { cls: 'bg-yellow-100 text-yellow-700',   label: 'Nháp' },
-    cancelled: { cls: 'bg-red-100 text-red-600',         label: 'Đã hủy' },
-    refunded:  { cls: 'bg-blue-100 text-blue-700',       label: 'Đã hoàn tiền' },
+    active: { cls: 'bg-emerald-100 text-emerald-700', label: 'Đang mở' },
+    ended: { cls: 'bg-gray-100 text-gray-500', label: 'Đã kết thúc' },
+    draft: { cls: 'bg-yellow-100 text-yellow-700', label: 'Nháp' },
+    cancelled: { cls: 'bg-red-100 text-red-600', label: 'Đã hủy' },
+    refunded: { cls: 'bg-blue-100 text-blue-700', label: 'Đã hoàn tiền' },
   };
   return map[status] || map['active'];
 };
@@ -135,7 +133,7 @@ const getSoldTicketsCount = (event, orderStats) => {
 
 const createEventCancelAttempts = (eventId, reason) => [
   { method: 'post', url: `${API_URL}/api/admin/events/${eventId}/cancel-refund`, data: { reason } },
-  { method: 'put',  url: `${API_URL}/api/admin/events/${eventId}`, data: { status: 'cancelled', reason } },
+  { method: 'put', url: `${API_URL}/api/admin/events/${eventId}`, data: { status: 'cancelled', reason } },
 ];
 
 const createEventStatusAttempts = (eventId, reason) => [
@@ -167,26 +165,48 @@ const runApiAttempts = async (attempts, config) => {
   return { ok: false, error: lastError };
 };
 
+// Tắt toàn bộ ticket types của một event (gọi sau khi event bị hủy/xóa)
+const disableEventTickets = async (eventId, accessToken) => {
+  if (!eventId) return;
+  try {
+    const config = { headers: { Authorization: `Bearer ${accessToken}` } };
+    const tcRes = await axios.get(`${API_URL}/api/admin/ticket-types/`, config);
+    const allTickets = Array.isArray(tcRes.data?.data) ? tcRes.data.data : tcRes.data || [];
+    const eventTickets = allTickets.filter(t => {
+      const tid = t?.event?._id || t?.event;
+      return String(tid) === String(eventId) && t.isActive !== false;
+    });
+    if (eventTickets.length === 0) return;
+    await Promise.allSettled(
+      eventTickets.map(t =>
+        axios.put(`${API_URL}/api/admin/ticket-types/${t._id}`, { isActive: false }, config)
+      )
+    );
+  } catch {
+    // Không làm crash flow chính nếu lỗi disable ticket
+  }
+};
+
 const AdminEvents = () => {
-  const [events, setEvents]                   = useState([]);
-  const [search, setSearch]                   = useState('');
-  const [categoryFilter, setCategoryFilter]   = useState('all');
-  const [statusFilter, setStatusFilter]       = useState('all');
-  const [dateFilter, setDateFilter]           = useState('all');
+  const [events, setEvents] = useState([]);
+  const [search, setSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [dateFilter, setDateFilter] = useState('all');
   const [customStartDate, setCustomStartDate] = useState('');
-  const [customEndDate, setCustomEndDate]     = useState('');
-  const [locationFilter, setLocationFilter]   = useState('');
-  const [showForm, setShowForm]               = useState(false);
-  const [ticketRows, setTicketRows]           = useState([emptyTicketRow()]);
-  const [editing, setEditing]                 = useState(null);
-  const [form, setForm]                       = useState(emptyForm);
-  const [deleteConfirm, setDeleteConfirm]     = useState(null);
-  const [refundTarget, setRefundTarget]       = useState(null);
-  const [refundReason, setRefundReason]       = useState('');
-  const [refundLoading, setRefundLoading]     = useState(false);
+  const [customEndDate, setCustomEndDate] = useState('');
+  const [locationFilter, setLocationFilter] = useState('');
+  const [showForm, setShowForm] = useState(false);
+  const [ticketRows, setTicketRows] = useState([emptyTicketRow()]);
+  const [editing, setEditing] = useState(null);
+  const [form, setForm] = useState(emptyForm);
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [refundTarget, setRefundTarget] = useState(null);
+  const [refundReason, setRefundReason] = useState('');
+  const [refundLoading, setRefundLoading] = useState(false);
   const [eventOrderStats, setEventOrderStats] = useState({});
-  const [loading, setLoading]                 = useState(false);
-  const [currentPage, setCurrentPage]         = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const fileRef = useRef();
   const { accessToken } = useAuthStore();
@@ -278,6 +298,9 @@ const AdminEvents = () => {
         }
       }
 
+      // ✅ Tự động tắt toàn bộ ticket types của event vừa bị hủy
+      await disableEventTickets(eventId, accessToken);
+
       await fetchEvents();
       closeRefundModal();
       setShowForm(false);
@@ -285,11 +308,11 @@ const AdminEvents = () => {
       setForm(emptyForm);
 
       if (impactedOrders === 0) {
-        toast.success('Đã hủy sự kiện. Không có đơn cần hoàn tiền.');
+        toast.success('Đã hủy sự kiện và tắt toàn bộ vé. Không có đơn cần hoàn tiền.');
         return;
       }
       if (refundedCount >= impactedOrders) {
-        toast.success(`Đã hủy sự kiện và hoàn tiền thành công ${refundedCount}/${impactedOrders} đơn.`);
+        toast.success(`Đã hủy sự kiện, tắt toàn bộ vé và hoàn tiền thành công ${refundedCount}/${impactedOrders} đơn.`);
         return;
       }
       if (refundedCount > 0) {
@@ -337,27 +360,22 @@ const AdminEvents = () => {
     try {
       setLoading(true);
       const config = { headers: { Authorization: `Bearer ${accessToken}` } };
-      // Tính trước các giá trị date
       const startDateTime = toLocalISO(form.date, form.time || '19:00');
-      const endDateTime   = toLocalISO(form.endDate || form.date, form.endTime || '23:59');
+      const endDateTime = toLocalISO(form.endDate || form.date, form.endTime || '23:59');
 
-      // Tất cả text fields append TRƯỚC, image append SAU CÙNG
-      // Multer cần đọc hết text fields trước khi xử lý file upload
       const formData = new FormData();
-      formData.append('title',       form.title);
+      formData.append('title', form.title);
       formData.append('description', form.description || '');
-      formData.append('location',    form.location);
-      formData.append('category',    form.category || '');
-      formData.append('startDate',   startDateTime);
-      formData.append('endDate',     endDateTime);
+      formData.append('location', form.location);
+      formData.append('category', form.category || '');
+      formData.append('startDate', startDateTime);
+      formData.append('endDate', endDateTime);
 
-      // Nếu admin sửa và ngày kết thúc mới > hiện tại thì tự active lại
       if (editing !== null) {
         const newEnd = new Date(`${form.endDate || form.date}T${form.endTime || '23:59'}`);
         if (newEnd > new Date()) formData.append('status', 'active');
       }
 
-      // Image CUỐI CÙNG — đảm bảo multer đã parse hết text fields
       if (form.imageFile) formData.append('image', form.imageFile);
 
       const multipartConfig = { headers: { ...config.headers, 'Content-Type': 'multipart/form-data' } };
@@ -370,7 +388,6 @@ const AdminEvents = () => {
         const eventRes = await axios.post(`${API_URL}/api/admin/events/`, formData, multipartConfig);
         const newEventId = eventRes.data?.data?._id || eventRes.data?._id;
 
-        // Tạo loại vé nếu có
         const validTickets = ticketRows.filter(r => r.name.trim() && Number(r.price) >= 0 && Number(r.quantity) > 0);
         if (newEventId && validTickets.length > 0) {
           const ticketResults = await Promise.allSettled(
@@ -416,7 +433,6 @@ const AdminEvents = () => {
     if (ev.startDate) {
       const d = new Date(ev.startDate);
       if (!isNaN(d.getTime())) {
-        // Dùng local time, không dùng toISOString() (UTC)
         dateStr = toLocalDateStr(d);
         timeStr = toLocalTimeStr(d);
       }
@@ -426,7 +442,6 @@ const AdminEvents = () => {
     if (ev.endDate) {
       const ed = new Date(ev.endDate);
       if (!isNaN(ed.getTime())) {
-        // Dùng local time, không dùng toISOString() (UTC)
         endDateStr = toLocalDateStr(ed);
         endTimeStr = toLocalTimeStr(ed);
       }
@@ -456,8 +471,12 @@ const AdminEvents = () => {
     try {
       const config = { headers: { Authorization: `Bearer ${accessToken}` } };
       const eventId = events[i]._id;
+
+      // ✅ Tắt toàn bộ ticket types trước khi xóa event
+      await disableEventTickets(eventId, accessToken);
+
       await axios.delete(`${API_URL}/api/admin/events/${eventId}`, config);
-      toast.success('Đã xóa sự kiện');
+      toast.success('Đã xóa sự kiện và tắt toàn bộ vé liên quan');
       fetchEvents();
       setDeleteConfirm(null);
     } catch {
@@ -475,27 +494,27 @@ const AdminEvents = () => {
   };
 
   const filtered = events.filter(e => {
-    const matchSearch   = e.title?.toLowerCase().includes(search.toLowerCase());
+    const matchSearch = e.title?.toLowerCase().includes(search.toLowerCase());
     const matchCategory = categoryFilter === 'all' || e.category === categoryFilter;
-    const matchStatus   = statusFilter === 'all' || e.status === statusFilter;
+    const matchStatus = statusFilter === 'all' || e.status === statusFilter;
     const matchLocation = locationFilter === '' || e.location?.toLowerCase().includes(locationFilter.toLowerCase());
     let matchDate = true;
     if (dateFilter !== 'all') {
       if (!e.startDate) { matchDate = false; } else {
         const eventDate = new Date(e.startDate);
-        const now = new Date(); now.setHours(0,0,0,0);
+        const now = new Date(); now.setHours(0, 0, 0, 0);
         if (dateFilter === 'today') {
-          const todayEnd = new Date(now); todayEnd.setDate(todayEnd.getDate()+1);
+          const todayEnd = new Date(now); todayEnd.setDate(todayEnd.getDate() + 1);
           matchDate = eventDate >= now && eventDate < todayEnd;
         } else if (dateFilter === 'thisWeek') {
-          const weekEnd = new Date(now); weekEnd.setDate(weekEnd.getDate()+7);
+          const weekEnd = new Date(now); weekEnd.setDate(weekEnd.getDate() + 7);
           matchDate = eventDate >= now && eventDate <= weekEnd;
         } else if (dateFilter === 'thisMonth') {
-          const monthEnd = new Date(now.getFullYear(), now.getMonth()+1, 0);
+          const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
           matchDate = eventDate >= now && eventDate <= monthEnd;
         } else if (dateFilter === 'custom' && customStartDate && customEndDate) {
           const start = new Date(customStartDate);
-          const end = new Date(customEndDate); end.setHours(23,59,59,999);
+          const end = new Date(customEndDate); end.setHours(23, 59, 59, 999);
           matchDate = eventDate >= start && eventDate <= end;
         }
       }
@@ -503,17 +522,17 @@ const AdminEvents = () => {
     return matchSearch && matchCategory && matchStatus && matchLocation && matchDate;
   });
 
-  const totalPages      = Math.ceil(filtered.length / ITEMS_PER_PAGE);
-  const startIndex      = (currentPage - 1) * ITEMS_PER_PAGE;
+  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const paginatedEvents = filtered.slice(startIndex, startIndex + ITEMS_PER_PAGE);
   const goToPage = (page) => { if (page >= 1 && page <= totalPages) setCurrentPage(page); };
 
   const inputCls = 'w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-orange-400 focus:bg-white transition-all';
 
   const now = new Date();
-  const endedCount  = events.filter(e =>
+  const endedCount = events.filter(e =>
     e.status === 'ended' || e.status === 'cancelled' || e.status === 'refunded' ||
-    (e.endDate ? new Date(e.endDate) < now : e.startDate && (() => { const d = new Date(e.startDate); d.setHours(23,59,59,999); return d < now; })())
+    (e.endDate ? new Date(e.endDate) < now : e.startDate && (() => { const d = new Date(e.startDate); d.setHours(23, 59, 59, 999); return d < now; })())
   ).length;
   const activeCount = events.length - endedCount;
 
@@ -581,7 +600,6 @@ const AdminEvents = () => {
             <button onClick={closeForm} className="text-gray-400 hover:text-gray-600 transition-colors"><X className="w-4 h-4" /></button>
           </div>
           <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Ảnh */}
             <div className="md:col-span-2">
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Ảnh sự kiện</label>
               <div onClick={() => !loading && fileRef.current?.click()}
@@ -603,13 +621,11 @@ const AdminEvents = () => {
               </div>
             </div>
 
-            {/* Tên */}
             <div className="md:col-span-2">
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Tên sự kiện <span className="text-red-400">*</span></label>
               <input required type="text" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="Nhập tên sự kiện..." className={inputCls} />
             </div>
 
-            {/* Mô tả */}
             <div className="md:col-span-2">
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Mô tả</label>
               <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
@@ -617,7 +633,6 @@ const AdminEvents = () => {
                 className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-orange-400 focus:bg-white resize-none transition-all" />
             </div>
 
-            {/* Ngày bắt đầu */}
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Ngày bắt đầu <span className="text-red-400">*</span></label>
               <input required type="date" value={form.date}
@@ -625,32 +640,27 @@ const AdminEvents = () => {
                 onChange={e => setForm(f => ({ ...f, date: e.target.value }))} className={inputCls} />
             </div>
 
-            {/* Giờ bắt đầu */}
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Giờ bắt đầu</label>
               <input type="time" value={form.time} onChange={e => setForm(f => ({ ...f, time: e.target.value }))} className={inputCls} />
             </div>
 
-            {/* Ngày kết thúc */}
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Ngày kết thúc</label>
               <input type="date" value={form.endDate} min={form.date || todayStr()}
                 onChange={e => setForm(f => ({ ...f, endDate: e.target.value }))} className={inputCls} />
             </div>
 
-            {/* Giờ kết thúc */}
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Giờ kết thúc</label>
               <input type="time" value={form.endTime} onChange={e => setForm(f => ({ ...f, endTime: e.target.value }))} className={inputCls} />
             </div>
 
-            {/* Địa điểm */}
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Địa điểm <span className="text-red-400">*</span></label>
               <input required type="text" value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} placeholder="Địa điểm tổ chức..." className={inputCls} />
             </div>
 
-            {/* Danh mục */}
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Danh mục</label>
               <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
@@ -660,7 +670,6 @@ const AdminEvents = () => {
               </select>
             </div>
 
-            {/* ─── Loại vé (chỉ hiện khi TẠO MỚI) ─── */}
             {editing === null && (
               <div className="md:col-span-2">
                 <div className="flex items-center justify-between mb-3">
@@ -679,7 +688,6 @@ const AdminEvents = () => {
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-xs font-bold text-gray-500">Loại vé #{idx + 1}</span>
                         <div className="flex items-center gap-2">
-                          {/* Toggle isActive */}
                           <button type="button"
                             onClick={() => setTicketRows(r => r.map((x, i) => i === idx ? { ...x, isActive: !x.isActive } : x))}
                             className="flex items-center gap-1">
@@ -719,7 +727,7 @@ const AdminEvents = () => {
                         </div>
                         <div className="col-span-2">
                           <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Mô tả quyền lợi</label>
-                          <input type="text" value={row.description} placeholder="Bao gồm meet &amp; greet, chỗ ngồi VIP..." 
+                          <input type="text" value={row.description} placeholder="Bao gồm meet &amp; greet, chỗ ngồi VIP..."
                             onChange={e => setTicketRows(r => r.map((x, i) => i === idx ? { ...x, description: e.target.value } : x))}
                             className={inputCls} />
                         </div>
@@ -731,7 +739,6 @@ const AdminEvents = () => {
               </div>
             )}
 
-            {/* Buttons */}
             <div className="md:col-span-2 flex gap-3 pt-2">
               <button type="button" onClick={closeForm} disabled={loading}
                 className="flex-1 py-2.5 border border-gray-200 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors">Hủy</button>
@@ -756,36 +763,33 @@ const AdminEvents = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {paginatedEvents.map((event, i) => {
               const globalIndex = startIndex + i;
-
               const soldTicketsCount = getSoldTicketsCount(event, eventOrderStats);
-
               const isEnded = event.status === 'ended' || event.status === 'cancelled' || event.status === 'refunded' ||
                 (event.endDate
                   ? new Date(event.endDate) < new Date()
                   : event.startDate && (() => {
-                      const e = new Date(event.startDate);
-                      e.setHours(23, 59, 59, 999);
-                      return e < new Date();
-                    })()
+                    const e = new Date(event.startDate);
+                    e.setHours(23, 59, 59, 999);
+                    return e < new Date();
+                  })()
                 );
 
               const effectiveStatus = isEnded && event.status === 'active' ? 'ended' : event.status;
               const badge = getStatusBadge(effectiveStatus);
               const canCancelAndRefund = soldTicketsCount > 0 && !isCancelledOrRefundedStatus(event.status) && event.status !== 'ended';
 
-              const d              = new Date(event.startDate);
-              const displayDate    = d.toLocaleDateString('vi-VN');
-              const displayTime    = d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-              const endD           = event.endDate ? new Date(event.endDate) : null;
+              const d = new Date(event.startDate);
+              const displayDate = d.toLocaleDateString('vi-VN');
+              const displayTime = d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+              const endD = event.endDate ? new Date(event.endDate) : null;
               const displayEndDate = endD ? endD.toLocaleDateString('vi-VN') : null;
               const displayEndTime = endD ? endD.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : null;
-              const imageUrl       = event.image ? (event.image.startsWith('http') ? event.image : `${API_URL}${event.image}`) : null;
+              const imageUrl = event.image ? (event.image.startsWith('http') ? event.image : `${API_URL}${event.image}`) : null;
 
               return (
                 <div key={event._id}
-                  className={`bg-white border border-gray-200 rounded-2xl overflow-hidden hover:shadow-md transition-all group ${
-                    isEnded ? 'opacity-60' : 'hover:border-orange-300'
-                  }`}>
+                  className={`bg-white border border-gray-200 rounded-2xl overflow-hidden hover:shadow-md transition-all group ${isEnded ? 'opacity-60' : 'hover:border-orange-300'
+                    }`}>
                   <div className="relative h-36 bg-gray-100">
                     {imageUrl ? (
                       <img src={imageUrl} alt={event.title}
@@ -841,11 +845,10 @@ const AdminEvents = () => {
                         </button>
                       ) : (
                         <button onClick={() => setDeleteConfirm(globalIndex)}
-                          className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-                            isEnded
+                          className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium rounded-lg transition-colors ${isEnded
                               ? 'bg-gray-100 hover:bg-gray-200 text-gray-500'
                               : 'bg-red-50 hover:bg-red-100 text-red-600'
-                          }`}>
+                            }`}>
                           <Trash2 className="w-3 h-3" />
                           {isEnded ? 'Dọn dẹp' : 'Xóa'}
                         </button>
@@ -889,7 +892,7 @@ const AdminEvents = () => {
               <span className="font-semibold text-red-600">
                 {refundTarget.soldCount || 0} vé
               </span>{' '}
-              được bán. Hệ thống sẽ hủy sự kiện và cố gắng hoàn tiền tự động cho các đơn liên quan.
+              được bán. Hệ thống sẽ hủy sự kiện, <span className="font-semibold text-orange-600">tắt toàn bộ vé</span> và cố gắng hoàn tiền tự động cho các đơn liên quan.
             </p>
 
             <div className="mb-5">
@@ -948,22 +951,21 @@ const AdminEvents = () => {
                 const ev = events[deleteConfirm];
                 const expired = ev && ((ev.status === 'ended' || ev.status === 'cancelled' || ev.status === 'refunded') || (ev.endDate ? new Date(ev.endDate) < new Date() : false));
                 return expired
-                  ? <span>Sự kiện <span className="text-gray-900 font-semibold">"{ev?.title}"</span> đã kết thúc. Bạn có muốn xóa khỏi hệ thống?</span>
-                  : <span>Bạn có chắc muốn xóa sự kiện <span className="text-gray-900 font-semibold">"{ev?.title}"</span>?</span>;
+                  ? <span>Sự kiện <span className="text-gray-900 font-semibold">"{ev?.title}"</span> đã kết thúc. Toàn bộ vé liên quan sẽ được tắt trước khi xóa.</span>
+                  : <span>Bạn có chắc muốn xóa sự kiện <span className="text-gray-900 font-semibold">"{ev?.title}"</span>? Toàn bộ vé liên quan sẽ bị tắt.</span>;
               })()}
             </p>
             <div className="flex gap-3">
               <button onClick={() => setDeleteConfirm(null)}
                 className="flex-1 py-2 border border-gray-200 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors">Hủy</button>
               <button onClick={() => handleDelete(deleteConfirm)}
-                className={`flex-1 py-2 text-white rounded-xl text-sm font-semibold transition-colors ${
-                  (() => {
+                className={`flex-1 py-2 text-white rounded-xl text-sm font-semibold transition-colors ${(() => {
                     const ev = events[deleteConfirm];
                     return ev && ((ev.status === 'ended' || ev.status === 'cancelled' || ev.status === 'refunded') || (ev.endDate ? new Date(ev.endDate) < new Date() : false))
                       ? 'bg-gray-500 hover:bg-gray-600'
                       : 'bg-red-500 hover:bg-red-600';
                   })()
-                }`}>
+                  }`}>
                 Xóa
               </button>
             </div>

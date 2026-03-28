@@ -9,36 +9,55 @@ import API_URL from '../../config/api';
 const normalizeStatus = (value) => String(value || '').trim().toLowerCase();
 const isCancelledOrRefunded = (status) => ['cancelled', 'canceled', 'refunded', 'refund', 'refund_completed'].includes(normalizeStatus(status));
 
-const normalizeTicket = (t) => {
-  const isCheckedIn =
-    t.status === 'used' ||
-    t.status === 'checked' ||
-    t.isCheckedIn === true ||
-    t.checkedIn === true ||
-    !!t.checkedInAt;
+// ✅ Kiểm tra ticket đã check-in - tương tự CheckInPage để đồng nhất logic
+const isTicketCheckedIn = (ticket) => {
+  return (
+    ticket.isCheckedIn === true ||
+    ticket.isCheckedIn === 'true' ||
+    ticket.status === 'used' ||
+    ticket.status === 'checked' ||
+    ticket.checkedIn === true ||
+    ticket.checkedIn === 'true' ||
+    !!ticket.checkedInAt
+  );
+};
 
-  const eventDate    = t.event?.startDate || t.event?.date || t.event?.eventDate || null;
-  const eventEndDate = t.event?.endDate || null;
-  const eventStatus  = t.event?.status || null;
-
-  let dateStatus = 'valid';
+// ✅ Thống nhất logic kiểm tra ngày với CheckInPage
+const getDateStatus = (eventDate, eventEndDate, eventStatus) => {
   if (isCancelledOrRefunded(eventStatus)) {
-    dateStatus = 'cancelled';
-  } else if (eventDate) {
-    const now   = new Date();
-    const start = new Date(eventDate);
-    const end   = eventEndDate
-      ? new Date(eventEndDate)
-      : (() => { const e = new Date(eventDate); e.setHours(23, 59, 59, 999); return e; })();
-
-    if (now > end) {
-      dateStatus = 'expired'; // quá giờ kết thúc
-    } else if (now.toDateString() !== start.toDateString() && now < start) {
-      dateStatus = 'upcoming'; // khác ngày, chưa tới
-    } else {
-      dateStatus = 'valid'; // đúng ngày → cho quét dù chưa tới giờ
-    }
+    return 'cancelled';
   }
+  
+  if (!eventDate) {
+    return 'unknown';
+  }
+  
+  const now = new Date();
+  const start = new Date(eventDate);
+  const end = eventEndDate
+    ? new Date(eventEndDate)
+    : (() => { const e = new Date(eventDate); e.setHours(23, 59, 59, 999); return e; })();
+
+  if (now > end) {
+    return 'expired'; // quá giờ kết thúc
+  } else if (now.toDateString() !== start.toDateString() && now < start) {
+    return 'upcoming'; // khác ngày, chưa tới
+  } else {
+    return 'valid'; // đúng ngày → cho quét dù chưa tới giờ
+  }
+};
+
+const normalizeTicket = (t) => {
+  // ✅ Sử dụng helper function để kiểm tra isCheckedIn
+  const isCheckedInStatus = isTicketCheckedIn(t);
+
+  // ✅ Lấy eventDate từ nhiều nơi có thể
+  const eventDate    = t.event?.startDate || t.event?.date || t.event?.eventDate || t.eventDate || null;
+  const eventEndDate = t.event?.endDate || t.eventEndDate || null;
+  const eventStatus  = t.event?.status || t.eventStatus || null;
+
+  // ✅ Sử dụng hàm kiểm tra ngày thống nhất
+  const dateStatus = getDateStatus(eventDate, eventEndDate, eventStatus);
 
   return {
     ...t,
@@ -56,7 +75,7 @@ const normalizeTicket = (t) => {
       t.user?.email || t.customerInfo?.email || t.buyerEmail || '—',
     ticketTypeName:
       t.ticketType?.name || t.type?.name || t.typeName || 'Standard',
-    isCheckedIn,
+    isCheckedIn: isCheckedInStatus,
     checkedInAt: t.checkedInAt || t.checkInAt || t.usedAt || null,
   };
 };
@@ -78,6 +97,7 @@ const DateBadge = ({ dateStatus, eventDate }) => {
     expired:  { cls: 'bg-red-50 text-red-600 border-red-200',            label: 'Đã qua',    Icon: XCircle },
     upcoming: { cls: 'bg-blue-50 text-blue-600 border-blue-200',         label: 'Chưa tới',  Icon: Clock },
     cancelled:{ cls: 'bg-red-50 text-red-600 border-red-200',            label: 'Đã hủy',    Icon: AlertTriangle },
+    unknown:  { cls: 'bg-gray-50 text-gray-600 border-gray-200',         label: 'Không rõ',  Icon: AlertTriangle },
   }[dateStatus] || {};
 
   return (

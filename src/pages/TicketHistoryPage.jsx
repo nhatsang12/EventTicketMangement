@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import {
   Ticket, Calendar, MapPin, QrCode, ChevronDown, ChevronUp,
-  ShoppingBag, ArrowLeft, CheckCircle2, ArrowRight, XCircle, Clock
+  ShoppingBag, ArrowLeft, CheckCircle2, ArrowRight, XCircle, Clock, Search
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import API_URL from '../config/api';
@@ -26,11 +26,52 @@ const getQRCodeImage = qr => {
   return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qr)}`;
 };
 
-const isTicketCheckedIn = t =>
-  t.status === 'used' || t.status === 'checked' ||
-  t.isCheckedIn === true || t.checkedIn === true || !!t.checkedInAt;
-
 const normalizeStatus = value => String(value || '').trim().toLowerCase();
+const CHECKED_STATUS_SET = new Set(['used', 'checked', 'checked_in', 'checkedin', 'scanned', 'consumed']);
+
+const getEntityId = (value) => {
+  if (!value) return null;
+  if (typeof value === 'string' || typeof value === 'number') return String(value);
+  if (typeof value === 'object') {
+    if (value.$oid) return String(value.$oid);
+    if (value._id) return getEntityId(value._id);
+    if (value.id) return String(value.id);
+  }
+  return null;
+};
+
+const isTruthyLike = (value) => {
+  const normalized = normalizeStatus(value);
+  return value === true || value === 1 || normalized === 'true' || normalized === '1' || normalized === 'yes';
+};
+
+const isTicketCheckedIn = (ticket = {}) => {
+  const status = normalizeStatus(ticket.status || ticket.ticketStatus || ticket.checkinStatus);
+  return (
+    isTruthyLike(ticket.isCheckedIn) ||
+    isTruthyLike(ticket.checkedIn) ||
+    isTruthyLike(ticket.isUsed) ||
+    CHECKED_STATUS_SET.has(status) ||
+    !!(ticket.checkedInAt || ticket.checkInAt || ticket.usedAt || ticket.scannedAt)
+  );
+};
+
+const normalizeTicketPayload = (ticket) => {
+  const id = getEntityId(ticket?._id || ticket?.id || ticket?.ticketId || ticket);
+  return {
+    ...(typeof ticket === 'object' ? ticket : {}),
+    id,
+    _id: ticket?._id || ticket?.id || ticket?.ticketId || id,
+    checkedInAt: ticket?.checkedInAt || ticket?.checkInAt || ticket?.usedAt || ticket?.scannedAt || null,
+    status: ticket?.status || ticket?.ticketStatus || ticket?.checkinStatus,
+  };
+};
+
+const normalizeOrderPayload = (order) => ({
+  ...order,
+  _id: getEntityId(order?._id || order?.id) || String(order?._id || order?.id || ''),
+  tickets: (Array.isArray(order?.tickets) ? order.tickets : []).map(normalizeTicketPayload),
+});
 
 const isCancelledOrRefunded = (ticket, order) => {
   const ticketStatus = normalizeStatus(ticket?.status);
@@ -158,6 +199,9 @@ const TicketHistoryPage = () => {
   const [loading, setLoading]               = useState(true);
   const [expandedOrder, setExpandedOrder]   = useState(null);
   const [expandedTicket, setExpandedTicket] = useState(null);
+  const [search, setSearch]                 = useState('');
+  const [orderFilter, setOrderFilter]       = useState('all');
+  const [ticketFilter, setTicketFilter]     = useState('all');
 
   useEffect(() => {
     if (!isAuthenticated) { navigate('/login', { state: { from: '/ticket-history' } }); return; }
@@ -170,11 +214,45 @@ const TicketHistoryPage = () => {
         
         let data = res.data?.data || res.data || [];
         data = data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-        setOrders(data);
+        setOrders(data.map(normalizeOrderPayload));
       } catch { /* silent */ }
       finally { setLoading(false); }
     })();
   }, [isAuthenticated, navigate, token]);
+
+  const normalizedSearch = search.trim().toLowerCase();
+
+  const filteredOrders = orders
+    .map((order) => {
+      const displayOrderStatus = getDisplayOrderStatus(order);
+      const tickets = Array.isArray(order.tickets) ? order.tickets : [];
+
+      const visibleTickets = tickets.filter((ticket, index) => {
+        const ticketStatus = getTicketStatus(ticket, order, t);
+        const ticketText =
+          `e-ticket ${index + 1} ${ticket.ticketType?.name || ''} ${ticket.id || ticket._id || ''} ${ticket.qrCode || ''}`.toLowerCase();
+
+        const matchSearch =
+          !normalizedSearch ||
+          ticketText.includes(normalizedSearch) ||
+          String(order._id || '').toLowerCase().includes(normalizedSearch) ||
+          String(order.event?.title || order.event?.name || '').toLowerCase().includes(normalizedSearch) ||
+          String(order.event?.location || '').toLowerCase().includes(normalizedSearch);
+
+        const matchTicketFilter = ticketFilter === 'all' || ticketStatus.key === ticketFilter;
+        return matchSearch && matchTicketFilter;
+      });
+
+      const matchOrderFilter = orderFilter === 'all' || displayOrderStatus === orderFilter;
+
+      return {
+        ...order,
+        displayOrderStatus,
+        visibleTickets,
+        matchOrderFilter,
+      };
+    })
+    .filter((order) => order.matchOrderFilter && order.visibleTickets.length > 0);
 
   if (loading) return <LoadingScreen />;
   if (orders.length === 0) return <EmptyState navigate={navigate} t={t} />;
@@ -201,18 +279,86 @@ const TicketHistoryPage = () => {
               <div style={{ width: 3, height: 22, background: 'linear-gradient(180deg,#f97316,#a855f7)', borderRadius: 2 }}/>
               <h1 style={{ fontSize: 'clamp(1.2rem,3vw,1.6rem)', fontWeight: 900, color: 'white', fontFamily: "'Clash Display','Be Vietnam Pro',sans-serif", letterSpacing: '-0.02em' }}>Lịch sử vé</h1>
             </div>
-            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', fontFamily: "'Space Mono',monospace", marginLeft: 13 }}>{orders.length} đơn hàng</p>
+            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', fontFamily: "'Space Mono',monospace", marginLeft: 13 }}>{filteredOrders.length}/{orders.length} đơn hàng</p>
           </div>
           <div style={{ width: 44, height: 44, background: 'linear-gradient(135deg,#f97316,#a855f7)', borderRadius: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 20px rgba(249,115,22,0.28)' }}>
             <ShoppingBag style={{ width: 20, height: 20, color: 'white' }}/>
           </div>
         </div>
 
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: 10, marginBottom: 18 }}>
+          <div style={{ position: 'relative' }}>
+            <Search style={{ width: 14, height: 14, color: 'rgba(255,255,255,0.35)', position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)' }} />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Tìm theo sự kiện, ID đơn, ID vé..."
+              style={{
+                width: '100%',
+                padding: '10px 12px 10px 34px',
+                borderRadius: 12,
+                border: '1px solid rgba(255,255,255,0.12)',
+                background: 'rgba(255,255,255,0.03)',
+                color: 'white',
+                fontSize: 12,
+                fontFamily: "'Be Vietnam Pro',sans-serif",
+                outline: 'none',
+              }}
+            />
+          </div>
+          <select
+            value={orderFilter}
+            onChange={(e) => setOrderFilter(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '10px 12px',
+              borderRadius: 12,
+              border: '1px solid rgba(255,255,255,0.12)',
+              background: 'rgba(255,255,255,0.03)',
+              color: 'white',
+              fontSize: 12,
+              fontFamily: "'Be Vietnam Pro',sans-serif",
+              outline: 'none',
+            }}>
+            <option value="all" style={{ color: 'black' }}>Đơn: Tất cả</option>
+            <option value="paid" style={{ color: 'black' }}>Đơn: Đã thanh toán</option>
+            <option value="confirmed" style={{ color: 'black' }}>Đơn: Đã xác nhận</option>
+            <option value="active" style={{ color: 'black' }}>Đơn: Đang hoạt động</option>
+            <option value="cancelled" style={{ color: 'black' }}>Đơn: Đã hủy</option>
+            <option value="refunded" style={{ color: 'black' }}>Đơn: Đã hoàn tiền</option>
+          </select>
+          <select
+            value={ticketFilter}
+            onChange={(e) => setTicketFilter(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '10px 12px',
+              borderRadius: 12,
+              border: '1px solid rgba(255,255,255,0.12)',
+              background: 'rgba(255,255,255,0.03)',
+              color: 'white',
+              fontSize: 12,
+              fontFamily: "'Be Vietnam Pro',sans-serif",
+              outline: 'none',
+            }}>
+            <option value="all" style={{ color: 'black' }}>Vé: Tất cả</option>
+            <option value="valid" style={{ color: 'black' }}>Vé: Còn hiệu lực</option>
+            <option value="used" style={{ color: 'black' }}>Vé: Đã check-in</option>
+            <option value="expired" style={{ color: 'black' }}>Vé: Hết hạn</option>
+            <option value="cancelled" style={{ color: 'black' }}>Vé: Đã hủy</option>
+            <option value="refunded" style={{ color: 'black' }}>Vé: Đã hoàn tiền</option>
+          </select>
+        </div>
+
         {/* Order list */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {orders.map(order => {
-           const displayOrderStatus = getDisplayOrderStatus(order);
-           const sc = orderStatusConfig(displayOrderStatus, t);  
+          {filteredOrders.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '38px 20px', background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(255,255,255,0.08)', borderRadius: 16 }}>
+              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', fontFamily: "'Be Vietnam Pro',sans-serif", marginBottom: 4 }}>Không có dữ liệu phù hợp bộ lọc</p>
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', fontFamily: "'Be Vietnam Pro',sans-serif" }}>Thử đổi bộ lọc trạng thái hoặc từ khóa tìm kiếm.</p>
+            </div>
+          ) : filteredOrders.map(order => {
+           const sc = orderStatusConfig(order.displayOrderStatus, t);  
             const isOpen = expandedOrder === order._id;
 
             return (
@@ -264,20 +410,20 @@ const TicketHistoryPage = () => {
                     className="thp-expand-btn">
                     {isOpen
                       ? <><ChevronUp style={{ width: 13, height: 13 }}/> Ẩn vé</>
-                      : <><ChevronDown style={{ width: 13, height: 13 }}/> Xem vé ({order.tickets?.length})</>}
+                      : <><ChevronDown style={{ width: 13, height: 13 }}/> Xem vé ({order.visibleTickets?.length})</>}
                   </button>
                 </div>
 
                 {/* Tickets expanded */}
                 {isOpen && (
                   <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(0,0,0,0.12)' }}>
-                    {order.tickets?.map((ticket, idx) => {
+                    {order.visibleTickets?.map((ticket, idx) => {
                       const ticketStatus = getTicketStatus(ticket, order, t);
                       const StatusIcon = ticketStatus.icon;
-                      const qrOpen = expandedTicket === ticket._id;
+                      const qrOpen = expandedTicket === ticket.id;
 
                       return (
-                        <div key={ticket._id}
+                        <div key={ticket.id}
                           style={{ padding: '16px 22px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
 
                           {/* Ticket row */}
@@ -286,7 +432,7 @@ const TicketHistoryPage = () => {
                               <p style={{ fontSize: 13, fontWeight: 700, color: ticketStatus.key === 'expired' ? 'rgba(255,255,255,0.4)' : 'white', fontFamily: "'Be Vietnam Pro',sans-serif", marginBottom: 3, textDecoration: ticketStatus.key === 'expired' ? 'line-through' : 'none' }}>
                                 E-Ticket #{idx + 1} — {ticket.ticketType?.name}
                               </p>
-                              <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)', fontFamily: "'Space Mono',monospace" }}>ID: {ticket._id}</p>
+                              <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)', fontFamily: "'Space Mono',monospace" }}>ID: {ticket.id}</p>
                             </div>
 
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
@@ -306,7 +452,7 @@ const TicketHistoryPage = () => {
 
                               {/* QR toggle button */}
                               <button
-                                onClick={() => ticketStatus.canShowQR && setExpandedTicket(qrOpen ? null : ticket._id)}
+                                onClick={() => ticketStatus.canShowQR && setExpandedTicket(qrOpen ? null : ticket.id)}
                                 disabled={!ticketStatus.canShowQR}
                                 title={!ticketStatus.canShowQR ? (ticketStatus.key === 'expired' ? 'Vé không còn hiệu lực' : 'Vé đã được sử dụng') : 'Xem mã QR'}
                                 style={{

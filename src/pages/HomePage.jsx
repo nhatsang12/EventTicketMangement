@@ -1,12 +1,12 @@
 import { useEffect, useState, useRef } from "react";
-import { useSearchParams, Link } from "react-router-dom";
+import { useSearchParams, Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import axios from "axios";
 import API_URL from '../config/api';
 import {
   Calendar, MapPin, Search, Tag, Ticket,
   Users, ArrowRight, ChevronDown, ChevronRight,
-  Flame, Sparkles, TrendingUp, Star, Music, Shield,
+  Flame, Sparkles, TrendingUp, Music, Shield,
   Zap, HeartHandshake, BadgeCheck, Gift,
   SlidersHorizontal, X, Check, DollarSign, ArrowUpDown, Award,
   Eye, AlertTriangle, Timer, LayoutGrid, List, Filter
@@ -44,11 +44,6 @@ const FEATURED_ORGANIZERS = [
   { id:3, name:"YAN Entertainment", description:"Nhà sản xuất các chương trình âm nhạc V-Pop.", totalEvents:61, followers:"20K", avatar:"https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=200&auto=format&fit=crop" },
   { id:4, name:"Saigon Concert", description:"Tổ chức biểu diễn nghệ thuật tại TP.HCM.", totalEvents:27, followers:"6.5K", avatar:"https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=200&auto=format&fit=crop" },
 ];
-const TESTIMONIALS = [
-  { id:1, name:"Nguyễn Minh Anh", role:"Tín đồ concert", avatar:"https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop", rating:5, comment:"Mua vé quá nhanh và tiện lợi! Đặt được vé show Sơn Tùng trong vòng 2 phút, không lo cháy vé như các nền tảng khác.", event:"Sơn Tùng Concert 2024" },
-  { id:2, name:"Trần Đức Huy", role:"Người yêu nhạc Jazz", avatar:"https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop", rating:5, comment:"Giao diện rõ ràng, thông tin đầy đủ. Phần sơ đồ chỗ ngồi rất hữu ích khi chọn vé cho cả nhóm.", event:"Hà Nội Jazz Night" },
-  { id:3, name:"Lê Thị Phương", role:"Fan K-Pop", avatar:"https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&auto=format&fit=crop", rating:5, comment:"Lần đầu dùng mà đã nghiện! Thanh toán an toàn, vé điện tử nhận ngay qua email.", event:"Aespa World Tour – HCM" },
-];
 const WHY_US = [
   { icon:Zap, title:"Đặt vé siêu tốc", desc:"3 bước: chọn vé → thanh toán → nhận vé. Dưới 2 phút.", accent:"#f97316" },
   { icon:Shield, title:"Bảo mật tuyệt đối", desc:"Cổng thanh toán PCI-DSS. Hoàn tiền 100% nếu sự kiện hủy.", accent:"#a855f7" },
@@ -73,6 +68,15 @@ const PRICE_OPTIONS = [
   { value:"500-2000", label:"500K–2M" },
   { value:"over2000", label:"> 2M" },
 ];
+const CITY_OPTIONS = [
+  { value:"all", label:"Tất cả TP", keywords:[] },
+  { value:"hcm", label:"TP.HCM", keywords:["ho chi minh", "tp ho chi minh", "hcm", "sai gon", "saigon"] },
+  { value:"hn", label:"Hà Nội", keywords:["ha noi", "hn"] },
+  { value:"dn", label:"Đà Nẵng", keywords:["da nang", "danang"] },
+  { value:"nt", label:"Nha Trang", keywords:["nha trang"] },
+  { value:"pq", label:"Phú Quốc", keywords:["phu quoc"] },
+  { value:"ct", label:"Cần Thơ", keywords:["can tho"] },
+];
 const DATE_OPTIONS = [
   { value:"all", label:"Tất cả ngày" },
   { value:"today", label:"Hôm nay" },
@@ -89,6 +93,21 @@ const SORT_OPTIONS = [
 const CAT_ICONS = {};
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────
+const normalizeText = (value = "") =>
+  String(value)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d");
+
+const matchCity = (location = "", cityValue = "all") => {
+  if (cityValue === "all") return true;
+  const option = CITY_OPTIONS.find(item => item.value === cityValue);
+  if (!option || option.keywords.length === 0) return true;
+  const normalizedLocation = normalizeText(location);
+  return option.keywords.some(keyword => normalizedLocation.includes(keyword));
+};
+
 const getImageUrl = p => !p ? "https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=1000&auto=format&fit=crop&q=80" : p.startsWith("http") ? p : `${API_URL}${p}`;
 const fmtDate = d => { if (!d) return "Chưa cập nhật"; const dt = new Date(d); return isNaN(dt) ? "Chưa cập nhật" : dt.toLocaleDateString("vi-VN", { day:"2-digit", month:"2-digit", year:"numeric" }); };
 const fmtTime = d => { if (!d) return ""; try { const dt = new Date(d); return isNaN(dt) ? "" : dt.toLocaleTimeString("vi-VN", { hour:"2-digit", minute:"2-digit" }); } catch { return ""; } };
@@ -239,13 +258,8 @@ const EventCard = ({ event, index = 0 }) => {
           <CountdownCompact startDate={event.startDate}/>
         </div>
         {total > 0 && <div style={{ marginBottom:14 }}>
-          <div style={{ display:"flex", justifyContent:"space-between", marginBottom:5 }}>
-            <span style={{ fontSize:10, color:"rgba(255,255,255,0.3)", fontFamily:"'Space Mono',monospace" }}>{sold}/{total} đã bán</span>
-            <span style={{ fontSize:10, fontWeight:700, color: pct>=80 ? "#f87171" : "rgba(255,255,255,0.3)", fontFamily:"'Space Mono',monospace" }}>{pct}%</span>
-          </div>
-          <div style={{ height:4, background:"rgba(255,255,255,0.06)", borderRadius:4, overflow:"hidden" }}>
-            <div style={{ height:"100%", width:`${pct}%`, background:urgency?.level==="critical"?"linear-gradient(90deg,#ef4444,#f97316)":"linear-gradient(90deg,#f97316,#a855f7)", borderRadius:4, transition:"width 0.6s ease" }}/>
-          </div>
+         
+         
         </div>}
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", borderTop:"1px solid rgba(255,255,255,0.07)", paddingTop:14 }}>
           <div>
@@ -320,10 +334,7 @@ const EventCardTall = ({ event }) => {
           </div>
         )}
         {total > 0 && <div style={{ marginBottom:14 }}>
-          <div style={{ height:2, background:"rgba(255,255,255,0.1)", borderRadius:2, overflow:"hidden", marginBottom:4 }}>
-            <div style={{ height:"100%", width:`${pct}%`, background:"linear-gradient(90deg,#f97316,#a855f7)", borderRadius:2 }}/>
-          </div>
-          <span style={{ fontSize:10, color:"rgba(255,255,255,0.3)", fontFamily:"'Space Mono',monospace" }}>{sold}/{total} · {pct}%</span>
+        
         </div>}
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", borderTop:"1px solid rgba(255,255,255,0.1)", paddingTop:14 }}>
           <div>
@@ -378,10 +389,7 @@ const EventListRow = ({ event, index = 0 }) => {
           {event.location && <span style={{ fontSize:11, color:"white", display:"flex", alignItems:"center", gap:4, fontFamily:"'Be Vietnam Pro',sans-serif" }}><MapPin style={{ width:11,height:11,color:"#a855f7" }}/>{event.location}</span>}
         </div>
         {total > 0 && <div style={{ display:"flex", alignItems:"center", gap:8, marginTop:8 }}>
-          <div style={{ flex:1, maxWidth:200, height:3, background:"rgba(255,255,255,0.07)", borderRadius:3, overflow:"hidden" }}>
-            <div style={{ height:"100%", width:`${pct}%`, background:"linear-gradient(90deg,#f97316,#a855f7)", borderRadius:3 }}/>
-          </div>
-          <span style={{ fontSize:10, color:"rgba(255,255,255,0.3)", fontFamily:"'Space Mono',monospace", whiteSpace:"nowrap" }}>{pct}% đã bán</span>
+         
         </div>}
       </div>
       <div style={{ padding:"16px 20px", display:"flex", flexDirection:"column", justifyContent:"center", alignItems:"flex-end", gap:10, flexShrink:0, borderLeft:"1px solid rgba(255,255,255,0.06)" }}>
@@ -396,16 +404,62 @@ const EventListRow = ({ event, index = 0 }) => {
 };
 
 // ─── ALL EVENTS SECTION ───────────────────────────────────────────────────
-const INITIAL_SHOW = 11;
+const EVENTS_PER_PAGE = 9;
+const MAX_VISIBLE_PAGES = 5;
 
-const AllEventsSection = ({ events, loading, clearFilters, catFilter, setCatFilter, sortFilter, setSortFilter, priceFilter, setPriceFilter, dateFilter, setDateFilter, categories }) => {
-  const [showAll, setShowAll] = useState(false);
+const AllEventsSection = ({
+  events,
+  loading,
+  clearFilters,
+  catFilter,
+  setCatFilter,
+  sortFilter,
+  setSortFilter,
+  priceFilter,
+  setPriceFilter,
+  cityFilter,
+  dateFilter,
+  setDateFilter,
+  categories,
+  sectionRef,
+}) => {
+  const [currentPage, setCurrentPage] = useState(1);
   const [viewMode, setViewMode] = useState("grid");
-  const displayed = showAll ? events : events.slice(0, INITIAL_SHOW);
-  const remaining = events.length - INITIAL_SHOW;
+  const hasPaginatedRef = useRef(false);
+  const totalPages = Math.max(1, Math.ceil(events.length / EVENTS_PER_PAGE));
+  const pageStart = (currentPage - 1) * EVENTS_PER_PAGE;
+  const pageEnd = pageStart + EVENTS_PER_PAGE;
+  const displayed = events.slice(pageStart, pageEnd);
+
+  const pageWindowStart = Math.max(1, currentPage - Math.floor(MAX_VISIBLE_PAGES / 2));
+  const pageWindowEnd = Math.min(totalPages, pageWindowStart + MAX_VISIBLE_PAGES - 1);
+  const normalizedWindowStart = Math.max(1, pageWindowEnd - MAX_VISIBLE_PAGES + 1);
+  const visiblePages = Array.from(
+    { length: pageWindowEnd - normalizedWindowStart + 1 },
+    (_, index) => normalizedWindowStart + index
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [catFilter, sortFilter, priceFilter, cityFilter, dateFilter]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, totalPages]);
+
+  useEffect(() => {
+    if (!sectionRef?.current) return;
+    if (!hasPaginatedRef.current) {
+      hasPaginatedRef.current = true;
+      return;
+    }
+    const navOffset = 112;
+    const top = sectionRef.current.getBoundingClientRect().top + window.scrollY - navOffset;
+    window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+  }, [currentPage, sectionRef]);
 
   return (
-    <section style={{ background:"linear-gradient(180deg,#0a0f0e 0%,#080c0b 100%)", borderTop:"1px solid rgba(255,255,255,0.05)" }}>
+    <section ref={sectionRef} style={{ background:"linear-gradient(180deg,#0a0f0e 0%,#080c0b 100%)", borderTop:"1px solid rgba(255,255,255,0.05)" }}>
       <div style={{ maxWidth:1152, margin:"0 auto", padding:"52px 24px 28px" }}>
         <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:16, flexWrap:"wrap", marginBottom:24 }}>
           <div>
@@ -416,7 +470,11 @@ const AllEventsSection = ({ events, loading, clearFilters, catFilter, setCatFilt
               </h2>
               {!loading && <span style={{ fontSize:11, fontWeight:700, padding:"3px 9px", borderRadius:999, background:"rgba(249,115,22,0.1)", color:"#fb923c", border:"1px solid rgba(249,115,22,0.2)", fontFamily:"'Space Mono',monospace" }}>{events.length}</span>}
             </div>
-            <p style={{ fontSize:12, color:"rgba(255,255,255,0.3)", fontFamily:"'Be Vietnam Pro',sans-serif" }}>Khám phá và đặt vé ngay hôm nay</p>
+            <p style={{ fontSize:12, color:"rgba(255,255,255,0.3)", fontFamily:"'Be Vietnam Pro',sans-serif" }}>
+              {!loading && events.length > 0
+                ? `Đang hiển thị ${pageStart + 1}–${Math.min(pageEnd, events.length)} / ${events.length} sự kiện`
+                : "Khám phá và đặt vé ngay hôm nay"}
+            </p>
           </div>
           <div style={{ display:"flex", alignItems:"center", gap:8 }}>
             <div style={{ display:"flex", background:"rgba(255,255,255,0.04)", borderRadius:10, border:"1px solid rgba(255,255,255,0.08)", overflow:"hidden" }}>
@@ -505,17 +563,60 @@ const AllEventsSection = ({ events, loading, clearFilters, catFilter, setCatFilt
           </div>
         )}
 
-        {!loading && events.length > INITIAL_SHOW && (
+        {!loading && events.length > EVENTS_PER_PAGE && (
           <div style={{ display:"flex", justifyContent:"center", marginTop:28 }}>
-            <button onClick={()=>setShowAll(v=>!v)} className="hp2-show-more" style={{
-              display:"inline-flex", alignItems:"center", gap:7,
-              padding:"11px 26px", borderRadius:999, fontSize:12, fontWeight:700,
-              border:"1px solid rgba(255,255,255,0.1)", background:"rgba(255,255,255,0.03)",
-              color:"rgba(255,255,255,0.55)", cursor:"pointer", transition:"all 0.2s",
-              fontFamily:"'Be Vietnam Pro',sans-serif",
-            }}>
-              {showAll ? <><ChevronDown style={{ width:14,height:14,transform:"rotate(180deg)" }}/> Thu gọn</> : <><ChevronDown style={{ width:14,height:14 }}/> Xem thêm {remaining} sự kiện</>}
-            </button>
+            <div style={{ display:"flex", alignItems:"center", gap:6, padding:6, borderRadius:999, background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.08)" }}>
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                style={{
+                  display:"inline-flex", alignItems:"center", gap:5,
+                  padding:"8px 12px", borderRadius:999, fontSize:11, fontWeight:700,
+                  border:"none",
+                  background: currentPage === 1 ? "transparent" : "rgba(255,255,255,0.06)",
+                  color: currentPage === 1 ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.6)",
+                  cursor: currentPage === 1 ? "not-allowed" : "pointer",
+                  fontFamily:"'Be Vietnam Pro',sans-serif",
+                  transition:"all 0.2s",
+                }}
+              >
+                <ChevronRight style={{ width:13, height:13, transform:"rotate(180deg)" }}/> Trước
+              </button>
+
+              {visiblePages.map((page) => (
+                <button
+                  key={page}
+                  onClick={() => setCurrentPage(page)}
+                  style={{
+                    width:34, height:34, borderRadius:"50%", border:"none",
+                    fontSize:11, fontWeight:800, cursor:"pointer", transition:"all 0.2s",
+                    background: page === currentPage ? "linear-gradient(135deg,#f97316,#a855f7)" : "transparent",
+                    color: page === currentPage ? "white" : "rgba(255,255,255,0.5)",
+                    boxShadow: page === currentPage ? "0 4px 16px rgba(249,115,22,0.32)" : "none",
+                    fontFamily:"'Space Mono',monospace",
+                  }}
+                >
+                  {page}
+                </button>
+              ))}
+
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                style={{
+                  display:"inline-flex", alignItems:"center", gap:5,
+                  padding:"8px 12px", borderRadius:999, fontSize:11, fontWeight:700,
+                  border:"none",
+                  background: currentPage === totalPages ? "transparent" : "rgba(255,255,255,0.06)",
+                  color: currentPage === totalPages ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.6)",
+                  cursor: currentPage === totalPages ? "not-allowed" : "pointer",
+                  fontFamily:"'Be Vietnam Pro',sans-serif",
+                  transition:"all 0.2s",
+                }}
+              >
+                Sau <ChevronRight style={{ width:13, height:13 }}/>
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -583,35 +684,6 @@ const OrganizersSection = () => (
   </section>
 );
 
-// ─── TESTIMONIALS ─────────────────────────────────────────────────────────
-const TestimonialsSection = () => (
-  <section style={{ background:"linear-gradient(180deg,#0c0c0c 0%,#0a0a0a 100%)", padding:"80px 0", borderTop:"1px solid rgba(255,255,255,0.04)" }}>
-    <div style={{ maxWidth:1152,margin:"0 auto",padding:"0 24px" }}>
-      <Reveal variant="fadeUp" delay={0} duration={800}><div style={{ textAlign:"center",marginBottom:48 }}>
-        <p style={{ fontSize:11,fontWeight:700,color:"#fb923c",marginBottom:8,textTransform:"uppercase",letterSpacing:"0.15em",fontFamily:"'Be Vietnam Pro',sans-serif" }}>Đánh giá</p>
-        <h2 style={{ fontSize:"clamp(1.5rem,3vw,2.25rem)",fontWeight:900,color:"white",marginBottom:10,fontFamily:"'Be Vietnam Pro','Clash Display',sans-serif",letterSpacing:"-0.02em" }}>Khách hàng nói gì</h2>
-        <div style={{ display:"flex",justifyContent:"center",alignItems:"center",gap:4 }}>
-          {[...Array(5)].map((_,i)=><Star key={i} style={{ width:15,height:15,color:"#fbbf24",fill:"#fbbf24" }}/>)}
-          <span style={{ fontSize:13,color:"rgba(255,255,255,0.35)",marginLeft:8,fontFamily:"'Be Vietnam Pro',sans-serif" }}>4.9 · 2,400+ đánh giá</span>
-        </div>
-      </div></Reveal>
-      <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:20 }}>
-        {TESTIMONIALS.map((t, i) => (
-          <Reveal key={t.id} variant="fadeUp" delay={i*120} duration={700} threshold={0.08}><div className="hp2-testi-card" style={{ background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:20,padding:28,transition:"all 0.3s" }}>
-            <div style={{ fontSize:48,lineHeight:1,color:"rgba(249,115,22,0.18)",fontFamily:"Georgia,serif",marginBottom:4,userSelect:"none" }}>"</div>
-            <div style={{ display:"flex",gap:3,marginBottom:14 }}>{[...Array(t.rating)].map((_,j)=><Star key={j} style={{ width:13,height:13,color:"#fbbf24",fill:"#fbbf24" }}/>)}</div>
-            <p style={{ fontSize:13,color:"rgba(255,255,255,0.5)",lineHeight:1.8,marginBottom:20,fontFamily:"'Be Vietnam Pro',sans-serif" }}>{t.comment}</p>
-            <div style={{ display:"flex",alignItems:"center",gap:12,borderTop:"1px solid rgba(255,255,255,0.06)",paddingTop:18 }}>
-              <img src={t.avatar} alt={t.name} style={{ width:40,height:40,borderRadius:"50%",objectFit:"cover",border:"2px solid rgba(249,115,22,0.2)" }} onError={e=>{e.target.src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop";}}/>
-              <div><h4 style={{ fontSize:13,fontWeight:700,color:"white",fontFamily:"'Be Vietnam Pro',sans-serif" }}>{t.name}</h4><p style={{ fontSize:11,color:"rgba(255,255,255,0.3)",fontFamily:"'Be Vietnam Pro',sans-serif" }}>{t.event}</p></div>
-            </div>
-          </div></Reveal>
-        ))}
-      </div>
-    </div>
-  </section>
-);
-
 // ─── LOCATIONS ────────────────────────────────────────────────────────────
 const LocationsSection = () => (
   <section style={{ background:"linear-gradient(135deg,#080f0d 0%,#090e0c 60%,#070c0a 100%)", padding:"80px 0", borderTop:"1px solid rgba(16,185,129,0.08)" }}>
@@ -637,34 +709,27 @@ const LocationsSection = () => (
   </section>
 );
 
-// ─── FOOTER CTA ───────────────────────────────────────────────────────────
-const FooterCTA = () => (
-  <section style={{ background:"#060606", padding:"72px 24px", textAlign:"center", borderTop:"1px solid rgba(255,255,255,0.04)", position:"relative", overflow:"hidden" }}>
-    <div style={{ position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",width:600,height:300,background:"radial-gradient(ellipse,rgba(249,115,22,0.07) 0%,transparent 70%)",pointerEvents:"none" }}/>
-    <Reveal variant="slideUp" delay={0} duration={900} style={{position:"relative",maxWidth:480,margin:"0 auto"}}>
-      <h2 style={{ fontSize:"clamp(1.5rem,4vw,2.5rem)",fontWeight:900,color:"white",marginBottom:12,fontFamily:"'Be Vietnam Pro','Clash Display',sans-serif",letterSpacing:"-0.02em" }}>Sẵn sàng trải nghiệm?</h2>
-      <p style={{ color:"rgba(255,255,255,0.38)",fontSize:14,marginBottom:28,fontFamily:"'Be Vietnam Pro',sans-serif" }}>Đăng ký ngay để không bỏ lỡ sự kiện yêu thích của bạn.</p>
-      <Reveal variant="scaleUp" delay={150} duration={600}>
-        <Link to="/events" style={{ display:"inline-flex",alignItems:"center",gap:8,background:"linear-gradient(135deg,#f97316,#a855f7)",color:"white",fontSize:15,fontWeight:800,padding:"15px 36px",borderRadius:999,textDecoration:"none",fontFamily:"'Be Vietnam Pro',sans-serif",boxShadow:"0 8px 40px rgba(249,115,22,0.28)" }}>
-          Khám phá sự kiện <ArrowRight style={{ width:16,height:16 }}/>
-        </Link>
-      </Reveal>
-    </Reveal>
-  </section>
-);
-
 // ─── MAIN PAGE ─────────────────────────────────────────────────────────────
 const HomePage = () => {
   const { t } = useTranslation();
+  const location = useLocation();
   const [allEvents, setAllEvents] = useState([]);
   const [events, setEvents] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [priceFilter, setPriceFilter] = useState("all");
+  const [cityFilter, setCityFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("all");
   const [catFilter, setCatFilter] = useState("all");
   const [sortFilter, setSortFilter] = useState("newest");
+  const allEventsSectionRef = useRef(null);
+  const scrollToAllEventsSection = (behavior = "smooth") => {
+    if (!allEventsSectionRef.current) return;
+    const navOffset = 112;
+    const top = allEventsSectionRef.current.getBoundingClientRect().top + window.scrollY - navOffset;
+    window.scrollTo({ top: Math.max(0, top), behavior });
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -699,7 +764,12 @@ const HomePage = () => {
 
         setCategories([...new Set(data.map(e => e.category).filter(Boolean))]);
         const q = searchParams.get("search");
-        if (q) data = data.filter(e => e.title?.toLowerCase().includes(q.toLowerCase()) || e.location?.toLowerCase().includes(q.toLowerCase()));
+        if (q) data = data.filter(
+          e =>
+            e.title?.toLowerCase().includes(q.toLowerCase()) ||
+            e.location?.toLowerCase().includes(q.toLowerCase()) ||
+            e.category?.toLowerCase().includes(q.toLowerCase())
+        );
         setAllEvents(data);
       } catch (err) { console.error(err); }
       finally { setLoading(false); }
@@ -718,6 +788,7 @@ const HomePage = () => {
       if (priceFilter === "over2000") return min !== null && min > 2000000;
       return true;
     });
+    if (cityFilter !== "all") data = data.filter(e => matchCity(e.location, cityFilter));
     if (dateFilter !== "all") {
       const today = new Date(); today.setHours(0,0,0,0);
       const weekEnd = new Date(today); weekEnd.setDate(today.getDate()+7);
@@ -738,10 +809,22 @@ const HomePage = () => {
     if (sortFilter === "price_asc") data.sort((a,b) => (getPriceRange(a).min??Infinity)-(getPriceRange(b).min??Infinity));
     if (sortFilter === "price_desc") data.sort((a,b) => (getPriceRange(b).min??-1)-(getPriceRange(a).min??-1));
     setEvents(data);
-  }, [allEvents, priceFilter, dateFilter, catFilter, sortFilter]);
+  }, [allEvents, priceFilter, cityFilter, dateFilter, catFilter, sortFilter]);
 
-  const clearFilters = () => { setPriceFilter("all"); setDateFilter("all"); setCatFilter("all"); setSortFilter("newest"); };
-  const activeFilters = [priceFilter!=="all", dateFilter!=="all", catFilter!=="all", sortFilter!=="newest"].filter(Boolean).length;
+  useEffect(() => {
+    if (!searchParams.get("search")) return;
+    const timer = setTimeout(() => scrollToAllEventsSection("smooth"), 80);
+    return () => clearTimeout(timer);
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (location.state?.scrollTo !== "all-events") return;
+    const timer = setTimeout(() => scrollToAllEventsSection("smooth"), 80);
+    return () => clearTimeout(timer);
+  }, [location.state]);
+
+  const clearFilters = () => { setPriceFilter("all"); setCityFilter("all"); setDateFilter("all"); setCatFilter("all"); setSortFilter("newest"); };
+  const activeFilters = [priceFilter!=="all", cityFilter!=="all", dateFilter!=="all", catFilter!=="all", sortFilter!=="newest"].filter(Boolean).length;
   const search = searchParams.get("search");
 
   return (
@@ -759,10 +842,18 @@ const HomePage = () => {
             <span style={{ background:"linear-gradient(135deg,#f97316,#ec4899,#a855f7)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent" }}>dành cho bạn</span>
           </h1></Reveal>
           <Reveal variant="fadeUp" delay={340} duration={700} threshold={0}><p style={{ color:"rgba(255,255,255,0.4)", marginBottom:36, maxWidth:400, fontSize:14, lineHeight:1.8, fontFamily:"'Be Vietnam Pro',sans-serif" }}>
-            Hàng trăm sự kiện âm nhạc, thể thao, văn hóa mỗi tháng — đặt vé nhanh chóng, an toàn, không rủi ro.
+            Hàng trăm sự kiện âm nhạc, thể thao, văn hóa mỗi tháng - đặt vé nhanh chóng, an toàn, không rủi ro.
           </p></Reveal>
           <form style={{ display:"flex", alignItems:"center", background:"rgba(255,255,255,0.06)", backdropFilter:"blur(16px)", borderRadius:14, maxWidth:460, border:"1px solid rgba(255,255,255,0.1)", boxShadow:"0 8px 32px rgba(0,0,0,0.3)", marginBottom:28 }}
-            onSubmit={e => { e.preventDefault(); const q=e.target.q.value.trim(); if (q) window.location.href=`/?search=${encodeURIComponent(q)}`; }}>
+            onSubmit={e => {
+              e.preventDefault();
+              const q = e.target.q.value.trim();
+              const nextParams = new URLSearchParams(searchParams);
+              if (q) nextParams.set("search", q);
+              else nextParams.delete("search");
+              setSearchParams(nextParams);
+              setTimeout(() => scrollToAllEventsSection("smooth"), 0);
+            }}>
             <Search style={{ width:15,height:15,color:"rgba(255,255,255,0.35)",marginLeft:18,flexShrink:0 }}/>
             <input name="q" placeholder="Tìm sự kiện, địa điểm, nghệ sĩ..." defaultValue={search||""} style={{ flex:1,padding:"14px 12px",fontSize:13,color:"white",background:"transparent",border:"none",outline:"none",fontFamily:"'Be Vietnam Pro',sans-serif" }}/>
             <button type="submit" style={{ background:"linear-gradient(135deg,#f97316,#a855f7)",color:"white",fontSize:12,fontWeight:700,padding:"10px 20px",border:"none",cursor:"pointer",borderRadius:10,margin:4,fontFamily:"'Be Vietnam Pro',sans-serif",whiteSpace:"nowrap" }}>Tìm ngay</button>
@@ -820,6 +911,20 @@ const HomePage = () => {
                     boxShadow: priceFilter===opt.value ? "inset 0 0 0 1px rgba(249,115,22,0.4)" : "none",
                   }}>
                     {priceFilter===opt.value && <DollarSign style={{ width:8,height:8,display:"inline",marginRight:2 }}/>}
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              <div style={{ display:"flex", gap:3, marginBottom:10, marginLeft:6, flexShrink:0, background:"rgba(255,255,255,0.03)", borderRadius:999, border:"1px solid rgba(255,255,255,0.08)", padding:"3px 4px" }}>
+                {CITY_OPTIONS.map(opt => (
+                  <button key={opt.value} onClick={()=>setCityFilter(opt.value)} style={{
+                    padding:"4px 10px", borderRadius:999, fontSize:10, fontWeight:700, border:"none",
+                    background: cityFilter===opt.value ? "linear-gradient(135deg,rgba(249,115,22,0.3),rgba(168,85,247,0.3))" : "transparent",
+                    color: cityFilter===opt.value ? "#fb923c" : "rgba(255,255,255,0.38)",
+                    cursor:"pointer", transition:"all 0.2s", whiteSpace:"nowrap",
+                    fontFamily:"'Be Vietnam Pro',sans-serif",
+                    boxShadow: cityFilter===opt.value ? "inset 0 0 0 1px rgba(249,115,22,0.4)" : "none",
+                  }}>
                     {opt.label}
                   </button>
                 ))}
@@ -899,15 +1004,15 @@ const HomePage = () => {
         catFilter={catFilter} setCatFilter={setCatFilter}
         sortFilter={sortFilter} setSortFilter={setSortFilter}
         priceFilter={priceFilter} setPriceFilter={setPriceFilter}
+        cityFilter={cityFilter}
         dateFilter={dateFilter} setDateFilter={setDateFilter}
         categories={categories}
+        sectionRef={allEventsSectionRef}
       />
 
       <WhyUsSection/>
       <OrganizersSection/>
-      <TestimonialsSection/>
       <LocationsSection/>
-      <FooterCTA/>
 
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,700;1,900&family=Space+Mono:wght@400;700&display=swap');
@@ -933,7 +1038,6 @@ const HomePage = () => {
         .hp2-testi-card:hover { border-color:rgba(249,115,22,0.18) !important; transform:translateY(-4px); box-shadow:0 16px 48px rgba(0,0,0,0.4); }
         .hp2-loc-card:hover .hp2-loc-img { transform:scale(1.07); }
         .hp2-loc-card:hover .hp2-loc-arrow { background:linear-gradient(135deg,#f97316,#a855f7) !important; border-color:transparent !important; }
-        .hp2-show-more:hover { border-color:rgba(255,255,255,0.18) !important; color:white !important; }
         @media (prefers-reduced-motion:reduce) { *{ transition-duration:0.01ms !important; animation-duration:0.01ms !important; } }
         * { scrollbar-width:none; } ::-webkit-scrollbar { display:none; }
         input::placeholder { color:rgba(255,255,255,0.3); }

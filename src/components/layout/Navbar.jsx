@@ -1,34 +1,51 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
-  Search, MapPin, Menu, X, Ticket, User, LogOut,
+  Menu, X, Ticket, User, LogOut,
   ShoppingCart, ChevronDown, History, QrCode, Settings,
-  Sparkles, HelpCircle, MessageSquare, Globe
+  Sparkles, HelpCircle, MessageSquare, Globe, Heart
 } from 'lucide-react';
 import useAuthStore from '../../store/authStore.js';
 import useCartStore from '../../store/cartStore.js';
 
+const NAV_CATEGORY_OPTIONS = [
+  { label: 'Âm nhạc', search: 'Âm nhạc' },
+  { label: 'Thể thao', search: 'Thể thao' },
+  { label: 'Workshop', search: 'Workshop' },
+  { label: 'Nghệ thuật', search: 'Nghệ thuật' },
+];
+
+const getFavoriteStorageKey = (user) => {
+  const userKey = user?._id || user?.email || 'guest';
+  return `favorite-events-${String(userKey)}`;
+};
+
+const readFavoriteCount = (user) => {
+  try {
+    const raw = localStorage.getItem(getFavoriteStorageKey(user));
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.length : 0;
+  } catch {
+    return 0;
+  }
+};
+
 const Navbar = () => {
-  const { t, i18n } = useTranslation();
+  const { i18n } = useTranslation();
   const [isMenuOpen, setIsMenuOpen]         = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isHelpMenuOpen, setIsHelpMenuOpen] = useState(false);
+  const [isCategoryMenuOpen, setIsCategoryMenuOpen] = useState(false);
   const [isLangMenuOpen, setIsLangMenuOpen] = useState(false);
-  const [searchQuery, setSearchQuery]       = useState('');
   const [scrolled, setScrolled]             = useState(false);
-  const [searchFocused, setSearchFocused]   = useState(false);
+  const [favoriteCount, setFavoriteCount]   = useState(0);
 
   const { isAuthenticated, user, logout } = useAuthStore();
   const { getTotalQuantity }              = useCartStore();
   const navigate   = useNavigate();
   const location   = useLocation();
   const totalItems = getTotalQuantity();
-
-  const toggleLanguage = () => {
-    const newLang = i18n.language === 'vi' ? 'en' : 'vi';
-    i18n.changeLanguage(newLang);
-  };
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
@@ -40,12 +57,26 @@ const Navbar = () => {
     setIsMenuOpen(false);
     setIsUserMenuOpen(false);
     setIsHelpMenuOpen(false);
+    setIsCategoryMenuOpen(false);
+    setIsLangMenuOpen(false);
   }, [location.pathname]);
 
-  const handleSearch = (e) => {
-    e.preventDefault();
-    if (searchQuery.trim()) navigate(`/?search=${encodeURIComponent(searchQuery.trim())}`);
-  };
+  useEffect(() => {
+    if (!isAuthenticated || !user) {
+      setFavoriteCount(0);
+      return;
+    }
+
+    const syncFavoriteCount = () => setFavoriteCount(readFavoriteCount(user));
+    syncFavoriteCount();
+
+    window.addEventListener('storage', syncFavoriteCount);
+    window.addEventListener('focus', syncFavoriteCount);
+    return () => {
+      window.removeEventListener('storage', syncFavoriteCount);
+      window.removeEventListener('focus', syncFavoriteCount);
+    };
+  }, [isAuthenticated, user, location.pathname]);
 
   const isActive = (path) => location.pathname === path;
 
@@ -63,127 +94,142 @@ const Navbar = () => {
         transition: 'all 0.35s cubic-bezier(0.4,0,0.2,1)',
       }}>
         <div style={{ padding: '0 16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 64, gap: 20 }}>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'minmax(0,1fr) auto minmax(0,1fr)',
+            alignItems: 'center',
+            height: 64,
+            gap: 16,
+          }}>
 
             {/* LOGO */}
-            <Link to="/" className="nb-logo" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none', flexShrink: 0 }}>
-              <div className="nb-logo-icon" style={{
-                width: 36, height: 36, borderRadius: 10,
-                background: 'linear-gradient(135deg,#f97316,#a855f7)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                boxShadow: '0 4px 18px rgba(249,115,22,0.35)',
-                transition: 'transform 0.25s, box-shadow 0.25s',
-              }}>
-                <Ticket style={{ width: 17, height: 17, color: 'white' }} />
-              </div>
-              <span style={{
-                fontSize: 19, fontWeight: 900, letterSpacing: '-0.04em',
-                background: 'linear-gradient(90deg,#fff 30%,rgba(255,255,255,0.5))',
-                WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-                fontFamily: "'Clash Display','Be Vietnam Pro',sans-serif",
-              }}>TicketHub</span>
-            </Link>
+            <div style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
+              <Link to="/" className="nb-logo" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none', flexShrink: 0 }}>
+                <div className="nb-logo-icon" style={{
+                  width: 36, height: 36, borderRadius: 10,
+                  background: 'linear-gradient(135deg,#f97316,#a855f7)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  boxShadow: '0 4px 18px rgba(249,115,22,0.35)',
+                  transition: 'transform 0.25s, box-shadow 0.25s',
+                }}>
+                  <Ticket style={{ width: 17, height: 17, color: 'white' }} />
+                </div>
+                <span style={{
+                  fontSize: 19, fontWeight: 900, letterSpacing: '-0.04em',
+                  background: 'linear-gradient(90deg,#fff 30%,rgba(255,255,255,0.5))',
+                  WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+                  fontFamily: "'Clash Display','Be Vietnam Pro',sans-serif",
+                }}>TicketHub</span>
+              </Link>
+            </div>
 
-            {/* SEARCH – desktop */}
-            <form onSubmit={handleSearch} className="nb-search-form" style={{
-              flex: 1, maxWidth: 480, display: 'flex', alignItems: 'center',
-              background: searchFocused ? 'rgba(255,255,255,0.09)' : 'rgba(255,255,255,0.05)',
-              border: searchFocused ? '1px solid rgba(249,115,22,0.45)' : '1px solid rgba(255,255,255,0.09)',
-              borderRadius: 12,
-              boxShadow: searchFocused ? '0 0 0 3px rgba(249,115,22,0.08)' : 'none',
-              transition: 'all 0.25s', overflow: 'hidden',
-            }}>
-              <Search style={{ width: 14, height: 14, marginLeft: 14, flexShrink: 0, transition: 'color 0.2s',
-                color: searchFocused ? '#fb923c' : 'rgba(255,255,255,0.3)' }} />
-              <input type="text" value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                onFocus={() => setSearchFocused(true)}
-                onBlur={() => setSearchFocused(false)}
-                placeholder="Tìm sự kiện, nghệ sĩ, địa điểm..."
-                style={{
-                  flex: 1, padding: '11px 10px', fontSize: 12,
-                  color: 'white', background: 'transparent',
-                  border: 'none', outline: 'none',
-                  fontFamily: "'Be Vietnam Pro',sans-serif",
-                }} />
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: 4,
-                padding: '0 12px', borderLeft: '1px solid rgba(255,255,255,0.07)',
-                color: 'rgba(255,255,255,0.3)', fontSize: 11, whiteSpace: 'nowrap',
-                fontFamily: "'Be Vietnam Pro',sans-serif",
-              }}>
-                <MapPin style={{ width: 11, height: 11 }} /> TP.HCM
-              </div>
-              <button type="submit" className="nb-search-btn" style={{
-                background: 'linear-gradient(135deg,#f97316,#a855f7)',
-                border: 'none', cursor: 'pointer', padding: '9px 16px', margin: 4,
-                borderRadius: 8, color: 'white', fontSize: 11, fontWeight: 700,
-                fontFamily: "'Be Vietnam Pro',sans-serif", transition: 'opacity 0.2s',
-              }}>Tìm</button>
-            </form>
-
-            {/* RIGHT LINKS – desktop */}
-            <div className="nb-desktop-links" style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-
-              {[{ to: '/', label: 'Sự kiện' }, { to: '/create-event', label: 'Tổ chức' }].map(({ to, label }) => (
-                <Link key={to} to={to} className="nb-nav-link" style={{
-                  padding: '7px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600,
-                  color: isActive(to) ? '#fb923c' : 'rgba(255,255,255,0.55)',
-                  background: isActive(to) ? 'rgba(249,115,22,0.1)' : 'transparent',
-                  textDecoration: 'none', fontFamily: "'Be Vietnam Pro',sans-serif",
-                  transition: 'all 0.2s', whiteSpace: 'nowrap',
-                }}>{label}</Link>
-              ))}
-
-              {/* Help dropdown */}
-              <div style={{ position: 'relative' }}>
-                <button onClick={() => { setIsHelpMenuOpen(v => !v); setIsUserMenuOpen(false); }}
-                  className="nb-nav-link"
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 4,
+            {/* CENTER LINKS – desktop */}
+            <div className="nb-desktop-center" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', justifySelf: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                {[{ to: '/', label: 'Sự kiện' }, { to: '/create-event', label: 'Tổ chức' }].map(({ to, label }) => (
+                  <Link key={to} to={to} className="nb-nav-link" style={{
                     padding: '7px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600,
-                    color: isHelpMenuOpen ? '#fb923c' : 'rgba(255,255,255,0.55)',
-                    background: isHelpMenuOpen ? 'rgba(249,115,22,0.1)' : 'transparent',
-                    border: 'none', cursor: 'pointer',
-                    fontFamily: "'Be Vietnam Pro',sans-serif", transition: 'all 0.2s',
-                  }}>
-                  Hỗ trợ
-                  <ChevronDown style={{ width: 13, height: 13, transition: 'transform 0.25s', transform: isHelpMenuOpen ? 'rotate(180deg)' : 'none' }} />
-                </button>
-                {isHelpMenuOpen && (
-                  <>
-                    <div style={{ position: 'fixed', inset: 0, zIndex: 10 }} onClick={() => setIsHelpMenuOpen(false)} />
-                    <div className="nb-dropdown" style={{
-                      position: 'absolute', top: 'calc(100% + 8px)', right: 0, width: 200, zIndex: 20,
-                      background: '#111', border: '1px solid rgba(255,255,255,0.1)',
-                      borderRadius: 14, boxShadow: '0 20px 60px rgba(0,0,0,0.7)', overflow: 'hidden',
-                    }}>
-                      {[
-                        { to: '/help',    icon: <HelpCircle style={{ width: 13, height: 13 }} />,    label: 'Trung tâm hỗ trợ' },
-                        { to: '/contact', icon: <MessageSquare style={{ width: 13, height: 13 }} />, label: 'Liên hệ' },
-                      ].map(({ to, icon, label }) => (
-                        <Link key={to} to={to} onClick={() => setIsHelpMenuOpen(false)}
-                          className="nb-dropdown-item"
-                          style={{
-                            display: 'flex', alignItems: 'center', gap: 10,
-                            padding: '12px 16px', fontSize: 12, fontWeight: 500,
-                            color: 'rgba(255,255,255,0.6)', textDecoration: 'none',
-                            fontFamily: "'Be Vietnam Pro',sans-serif", transition: 'all 0.15s',
-                            borderBottom: '1px solid rgba(255,255,255,0.05)',
-                          }}>
-                          <span style={{ color: '#fb923c' }}>{icon}</span>{label}
-                        </Link>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
+                    color: isActive(to) ? '#fb923c' : 'rgba(255,255,255,0.55)',
+                    background: isActive(to) ? 'rgba(249,115,22,0.1)' : 'transparent',
+                    textDecoration: 'none', fontFamily: "'Be Vietnam Pro',sans-serif",
+                    transition: 'all 0.2s', whiteSpace: 'nowrap',
+                  }}>{label}</Link>
+                ))}
 
-              <div style={{ width: 1, height: 20, background: 'rgba(255,255,255,0.08)', margin: '0 4px' }} />
+                {/* Category dropdown */}
+                <div style={{ position: 'relative' }}>
+                  <button onClick={() => { setIsCategoryMenuOpen(v => !v); setIsHelpMenuOpen(false); setIsUserMenuOpen(false); setIsLangMenuOpen(false); }}
+                    className="nb-nav-link"
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 4,
+                      padding: '7px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+                      color: isCategoryMenuOpen ? '#fb923c' : 'rgba(255,255,255,0.55)',
+                      background: isCategoryMenuOpen ? 'rgba(249,115,22,0.1)' : 'transparent',
+                      border: 'none', cursor: 'pointer',
+                      fontFamily: "'Be Vietnam Pro',sans-serif", transition: 'all 0.2s',
+                    }}>
+                    Danh mục
+                    <ChevronDown style={{ width: 13, height: 13, transition: 'transform 0.25s', transform: isCategoryMenuOpen ? 'rotate(180deg)' : 'none' }} />
+                  </button>
+                  {isCategoryMenuOpen && (
+                    <>
+                      <div style={{ position: 'fixed', inset: 0, zIndex: 10 }} onClick={() => setIsCategoryMenuOpen(false)} />
+                      <div className="nb-dropdown" style={{
+                        position: 'absolute', top: 'calc(100% + 8px)', right: 0, width: 180, zIndex: 20,
+                        background: '#111', border: '1px solid rgba(255,255,255,0.1)',
+                        borderRadius: 14, boxShadow: '0 20px 60px rgba(0,0,0,0.7)', overflow: 'hidden',
+                      }}>
+                        {NAV_CATEGORY_OPTIONS.map(({ label, search }) => (
+                          <Link key={label} to={`/?search=${encodeURIComponent(search)}`} onClick={() => setIsCategoryMenuOpen(false)}
+                            className="nb-dropdown-item"
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: 10,
+                              padding: '12px 16px', fontSize: 12, fontWeight: 500,
+                              color: 'rgba(255,255,255,0.6)', textDecoration: 'none',
+                              fontFamily: "'Be Vietnam Pro',sans-serif", transition: 'all 0.15s',
+                              borderBottom: '1px solid rgba(255,255,255,0.05)',
+                            }}>
+                            <span style={{ color: '#fb923c', fontSize: 10 }}>●</span>{label}
+                          </Link>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* Help dropdown */}
+                <div style={{ position: 'relative' }}>
+                  <button onClick={() => { setIsHelpMenuOpen(v => !v); setIsUserMenuOpen(false); setIsLangMenuOpen(false); setIsCategoryMenuOpen(false); }}
+                    className="nb-nav-link"
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 4,
+                      padding: '7px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+                      color: isHelpMenuOpen ? '#fb923c' : 'rgba(255,255,255,0.55)',
+                      background: isHelpMenuOpen ? 'rgba(249,115,22,0.1)' : 'transparent',
+                      border: 'none', cursor: 'pointer',
+                      fontFamily: "'Be Vietnam Pro',sans-serif", transition: 'all 0.2s',
+                    }}>
+                    Hỗ trợ
+                    <ChevronDown style={{ width: 13, height: 13, transition: 'transform 0.25s', transform: isHelpMenuOpen ? 'rotate(180deg)' : 'none' }} />
+                  </button>
+                  {isHelpMenuOpen && (
+                    <>
+                      <div style={{ position: 'fixed', inset: 0, zIndex: 10 }} onClick={() => setIsHelpMenuOpen(false)} />
+                      <div className="nb-dropdown" style={{
+                        position: 'absolute', top: 'calc(100% + 8px)', right: 0, width: 200, zIndex: 20,
+                        background: '#111', border: '1px solid rgba(255,255,255,0.1)',
+                        borderRadius: 14, boxShadow: '0 20px 60px rgba(0,0,0,0.7)', overflow: 'hidden',
+                      }}>
+                        {[
+                          { to: '/help',    icon: <HelpCircle style={{ width: 13, height: 13 }} />,    label: 'Trung tâm hỗ trợ' },
+                          { to: '/contact', icon: <MessageSquare style={{ width: 13, height: 13 }} />, label: 'Liên hệ' },
+                        ].map(({ to, icon, label }) => (
+                          <Link key={to} to={to} onClick={() => setIsHelpMenuOpen(false)}
+                            className="nb-dropdown-item"
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: 10,
+                              padding: '12px 16px', fontSize: 12, fontWeight: 500,
+                              color: 'rgba(255,255,255,0.6)', textDecoration: 'none',
+                              fontFamily: "'Be Vietnam Pro',sans-serif", transition: 'all 0.15s',
+                              borderBottom: '1px solid rgba(255,255,255,0.05)',
+                            }}>
+                            <span style={{ color: '#fb923c' }}>{icon}</span>{label}
+                          </Link>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, minWidth: 0 }}>
+              {/* RIGHT LINKS – desktop */}
+              <div className="nb-desktop-links" style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
 
               {/* Language Toggle */}
               <div style={{ position: 'relative' }}>
-                <button onClick={() => { setIsLangMenuOpen(v => !v); setIsUserMenuOpen(false); setIsHelpMenuOpen(false); }}
+                <button onClick={() => { setIsLangMenuOpen(v => !v); setIsUserMenuOpen(false); setIsHelpMenuOpen(false); setIsCategoryMenuOpen(false); }}
                   className="nb-nav-link"
                   style={{
                     display: 'flex', alignItems: 'center', gap: 4,
@@ -252,8 +298,27 @@ const Navbar = () => {
                     </button>
                   )}
 
+                  <button onClick={() => navigate('/favorites')} className="nb-icon-btn" style={{
+                    position: 'relative', background: 'rgba(255,255,255,0.06)',
+                    border: '1px solid rgba(255,255,255,0.09)',
+                    borderRadius: 10, padding: '8px 10px', cursor: 'pointer',
+                    color: 'rgba(255,255,255,0.6)', transition: 'all 0.2s',
+                  }}>
+                    <Heart style={{ width: 15, height: 15, fill: favoriteCount > 0 ? 'currentColor' : 'none' }} />
+                    {favoriteCount > 0 && (
+                      <span style={{
+                        position: 'absolute', top: -5, right: -5,
+                        background: 'linear-gradient(135deg,#f97316,#a855f7)',
+                        color: 'white', fontSize: 9, fontWeight: 800,
+                        minWidth: 16, height: 16, borderRadius: '50%',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        padding: '0 4px', fontFamily: "'Space Mono',monospace",
+                      }}>{favoriteCount > 99 ? '99+' : favoriteCount}</span>
+                    )}
+                  </button>
+
                   <div style={{ position: 'relative' }}>
-                    <button onClick={() => { setIsUserMenuOpen(v => !v); setIsHelpMenuOpen(false); }}
+                    <button onClick={() => { setIsUserMenuOpen(v => !v); setIsHelpMenuOpen(false); setIsLangMenuOpen(false); setIsCategoryMenuOpen(false); }}
                       className="nb-avatar-btn"
                       style={{
                         display: 'flex', alignItems: 'center', gap: 6,
@@ -328,6 +393,7 @@ const Navbar = () => {
                             {[
                               { to: '/profile',        icon: <User style={{ width: 13, height: 13 }} />,    label: 'Hồ sơ của tôi' },
                               { to: '/my-tickets',     icon: <Ticket style={{ width: 13, height: 13 }} />,  label: 'Vé của tôi' },
+                              { to: '/favorites',      icon: <Heart style={{ width: 13, height: 13 }} />,   label: 'Yêu thích' },
                               { to: '/ticket-history', icon: <History style={{ width: 13, height: 13 }} />, label: 'Lịch sử vé' },
                               { to: '/checkin',        icon: <QrCode style={{ width: 13, height: 13 }} />,  label: 'QR Check-in' },
                               { to: '/settings',       icon: <Settings style={{ width: 13, height: 13 }} />,label: 'Cài đặt' },
@@ -385,10 +451,30 @@ const Navbar = () => {
                   </Link>
                 </div>
               )}
-            </div>
+              </div>
 
-            {/* MOBILE HAMBURGER */}
-            <div className="nb-mobile-icons" style={{ display: 'none', alignItems: 'center', gap: 8 }}>
+              {/* MOBILE HAMBURGER */}
+              <div className="nb-mobile-icons" style={{ display: 'none', alignItems: 'center', gap: 8 }}>
+              {isAuthenticated && (
+                <button onClick={() => navigate('/favorites')} style={{
+                  position: 'relative', background: 'rgba(255,255,255,0.06)',
+                  border: '1px solid rgba(255,255,255,0.09)',
+                  borderRadius: 9, padding: '8px 9px', cursor: 'pointer',
+                  color: 'rgba(255,255,255,0.6)',
+                }}>
+                  <Heart style={{ width: 15, height: 15, fill: favoriteCount > 0 ? 'currentColor' : 'none' }} />
+                  {favoriteCount > 0 && (
+                    <span style={{
+                      position: 'absolute', top: -5, right: -5,
+                      background: 'linear-gradient(135deg,#f97316,#a855f7)',
+                      color: 'white', fontSize: 9, fontWeight: 800,
+                      minWidth: 16, height: 16, borderRadius: '50%',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      padding: '0 4px',
+                    }}>{favoriteCount > 99 ? '99+' : favoriteCount}</span>
+                  )}
+                </button>
+              )}
               {totalItems > 0 && (
                 <button onClick={() => navigate('/checkout')} style={{
                   position: 'relative', background: 'rgba(255,255,255,0.06)',
@@ -414,6 +500,7 @@ const Navbar = () => {
               }}>
                 {isMenuOpen ? <X style={{ width: 16, height: 16 }} /> : <Menu style={{ width: 16, height: 16 }} />}
               </button>
+              </div>
             </div>
 
           </div>
@@ -430,28 +517,6 @@ const Navbar = () => {
         display: 'none',
       }}>
         <div style={{ padding: '16px 16px', maxHeight: 'calc(100svh - 64px)', overflowY: 'auto' }}>
-          {/* Mobile search */}
-          <form onSubmit={handleSearch} style={{
-            display: 'flex', background: 'rgba(255,255,255,0.05)',
-            border: '1px solid rgba(255,255,255,0.09)',
-            borderRadius: 12, overflow: 'hidden', marginBottom: 14,
-          }}>
-            <Search style={{ width: 14, height: 14, color: 'rgba(255,255,255,0.3)', margin: '12px 10px 12px 14px', flexShrink: 0 }} />
-            <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Tìm sự kiện..."
-              style={{
-                flex: 1, padding: '11px 0', fontSize: 13,
-                color: 'white', background: 'transparent',
-                border: 'none', outline: 'none',
-                fontFamily: "'Be Vietnam Pro',sans-serif",
-              }} />
-            <button type="submit" style={{
-              background: 'linear-gradient(135deg,#f97316,#a855f7)', border: 'none',
-              cursor: 'pointer', padding: '0 18px', color: 'white',
-              fontSize: 12, fontWeight: 700, fontFamily: "'Be Vietnam Pro',sans-serif",
-            }}>Tìm</button>
-          </form>
-
           {/* Mobile links */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 14 }}>
             {[
@@ -519,6 +584,7 @@ const Navbar = () => {
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 {[
+                  { to: '/favorites',      icon: <Heart style={{ width: 14, height: 14 }} />,   label: 'Yêu thích' },
                   { to: '/ticket-history', icon: <History style={{ width: 14, height: 14 }} />,  label: 'Lịch sử vé' },
                   { to: '/checkin',        icon: <QrCode style={{ width: 14, height: 14 }} />,   label: 'QR Check-in' },
                   { to: '/settings',       icon: <Settings style={{ width: 14, height: 14 }} />, label: 'Cài đặt' },
@@ -587,10 +653,9 @@ const Navbar = () => {
         .nb-avatar-btn:hover { border-color:rgba(249,115,22,0.45) !important; background:rgba(249,115,22,0.1) !important; }
         .nb-dropdown-item:hover { background:rgba(249,115,22,0.07) !important; color:rgba(255,255,255,0.9) !important; padding-left:22px !important; }
         .nb-logout-btn:hover { background:rgba(239,68,68,0.08) !important; color:#f87171 !important; }
-        .nb-search-btn:hover { opacity:0.88; }
 
-        @media (max-width:900px) { .nb-search-form { display:none !important; } }
         @media (max-width:768px) {
+          .nb-desktop-center { display:none !important; }
           .nb-desktop-links { display:none !important; }
           .nb-mobile-icons  { display:flex !important; }
           .nb-mobile-menu   { display:block !important; }
