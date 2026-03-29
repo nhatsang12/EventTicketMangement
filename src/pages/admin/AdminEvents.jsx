@@ -363,29 +363,42 @@ const AdminEvents = () => {
       const startDateTime = toLocalISO(form.date, form.time || '19:00');
       const endDateTime = toLocalISO(form.endDate || form.date, form.endTime || '23:59');
 
-      const formData = new FormData();
-      formData.append('title', form.title);
-      formData.append('description', form.description || '');
-      formData.append('location', form.location);
-      formData.append('category', form.category || '');
-      formData.append('startDate', startDateTime);
-      formData.append('endDate', endDateTime);
+      const basePayload = {
+        title: form.title,
+        description: form.description || '',
+        location: form.location,
+        category: form.category || '',
+        date: form.date,
+        time: form.time || '19:00',
+        endTime: form.endTime || '21:00',
+        startDate: startDateTime,
+        endDate: endDateTime,
+      };
 
       if (editing !== null) {
         const newEnd = new Date(`${form.endDate || form.date}T${form.endTime || '23:59'}`);
-        if (newEnd > new Date()) formData.append('status', 'active');
+        if (newEnd > new Date()) basePayload.status = 'active';
       }
 
-      if (form.imageFile) formData.append('image', form.imageFile);
+      const hasImageUpload = !!form.imageFile;
+      const requestData = hasImageUpload ? new FormData() : basePayload;
+      if (hasImageUpload) {
+        Object.entries(basePayload).forEach(([key, value]) => {
+          requestData.append(key, value);
+        });
+        requestData.append('image', form.imageFile);
+      }
 
-      const multipartConfig = { headers: { ...config.headers, 'Content-Type': 'multipart/form-data' } };
+      const requestConfig = hasImageUpload
+        ? { headers: { ...config.headers, 'Content-Type': 'multipart/form-data' } }
+        : config;
 
       if (editing !== null) {
         const eventId = events[editing]._id;
-        await axios.put(`${API_URL}/api/admin/events/${eventId}`, formData, multipartConfig);
+        await axios.put(`${API_URL}/api/admin/events/${eventId}`, requestData, requestConfig);
         toast.success('Cập nhật sự kiện thành công!');
       } else {
-        const eventRes = await axios.post(`${API_URL}/api/admin/events/`, formData, multipartConfig);
+        const eventRes = await axios.post(`${API_URL}/api/admin/events/`, requestData, requestConfig);
         const newEventId = eventRes.data?.data?._id || eventRes.data?._id;
 
         const validTickets = ticketRows.filter(r => r.name.trim() && Number(r.price) >= 0 && Number(r.quantity) > 0);
@@ -419,7 +432,8 @@ const AdminEvents = () => {
       setEditing(null);
       setForm(emptyForm);
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Có lỗi xảy ra khi lưu sự kiện');
+      console.error('CREATE/UPDATE EVENT ERROR:', error?.response?.data || error);
+      toast.error(getApiErrorMessage(error, 'Có lỗi xảy ra khi lưu sự kiện'));
     } finally {
       setLoading(false);
     }

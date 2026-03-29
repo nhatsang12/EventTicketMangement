@@ -1,0 +1,1 @@
+{"indexes":[{"v":{"$numberInt":"2"},"key":{"_id":{"$numberInt":"1"}},"name":"_id_"},{"v":{"$numberInt":"2"},"key":{"qrCode":{"$numberInt":"1"}},"name":"qrCode_1","unique":true}],"uuid":"4a6f9381640a43949dbacafd4d064e06","collectionName":"tickets","type":"collection"}

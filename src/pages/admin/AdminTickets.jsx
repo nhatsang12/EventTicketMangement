@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Ticket, ToggleLeft, ToggleRight, Save, X, Tag, ChevronLeft, ChevronRight, Search, PlusCircle, BanIcon } from 'lucide-react';
+import { Plus, Edit2, Trash2, Ticket, ToggleLeft, ToggleRight, Save, X, Tag, ChevronLeft, ChevronRight, Search, PlusCircle, BanIcon, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import axios from 'axios';
 import useAuthStore from '../../store/authStore';
@@ -8,6 +8,17 @@ import API_URL from '../../config/api';
 const ITEMS_PER_PAGE = 10;
 
 const emptyForm = { name: '', price: '', quantity: '', description: '', isActive: true, eventId: '' };
+
+const getEntityId = (value) => {
+  if (!value) return '';
+  if (typeof value === 'string' || typeof value === 'number') return String(value);
+  if (typeof value === 'object') {
+    if (value.$oid) return String(value.$oid);
+    if (value._id) return getEntityId(value._id);
+    if (value.id) return String(value.id);
+  }
+  return '';
+};
 
 const toNumber = (value, fallback = 0) => {
   const parsed = Number(value);
@@ -28,8 +39,8 @@ const getTicketStats = (ticket) => {
 };
 
 const isEventInactive = (ticket, events) => {
-  const eventId = ticket?.event?._id || ticket?.event;
-  const event = events.find(e => e._id === eventId);
+  const eventId = getEntityId(ticket?.event?._id || ticket?.event);
+  const event = events.find(e => getEntityId(e?._id) === eventId);
   if (!event) return false;
   const status = (event.status || '').toLowerCase();
   if (['cancelled', 'canceled', 'refunded', 'ended'].includes(status)) return true;
@@ -40,6 +51,12 @@ const isEventInactive = (ticket, events) => {
     return fallbackEnd < new Date();
   }
   return false;
+};
+
+const isOrphanTicket = (ticket, events) => {
+  const eventId = getEntityId(ticket?.event?._id || ticket?.event);
+  if (!eventId) return true;
+  return !events.some((eventItem) => getEntityId(eventItem?._id) === eventId);
 };
 
 const AdminTickets = () => {
@@ -53,7 +70,9 @@ const AdminTickets = () => {
   const [sortPrice, setSortPrice] = useState('none');
   const [searchTicketName, setSearchTicketName] = useState('');
   const [showEventEnded, setShowEventEnded] = useState(true);
+  const [showOrphanTickets, setShowOrphanTickets] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [cleanupLoading, setCleanupLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [fillModal, setFillModal] = useState(null);
   const [fillAmount, setFillAmount] = useState('');
@@ -76,7 +95,7 @@ const AdminTickets = () => {
   };
 
   useEffect(() => { fetchData(); }, []);
-  useEffect(() => { setCurrentPage(1); }, [filterEvent, statusFilter, sortPrice, searchTicketName, showEventEnded, ticketTypes]);
+  useEffect(() => { setCurrentPage(1); }, [filterEvent, statusFilter, sortPrice, searchTicketName, showEventEnded, showOrphanTickets, ticketTypes]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -86,10 +105,12 @@ const AdminTickets = () => {
     }
 
     // Kiểm tra trùng tên loại vé (case-insensitive) trong cùng sự kiện
-    const isDuplicate = ticketTypes.some((t, idx) => {
-      const sameEvent = (t.event?._id || t.event) === form.eventId;
+    const editingTicket = editing ? ticketTypes.find((t) => getEntityId(t?._id) === editing) : null;
+
+    const isDuplicate = ticketTypes.some((t) => {
+      const sameEvent = getEntityId(t?.event?._id || t?.event) === getEntityId(form.eventId);
       const sameName = t.name?.trim().toLowerCase() === form.name.trim().toLowerCase();
-      const isItself = editing !== null && idx === editing;
+      const isItself = editingTicket ? getEntityId(t?._id) === getEntityId(editingTicket?._id) : false;
       return sameEvent && sameName && !isItself;
     });
     if (isDuplicate) {
@@ -109,14 +130,14 @@ const AdminTickets = () => {
         description: form.description,
         isActive: form.isActive,
       };
-      if (editing !== null) {
-        const currentStats = getTicketStats(ticketTypes[editing]);
+      if (editingTicket) {
+        const currentStats = getTicketStats(editingTicket);
         payload.remaining = Math.max(0, quantity - currentStats.sold);
       } else {
         payload.remaining = quantity;
       }
-      if (editing !== null) {
-        await axios.put(`${API_URL}/api/admin/ticket-types/${ticketTypes[editing]._id}`, payload, config);
+      if (editingTicket) {
+        await axios.put(`${API_URL}/api/admin/ticket-types/${editingTicket._id}`, payload, config);
         toast.success('Cập nhật loại vé thành công!');
       } else {
         await axios.post(`${API_URL}/api/admin/ticket-types/`, payload, config);
@@ -133,23 +154,27 @@ const AdminTickets = () => {
     }
   };
 
-  const handleEdit = (i) => {
-    const t = ticketTypes[i];
+  const handleEdit = (ticket) => {
+    const t = ticket;
+    if (isOrphanTicket(t, events)) {
+      toast.error('Vé mồ côi không thể chỉnh sửa, vui lòng xóa');
+      return;
+    }
     if (isEventInactive(t, events)) {
       toast.error('Không thể chỉnh sửa vé của sự kiện đã kết thúc hoặc bị hủy');
       return;
     }
-    setEditing(i);
-    setForm({ ...t, eventId: t.event?._id || t.event });
+    setEditing(getEntityId(t?._id));
+    setForm({ ...t, eventId: getEntityId(t?.event?._id || t?.event) });
     setShowForm(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleDelete = async (i) => {
+  const handleDelete = async (ticket) => {
     if (!window.confirm('Bạn có chắc chắn muốn xóa loại vé này?')) return;
     try {
       const config = { headers: { Authorization: `Bearer ${accessToken}` } };
-      await axios.delete(`${API_URL}/api/admin/ticket-types/${ticketTypes[i]._id}`, config);
+      await axios.delete(`${API_URL}/api/admin/ticket-types/${ticket._id}`, config);
       toast.success('Đã xóa loại vé');
       fetchData();
     } catch {
@@ -157,8 +182,11 @@ const AdminTickets = () => {
     }
   };
 
-  const handleToggle = async (i) => {
-    const ticket = ticketTypes[i];
+  const handleToggle = async (ticket) => {
+    if (isOrphanTicket(ticket, events)) {
+      toast.error('Vé mồ côi không thể đổi trạng thái, vui lòng xóa');
+      return;
+    }
     if (isEventInactive(ticket, events)) {
       toast.error('Không thể thay đổi trạng thái vé của sự kiện đã kết thúc hoặc bị hủy');
       return;
@@ -174,13 +202,16 @@ const AdminTickets = () => {
     }
   };
 
-  const openFillModal = (globalIndex) => {
-    const ticket = ticketTypes[globalIndex];
+  const openFillModal = (ticket) => {
+    if (isOrphanTicket(ticket, events)) {
+      toast.error('Vé mồ côi không thể thêm số lượng, vui lòng xóa');
+      return;
+    }
     if (isEventInactive(ticket, events)) {
       toast.error('Không thể thêm vé cho sự kiện đã kết thúc hoặc bị hủy');
       return;
     }
-    setFillModal({ index: globalIndex, ticket });
+    setFillModal({ ticket });
     setFillAmount('');
   };
 
@@ -206,26 +237,74 @@ const AdminTickets = () => {
     }
   };
 
+  const handleCleanupOrphanTickets = async () => {
+    const orphanTickets = ticketTypes.filter((ticket) => isOrphanTicket(ticket, events));
+    if (orphanTickets.length === 0) {
+      toast.success('Không còn vé mồ côi');
+      return;
+    }
+
+    const ok = window.confirm(`Bạn có chắc muốn xóa ${orphanTickets.length} vé mồ côi (không còn sự kiện gốc)?`);
+    if (!ok) return;
+
+    try {
+      setCleanupLoading(true);
+      const config = { headers: { Authorization: `Bearer ${accessToken}` } };
+      const results = await Promise.allSettled(
+        orphanTickets.map((ticket) =>
+          axios.delete(`${API_URL}/api/admin/ticket-types/${ticket._id}`, config)
+        )
+      );
+
+      const successCount = results.filter((item) => item.status === 'fulfilled').length;
+      const failedCount = orphanTickets.length - successCount;
+
+      if (successCount > 0) {
+        toast.success(`Đã xóa ${successCount}/${orphanTickets.length} vé mồ côi`);
+      }
+      if (failedCount > 0) {
+        toast.error(`Có ${failedCount} vé mồ côi chưa xóa được`);
+      }
+
+      await fetchData();
+    } catch {
+      toast.error('Lỗi khi dọn vé mồ côi');
+    } finally {
+      setCleanupLoading(false);
+    }
+  };
+
   const formatPrice = (p) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(p);
 
   let processed = ticketTypes;
-  if (filterEvent !== 'all') processed = processed.filter(t => (t.event?._id || t.event) === filterEvent);
-  if (statusFilter === 'active') processed = processed.filter(t => t.isActive !== false && !isEventInactive(t, events));
-  else if (statusFilter === 'inactive') processed = processed.filter(t => t.isActive === false && !isEventInactive(t, events));
-  else if (statusFilter === 'event_dead') processed = processed.filter(t => isEventInactive(t, events));
+  if (!showOrphanTickets) processed = processed.filter(t => !isOrphanTicket(t, events));
+  if (filterEvent !== 'all') {
+    processed = processed.filter(t => getEntityId(t?.event?._id || t?.event) === getEntityId(filterEvent));
+  }
+  if (statusFilter === 'active') processed = processed.filter(t => !isOrphanTicket(t, events) && t.isActive !== false && !isEventInactive(t, events));
+  else if (statusFilter === 'inactive') processed = processed.filter(t => !isOrphanTicket(t, events) && t.isActive === false && !isEventInactive(t, events));
+  else if (statusFilter === 'event_dead') processed = processed.filter(t => !isOrphanTicket(t, events) && isEventInactive(t, events));
   if (!showEventEnded) processed = processed.filter(t => !isEventInactive(t, events));
   if (searchTicketName.trim()) processed = processed.filter(t => t.name?.toLowerCase().includes(searchTicketName.toLowerCase()));
   if (sortPrice !== 'none') {
     processed = [...processed].sort((a, b) => sortPrice === 'asc' ? Number(a.price) - Number(b.price) : Number(b.price) - Number(a.price));
   }
 
-  const activeCount = ticketTypes.filter(t => t.isActive !== false && !isEventInactive(t, events)).length;
-  const deadCount = ticketTypes.filter(t => isEventInactive(t, events)).length;
+  const orphanCount = ticketTypes.filter(t => isOrphanTicket(t, events)).length;
+  const activeCount = ticketTypes.filter(t => !isOrphanTicket(t, events) && t.isActive !== false && !isEventInactive(t, events)).length;
+  const deadCount = ticketTypes.filter(t => !isOrphanTicket(t, events) && isEventInactive(t, events)).length;
   const totalPages = Math.ceil(processed.length / ITEMS_PER_PAGE);
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const paginatedTickets = processed.slice(startIndex, startIndex + ITEMS_PER_PAGE);
   const goToPage = (page) => { if (page >= 1 && page <= totalPages) setCurrentPage(page); };
-  const getEventName = (eventId) => { const id = eventId?._id || eventId; return events.find(e => e._id === id)?.title || '—'; };
+  const getEventMeta = (eventId) => {
+    const id = getEntityId(eventId?._id || eventId);
+    const event = events.find(e => getEntityId(e?._id) === id);
+    if (!id || !event) {
+      return { label: 'Sự kiện đã bị xóa', isOrphan: true };
+    }
+    return { label: event.title || 'Sự kiện không tên', isOrphan: false };
+  };
   const typeBadgeColor = (name) => {
     const s = name || '';
     if (/vip/i.test(s)) return 'bg-yellow-50 text-yellow-700 border-yellow-200';
@@ -236,10 +315,10 @@ const AdminTickets = () => {
 
   // Real-time duplicate check
   const isDuplicateName = form.name.trim() !== '' && form.eventId !== ''
-    ? ticketTypes.some((t, idx) => {
-      const sameEvent = (t.event?._id || t.event) === form.eventId;
+    ? ticketTypes.some((t) => {
+      const sameEvent = getEntityId(t?.event?._id || t?.event) === getEntityId(form.eventId);
       const sameName = t.name?.trim().toLowerCase() === form.name.trim().toLowerCase();
-      const isItself = editing !== null && idx === editing;
+      const isItself = editing !== null && getEntityId(t?._id) === getEntityId(editing);
       return sameEvent && sameName && !isItself;
     })
     : false;
@@ -256,6 +335,7 @@ const AdminTickets = () => {
             {ticketTypes.length} loại vé
             {' · '}<span className="text-emerald-600 font-semibold">{activeCount} đang bán</span>
             {deadCount > 0 && <> · <span className="text-gray-400">{deadCount} tắt do event hủy</span></>}
+            {orphanCount > 0 && <> · <span className="text-red-500 font-semibold">{orphanCount} vé mồ côi</span></>}
           </p>
         </div>
         <button onClick={() => { setShowForm(true); setEditing(null); setForm(emptyForm); }}
@@ -313,6 +393,25 @@ const AdminTickets = () => {
             <BanIcon className="w-3.5 h-3.5" />
             {showEventEnded ? 'Ẩn vé event hủy' : 'Hiện vé event hủy'}
           </button>
+        )}
+        {orphanCount > 0 && (
+          <>
+            <button
+              onClick={() => setShowOrphanTickets(v => !v)}
+              className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-xs font-semibold transition-all ${showOrphanTickets ? 'bg-red-50 border-red-200 text-red-600 hover:bg-red-100' : 'bg-gray-100 border-gray-200 text-gray-500 hover:bg-gray-200'}`}
+            >
+              <AlertTriangle className="w-3.5 h-3.5" />
+              {showOrphanTickets ? 'Ẩn vé mồ côi' : `Hiện vé mồ côi (${orphanCount})`}
+            </button>
+            <button
+              onClick={handleCleanupOrphanTickets}
+              disabled={cleanupLoading}
+              className="flex items-center gap-2 px-3 py-2.5 rounded-xl border text-xs font-semibold transition-all bg-red-50 border-red-200 text-red-600 hover:bg-red-100 disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              {cleanupLoading ? 'Đang dọn...' : 'Dọn vé mồ côi'}
+            </button>
+          </>
         )}
       </div>
 
@@ -388,7 +487,11 @@ const AdminTickets = () => {
       {processed.length === 0 ? (
         <div className="text-center py-16 bg-white border border-gray-200 rounded-2xl">
           <Ticket className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-500 text-sm">Chưa có loại vé nào</p>
+          <p className="text-gray-500 text-sm">
+            {!showOrphanTickets && orphanCount > 0
+              ? 'Đang ẩn vé mồ côi. Bật "Hiện vé mồ côi" để xem.'
+              : 'Chưa có loại vé nào'}
+          </p>
         </div>
       ) : (
         <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
@@ -402,47 +505,54 @@ const AdminTickets = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {paginatedTickets.map((t, i) => {
+                {paginatedTickets.map((t) => {
                   const stats = getTicketStats(t);
                   const remaining = stats.remaining;
                   const pct = stats.quantity ? Math.round((stats.sold / stats.quantity) * 100) : 0;
-                  const globalIndex = startIndex + i;
+                  const eventMeta = getEventMeta(t.event);
+                  const orphanTicket = eventMeta.isOrphan;
                   const eventDead = isEventInactive(t, events);
+                  const lockedTicket = eventDead || orphanTicket;
                   return (
-                    <tr key={t._id} className={`transition-colors ${eventDead ? 'bg-gray-50' : 'hover:bg-gray-50'}`}>
+                    <tr key={t._id} className={`transition-colors ${orphanTicket ? 'bg-red-50/40' : eventDead ? 'bg-gray-50' : 'hover:bg-gray-50'}`}>
                       <td className="px-4 py-3">
                         <div className="flex flex-col gap-1">
-                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-full border w-fit ${eventDead ? 'bg-gray-100 text-gray-400 border-gray-200' : typeBadgeColor(t.name)}`}>
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-full border w-fit ${lockedTicket ? 'bg-gray-100 text-gray-400 border-gray-200' : typeBadgeColor(t.name)}`}>
                             <Tag className="w-3 h-3" />{t.name}
                           </span>
-                          {eventDead && (
+                          {orphanTicket && (
+                            <span className="inline-flex items-center gap-1 text-[10px] text-red-500 font-semibold">
+                              <AlertTriangle className="w-3 h-3" />Vé mồ côi
+                            </span>
+                          )}
+                          {!orphanTicket && eventDead && (
                             <span className="inline-flex items-center gap-1 text-[10px] text-gray-400 font-medium">
                               <BanIcon className="w-3 h-3" />Sự kiện đã kết thúc / hủy
                             </span>
                           )}
                         </div>
                       </td>
-                      <td className={`px-4 py-3 text-xs max-w-[140px] truncate ${eventDead ? 'text-gray-400' : 'text-gray-500'}`}>{getEventName(t.event)}</td>
-                      <td className={`px-4 py-3 text-xs font-bold whitespace-nowrap ${eventDead ? 'text-gray-400' : 'text-orange-600'}`}>{formatPrice(t.price)}</td>
-                      <td className={`px-4 py-3 text-xs font-medium ${eventDead ? 'text-gray-400' : 'text-gray-700'}`}>{stats.quantity}</td>
+                      <td className={`px-4 py-3 text-xs max-w-[180px] truncate ${orphanTicket ? 'text-red-500 font-semibold' : eventDead ? 'text-gray-400' : 'text-gray-500'}`}>{eventMeta.label}</td>
+                      <td className={`px-4 py-3 text-xs font-bold whitespace-nowrap ${lockedTicket ? 'text-gray-400' : 'text-orange-600'}`}>{formatPrice(t.price)}</td>
+                      <td className={`px-4 py-3 text-xs font-medium ${lockedTicket ? 'text-gray-400' : 'text-gray-700'}`}>{stats.quantity}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <div className="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                            <div className={`h-full rounded-full ${eventDead ? 'bg-gray-300' : 'bg-gradient-to-r from-orange-500 to-purple-600'}`} style={{ width: `${pct}%` }} />
+                            <div className={`h-full rounded-full ${lockedTicket ? 'bg-gray-300' : 'bg-gradient-to-r from-orange-500 to-purple-600'}`} style={{ width: `${pct}%` }} />
                           </div>
-                          <span className={`text-xs font-medium ${eventDead ? 'text-gray-400' : 'text-gray-600'}`}>{stats.sold}</span>
+                          <span className={`text-xs font-medium ${lockedTicket ? 'text-gray-400' : 'text-gray-600'}`}>{stats.sold}</span>
                         </div>
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`text-xs font-bold ${eventDead ? 'text-gray-400' : remaining > 0 ? 'text-emerald-600' : 'text-red-500'}`}>{remaining}</span>
+                        <span className={`text-xs font-bold ${lockedTicket ? 'text-gray-400' : remaining > 0 ? 'text-emerald-600' : 'text-red-500'}`}>{remaining}</span>
                       </td>
                       <td className="px-4 py-3">
-                        {eventDead ? (
+                        {lockedTicket ? (
                           <div className="flex items-center gap-1.5 cursor-not-allowed opacity-50">
-                            <ToggleLeft className="w-5 h-5 text-gray-300" /><span className="text-xs text-gray-400">Tắt</span>
+                            <ToggleLeft className="w-5 h-5 text-gray-300" /><span className="text-xs text-gray-400">{orphanTicket ? 'Mồ côi' : 'Tắt'}</span>
                           </div>
                         ) : (
-                          <button onClick={() => handleToggle(globalIndex)} className="flex items-center gap-1.5">
+                          <button onClick={() => handleToggle(t)} className="flex items-center gap-1.5">
                             {t.isActive !== false
                               ? <><ToggleRight className="w-5 h-5 text-emerald-500" /><span className="text-xs text-emerald-600 font-semibold">Bật</span></>
                               : <><ToggleLeft className="w-5 h-5 text-gray-300" /><span className="text-xs text-gray-400">Tắt</span></>}
@@ -451,17 +561,17 @@ const AdminTickets = () => {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <button onClick={() => !eventDead && openFillModal(globalIndex)} disabled={eventDead}
-                            title={eventDead ? 'Sự kiện đã kết thúc' : 'Thêm số lượng vé'}
-                            className={`p-1.5 rounded-lg transition-colors ${eventDead ? 'bg-gray-100 cursor-not-allowed opacity-40' : 'bg-emerald-50 hover:bg-emerald-100'}`}>
-                            <PlusCircle className={`w-3 h-3 ${eventDead ? 'text-gray-400' : 'text-emerald-600'}`} />
+                          <button onClick={() => !lockedTicket && openFillModal(t)} disabled={lockedTicket}
+                            title={orphanTicket ? 'Vé mồ côi, chỉ có thể xóa' : eventDead ? 'Sự kiện đã kết thúc' : 'Thêm số lượng vé'}
+                            className={`p-1.5 rounded-lg transition-colors ${lockedTicket ? 'bg-gray-100 cursor-not-allowed opacity-40' : 'bg-emerald-50 hover:bg-emerald-100'}`}>
+                            <PlusCircle className={`w-3 h-3 ${lockedTicket ? 'text-gray-400' : 'text-emerald-600'}`} />
                           </button>
-                          <button onClick={() => !eventDead && handleEdit(globalIndex)} disabled={eventDead}
-                            title={eventDead ? 'Sự kiện đã kết thúc' : 'Chỉnh sửa'}
-                            className={`p-1.5 rounded-lg transition-colors ${eventDead ? 'bg-gray-100 cursor-not-allowed opacity-40' : 'bg-gray-100 hover:bg-gray-200'}`}>
+                          <button onClick={() => !lockedTicket && handleEdit(t)} disabled={lockedTicket}
+                            title={orphanTicket ? 'Vé mồ côi, chỉ có thể xóa' : eventDead ? 'Sự kiện đã kết thúc' : 'Chỉnh sửa'}
+                            className={`p-1.5 rounded-lg transition-colors ${lockedTicket ? 'bg-gray-100 cursor-not-allowed opacity-40' : 'bg-gray-100 hover:bg-gray-200'}`}>
                             <Edit2 className="w-3 h-3 text-gray-600" />
                           </button>
-                          <button onClick={() => handleDelete(globalIndex)} className="p-1.5 bg-red-50 hover:bg-red-100 rounded-lg transition-colors" title="Xóa">
+                          <button onClick={() => handleDelete(t)} className="p-1.5 bg-red-50 hover:bg-red-100 rounded-lg transition-colors" title="Xóa">
                             <Trash2 className="w-3 h-3 text-red-500" />
                           </button>
                         </div>

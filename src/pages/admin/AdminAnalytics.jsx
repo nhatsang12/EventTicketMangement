@@ -1,14 +1,153 @@
 import { useState, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import { TrendingUp, ShoppingBag, Ticket, BarChart3, Download, Calendar, ArrowUp, Loader2 } from 'lucide-react';
 import useAuthStore from '../../store/authStore';
 import toast from 'react-hot-toast';
 import API_URL from '../../config/api';
 
+const CHECKED_STATUS_SET = new Set(['used', 'checked', 'checked_in', 'checkedin', 'scanned', 'consumed']);
+const PAID_STATUS_SET = new Set(['paid', 'confirmed', 'active', 'completed', 'success', 'succeeded']);
+const NON_REVENUE_STATUS_SET = new Set([
+  'cancelled',
+  'canceled',
+  'refunded',
+  'refund',
+  'refund_completed',
+  'failed',
+  'expired',
+  'voided',
+]);
+
+const normalizeStatus = (value) => String(value || '').trim().toLowerCase();
+
+const toNumber = (value, fallback = 0) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const getEntityId = (value) => {
+  if (!value) return null;
+  if (typeof value === 'string' || typeof value === 'number') return String(value);
+  if (typeof value === 'object') {
+    if (value.$oid) return String(value.$oid);
+    if (value._id) return getEntityId(value._id);
+    if (value.id) return String(value.id);
+  }
+  return null;
+};
+
+const parseOrders = (payload) => {
+  if (Array.isArray(payload?.data)) return payload.data;
+  if (Array.isArray(payload?.orders)) return payload.orders;
+  if (Array.isArray(payload)) return payload;
+  return [];
+};
+
+const parseCheckinsByEvent = (payload) => {
+  const result = {};
+  const data = payload?.data || payload || {};
+  const statsByEvent = data?.statsByEvent;
+
+  if (Array.isArray(statsByEvent)) {
+    statsByEvent.forEach((item) => {
+      const eventId = getEntityId(item?._id || item?.eventId);
+      if (!eventId) return;
+      result[eventId] = toNumber(item?.totalCheckins || item?.count, 0);
+    });
+    return result;
+  }
+
+  if (statsByEvent && typeof statsByEvent === 'object') {
+    Object.entries(statsByEvent).forEach(([eventId, count]) => {
+      const normalizedId = getEntityId(eventId) || String(eventId);
+      result[normalizedId] = toNumber(count, 0);
+    });
+  }
+
+  return result;
+};
+
+const isTruthyLike = (value) => {
+  const normalized = normalizeStatus(value);
+  return value === true || value === 1 || normalized === 'true' || normalized === '1' || normalized === 'yes';
+};
+
+const isTicketCheckedIn = (ticket = {}) => {
+  const status = normalizeStatus(ticket?.status || ticket?.ticketStatus || ticket?.checkinStatus);
+  return (
+    isTruthyLike(ticket?.isCheckedIn) ||
+    isTruthyLike(ticket?.checkedIn) ||
+    isTruthyLike(ticket?.isUsed) ||
+    CHECKED_STATUS_SET.has(status) ||
+    !!(ticket?.checkedInAt || ticket?.checkInAt || ticket?.usedAt || ticket?.scannedAt)
+  );
+};
+
+const getOrderTicketsCount = (order = {}) => {
+  const tickets = Array.isArray(order?.tickets) ? order.tickets : [];
+
+  if (tickets.length > 0) {
+    return tickets.reduce((sum, ticket) => {
+      const qty = toNumber(ticket?.quantity, 0);
+      return sum + (qty > 0 ? qty : 1);
+    }, 0);
+  }
+
+  const itemQuantity = Array.isArray(order?.items)
+    ? order.items.reduce((sum, item) => sum + Math.max(0, toNumber(item?.quantity, 0)), 0)
+    : 0;
+
+  if (itemQuantity > 0) return itemQuantity;
+
+  const fallbackFields = [order?.ticketCount, order?.totalTickets, order?.quantity, order?.totalQuantity];
+  for (const field of fallbackFields) {
+    const parsed = toNumber(field, -1);
+    if (parsed >= 0) return parsed;
+  }
+
+  return 0;
+};
+
+const getCheckedInCountFromOrder = (order = {}) => {
+  const tickets = Array.isArray(order?.tickets) ? order.tickets : [];
+  if (tickets.length === 0) return 0;
+
+  return tickets.reduce((sum, ticket) => {
+    if (!isTicketCheckedIn(ticket)) return sum;
+    const qty = toNumber(ticket?.quantity, 0);
+    return sum + (qty > 0 ? qty : 1);
+  }, 0);
+};
+
+const getOrderAmount = (order = {}) => {
+  const candidates = [
+    order?.totalAmount,
+    order?.amount,
+    order?.finalAmount,
+    order?.totalPrice,
+    order?.grandTotal,
+  ];
+  for (const candidate of candidates) {
+    const parsed = toNumber(candidate, NaN);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return 0;
+};
+
+const isRevenueOrder = (order = {}) => {
+  const status = normalizeStatus(order?.status || order?.paymentStatus);
+  if (NON_REVENUE_STATUS_SET.has(status)) return false;
+  if (PAID_STATUS_SET.has(status)) return true;
+
+  // Một số backend để pending nhưng đã phát hành ticket => coi như đã thanh toán.
+  if (status === 'pending') return getOrderTicketsCount(order) > 0;
+
+  return getOrderAmount(order) > 0 && getOrderTicketsCount(order) > 0;
+};
+
 const AdminAnalytics = () => {
   const [orders, setOrders] = useState([]);
-  const [checkinStats, setCheckinStats] = useState({});
+  const [checkinsByEvent, setCheckinsByEvent] = useState({});
   const [period, setPeriod] = useState('all');
   const [loading, setLoading] = useState(true);
 
@@ -23,8 +162,8 @@ const AdminAnalytics = () => {
           axios.get(`${API_URL}/api/admin/analytics/checkins`, config),
           axios.get(`${API_URL}/api/orders`, config),
         ]);
-        setCheckinStats(checkinsRes.data?.data || {});
-        setOrders(ordersRes.data?.data || []);
+        setCheckinsByEvent(parseCheckinsByEvent(checkinsRes.data));
+        setOrders(parseOrders(ordersRes.data));
       } catch (error) {
         console.error('Error fetching analytics:', error);
         toast.error('Không thể tải dữ liệu phân tích!');
@@ -43,37 +182,38 @@ const AdminAnalytics = () => {
     if (period === 'all') return data;
     const days = period === '7d' ? 7 : period === '30d' ? 30 : 90;
     const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-    return data.filter((o) => new Date(o.createdAt) >= cutoff);
+    return data.filter((o) => {
+      const createdAt = new Date(o?.createdAt || o?.created_at || 0);
+      return !Number.isNaN(createdAt.getTime()) && createdAt >= cutoff;
+    });
   };
 
-  const filteredOrders = filterByPeriod(orders);
+  const filteredOrders = filterByPeriod(orders).filter(isRevenueOrder);
 
-  const totalRevenue     = filteredOrders.reduce((s, o) => s + (o.totalAmount || 0), 0);
+  const totalRevenue     = filteredOrders.reduce((s, o) => s + getOrderAmount(o), 0);
   const totalOrders      = filteredOrders.length;
   const totalTicketsSold = filteredOrders.reduce(
-    (s, o) => s + (Array.isArray(o.tickets) ? o.tickets.length : o.quantity || 0), 0
+    (s, o) => s + getOrderTicketsCount(o), 0
   );
   const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
 
   const eventMap = {};
   filteredOrders.forEach((o) => {
-    const eventId   = String(o.event?._id || o.event || o.eventId || 'unknown');
+    const eventId = getEntityId(o?.event?._id || o?.event || o?.eventId) || 'unknown';
     const eventName = o.event?.title || o.event?.name || o.eventTitle || o.eventName || 'Sự kiện';
     if (!eventMap[eventId]) {
       eventMap[eventId] = { name: eventName, revenue: 0, orders: 0, tickets: 0, checkedIn: 0 };
     }
-    eventMap[eventId].revenue += o.totalAmount || 0;
+    eventMap[eventId].revenue += getOrderAmount(o);
     eventMap[eventId].orders  += 1;
-    eventMap[eventId].tickets += Array.isArray(o.tickets) ? o.tickets.length : o.quantity || 0;
+    eventMap[eventId].tickets += getOrderTicketsCount(o);
+    eventMap[eventId].checkedIn += getCheckedInCountFromOrder(o);
   });
 
-  const statsByEvent = checkinStats?.statsByEvent;
-  if (Array.isArray(statsByEvent)) {
-    statsByEvent.forEach(({ _id, totalCheckins }) => {
-      const eventId = String(_id);
-      if (eventMap[eventId]) {
-        eventMap[eventId].checkedIn = totalCheckins || 0;
-      }
+  if (period === 'all') {
+    Object.entries(checkinsByEvent).forEach(([eventId, totalCheckins]) => {
+      if (!eventMap[eventId]) return;
+      eventMap[eventId].checkedIn = Math.max(eventMap[eventId].checkedIn, toNumber(totalCheckins, 0));
     });
   }
 
@@ -81,15 +221,16 @@ const AdminAnalytics = () => {
   const uniqueEventCount = eventRows.length;
   const maxRevenue       = eventRows[0]?.revenue || 1;
 
+  const recentRevenueOrders = orders.filter(isRevenueOrder);
   const last7 = Array.from({ length: 7 }, (_, i) => {
     const d = new Date();
     d.setDate(d.getDate() - (6 - i));
     const label     = d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
     const dateStr   = d.toLocaleDateString('vi-VN');
-    const dayOrders = orders.filter((o) => formatDate(o.createdAt) === dateStr);
+    const dayOrders = recentRevenueOrders.filter((o) => formatDate(o?.createdAt || o?.created_at) === dateStr);
     return {
       label,
-      revenue: dayOrders.reduce((s, o) => s + (o.totalAmount || 0), 0),
+      revenue: dayOrders.reduce((s, o) => s + getOrderAmount(o), 0),
       count: dayOrders.length,
     };
   });

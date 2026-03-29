@@ -91,6 +91,19 @@ const collectArrayPayload = (payload) => {
   return [];
 };
 
+const isDisplayableTicket = (ticket) =>
+  ticket?.isActive !== false && ticket?.isEnabled !== false;
+
+const dedupeTickets = (tickets) => {
+  const seen = new Set();
+  return tickets.filter((ticket) => {
+    const key = getEntityId(ticket?._id || ticket?.id || ticket?.ticketId);
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
 const fetchTicketTypesByEvent = async (eventId) => {
   const attempts = [
     `${API_URL}/api/ticket-types/event/${eventId}`,
@@ -102,10 +115,23 @@ const fetchTicketTypesByEvent = async (eventId) => {
   for (const url of attempts) {
     try {
       const res = await axios.get(url);
-      const rows = collectArrayPayload(res.data).map((ticket) => normalizeTicketType(ticket, eventId));
-      const filtered = rows.filter((ticket) => getEntityId(ticket?.event) === eventId);
+      const rows = collectArrayPayload(res.data)
+        .map((ticket) => normalizeTicketType(ticket, eventId))
+        .filter(isDisplayableTicket);
+
+      const filtered = dedupeTickets(
+        rows.filter((ticket) => getEntityId(ticket?.event) === eventId)
+      );
+
       if (filtered.length > 0) return filtered;
-      if (rows.length > 0 && url !== `${API_URL}/api/tickets`) return rows;
+
+      // Legacy fallback: some old endpoints may omit "event" in ticket rows
+      // but endpoint path is already event-specific.
+      const endpointIsEventScoped = url.includes('/api/ticket-types/event/');
+      const rowsWithoutEventInfo = rows.length > 0 && rows.every((ticket) => !getEntityId(ticket?.event));
+      if (endpointIsEventScoped && rowsWithoutEventInfo) {
+        return dedupeTickets(rows);
+      }
     } catch {
       // try next endpoint
     }
