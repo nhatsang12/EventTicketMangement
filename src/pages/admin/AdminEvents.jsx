@@ -25,6 +25,8 @@ const dateFilterOptions = [
   { value: 'thisMonth', label: 'Tháng này' },
   { value: 'custom', label: 'Tùy chỉnh' },
 ];
+const MIN_EVENT_LEAD_HOURS = 2;
+const MIN_EVENT_LEAD_MS = MIN_EVENT_LEAD_HOURS * 60 * 60 * 1000;
 
 const todayStr = () => {
   const d = new Date();
@@ -332,8 +334,42 @@ const AdminEvents = () => {
     if (!form.title?.trim() || !form.date || !form.location?.trim()) {
       toast.error('Vui lòng điền đầy đủ: tên, ngày, địa điểm'); return;
     }
+
+    const submittedStartIso = toLocalISO(form.date, form.time || '19:00');
+    if (!submittedStartIso) {
+      toast.error('Thời gian bắt đầu không hợp lệ');
+      return;
+    }
+    const effectiveEndDate = form.endDate || form.date;
+    const effectiveEndTime = form.endTime || '23:59';
+    const submittedEndIso = toLocalISO(effectiveEndDate, effectiveEndTime);
+    if (!submittedEndIso) {
+      toast.error('Thời gian kết thúc không hợp lệ');
+      return;
+    }
+    const submittedStartMs = new Date(submittedStartIso).getTime();
+    const submittedEndMs = new Date(submittedEndIso).getTime();
+    if (submittedEndMs <= submittedStartMs) {
+      toast.error('Ngày và giờ kết thúc phải lớn hơn ngày và giờ bắt đầu. Vui lòng chọn lại.');
+      return;
+    }
+    const nowMs = Date.now();
+    const minAllowedStartMs = nowMs + MIN_EVENT_LEAD_MS;
+    const minAllowedStartText = new Date(minAllowedStartMs).toLocaleString('vi-VN', {
+      hour12: false,
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+    const leadTimeError = `Giờ bắt đầu phải cách hiện tại ít nhất ${MIN_EVENT_LEAD_HOURS} giờ (sớm nhất: ${minAllowedStartText})`;
+
     if (editing === null && form.date < todayStr()) {
       toast.error('Ngày tổ chức không thể là ngày trong quá khứ'); return;
+    }
+    if (editing === null && new Date(submittedStartIso).getTime() < minAllowedStartMs) {
+      toast.error(leadTimeError); return;
     }
     if (form.endDate && form.endDate < form.date) {
       toast.error('Ngày kết thúc không thể trước ngày bắt đầu'); return;
@@ -343,8 +379,8 @@ const AdminEvents = () => {
       const existing = events[editing];
       const existingStart = existing?.startDate ? new Date(existing.startDate).getTime() : null;
       const existingEnd = existing?.endDate ? new Date(existing.endDate).getTime() : null;
-      const nextStartIso = toLocalISO(form.date, form.time || '19:00');
-      const nextEndIso = toLocalISO(form.endDate || form.date, form.endTime || '23:59');
+      const nextStartIso = submittedStartIso;
+      const nextEndIso = submittedEndIso;
       const nextStart = nextStartIso ? new Date(nextStartIso).getTime() : null;
       const nextEnd = nextEndIso ? new Date(nextEndIso).getTime() : null;
       const hasDateChanged = existingStart !== nextStart || existingEnd !== nextEnd;
@@ -355,13 +391,17 @@ const AdminEvents = () => {
         toast.error(`Sự kiện đã có ${soldCount} vé bán. Cần huỷ + hoàn tiền thay vì đổi ngày trực tiếp.`);
         return;
       }
+      if (hasDateChanged && nextStart !== null && nextStart < minAllowedStartMs) {
+        toast.error(leadTimeError);
+        return;
+      }
     }
 
     try {
       setLoading(true);
       const config = { headers: { Authorization: `Bearer ${accessToken}` } };
-      const startDateTime = toLocalISO(form.date, form.time || '19:00');
-      const endDateTime = toLocalISO(form.endDate || form.date, form.endTime || '23:59');
+      const startDateTime = submittedStartIso;
+      const endDateTime = submittedEndIso;
 
       const basePayload = {
         title: form.title,
@@ -667,7 +707,13 @@ const AdminEvents = () => {
 
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Giờ kết thúc</label>
-              <input type="time" value={form.endTime} onChange={e => setForm(f => ({ ...f, endTime: e.target.value }))} className={inputCls} />
+              <input
+                type="time"
+                value={form.endTime}
+                min={(form.endDate || form.date) === form.date ? (form.time || '00:00') : undefined}
+                onChange={e => setForm(f => ({ ...f, endTime: e.target.value }))}
+                className={inputCls}
+              />
             </div>
 
             <div>

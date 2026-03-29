@@ -1,4 +1,5 @@
 import { Routes, Route } from 'react-router-dom'
+import { Toaster } from 'react-hot-toast'
 import Layout from './components/layout/Layout.jsx'
 import HomePage from './pages/HomePage'
 import ProfilePage from './pages/Profile.jsx'
@@ -24,73 +25,88 @@ import FavoriteEventsPage from './pages/FavoriteEventsPage.jsx'
 
 function App() {
   return (
-    <Routes>
-      {/* Main layout routes */}
-      <Route path="/" element={<Layout />}>
-        <Route index element={<HomePage />} />
-        <Route path="login" element={<LoginPage />} />
-        <Route path="register" element={<RegisterPage />} />
-        <Route path="forgot-password" element={<ForgotPasswordPage />} />
-        <Route path="event/:id" element={<EventDetailPage />} />
-        <Route path="checkin" element={<CheckInPage />} />
-        <Route path="payment-success" element={<PaymentSuccessPage />} />
-        <Route path="payment-fail" element={<PaymentFail />} />
+    <>
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 3500,
+          style: {
+            fontSize: '13px',
+            borderRadius: '10px',
+            background: '#111827',
+            color: '#f9fafb',
+          },
+        }}
+      />
 
-        {/* Protected routes */}
-        <Route
-          path="checkout"
-          element={
-            <ProtectedRoute>
-              <CheckoutPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="my-tickets"
-          element={
-            <ProtectedRoute>
-              <MyTicketsPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="ticket-history"
-          element={
-            <ProtectedRoute>
-              <MyTicketsPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="profile"
-          element={
-            <ProtectedRoute>
-              <ProfilePage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="favorites"
-          element={
-            <ProtectedRoute>
-              <FavoriteEventsPage />
-            </ProtectedRoute>
-          }
-        />
-      </Route>
+      <Routes>
+        {/* Main layout routes */}
+        <Route path="/" element={<Layout />}>
+          <Route index element={<HomePage />} />
+          <Route path="login" element={<LoginPage />} />
+          <Route path="register" element={<RegisterPage />} />
+          <Route path="forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="event/:id" element={<EventDetailPage />} />
+          <Route path="checkin" element={<CheckInPage />} />
+          <Route path="payment-success" element={<PaymentSuccessPage />} />
+          <Route path="payment-fail" element={<PaymentFail />} />
 
-      {/* Admin layout routes */}
-      <Route path="/admin" element={<AdminLayout />}>
-        <Route index element={<AdminDashboard />} />
-        <Route path="events" element={<AdminEvents />} />
-        <Route path="tickets" element={<AdminTickets />} />
-        <Route path="checkin" element={<AdminCheckIn />} />
-        <Route path="analytics" element={<AdminAnalytics />} />
-        <Route path="users" element={<AdminUsers />} />
-      </Route>
+          {/* Protected routes */}
+          <Route
+            path="checkout"
+            element={
+              <ProtectedRoute>
+                <CheckoutPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="my-tickets"
+            element={
+              <ProtectedRoute>
+                <MyTicketsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="ticket-history"
+            element={
+              <ProtectedRoute>
+                <MyTicketsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="profile"
+            element={
+              <ProtectedRoute>
+                <ProfilePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="favorites"
+            element={
+              <ProtectedRoute>
+                <FavoriteEventsPage />
+              </ProtectedRoute>
+            }
+          />
+        </Route>
 
-      <Route path="*" element={<NotFoundPage />} />
-    </Routes>
+        {/* Admin layout routes */}
+        <Route path="/admin" element={<AdminLayout />}>
+          <Route index element={<AdminDashboard />} />
+          <Route path="events" element={<AdminEvents />} />
+          <Route path="tickets" element={<AdminTickets />} />
+          <Route path="checkin" element={<AdminCheckIn />} />
+          <Route path="analytics" element={<AdminAnalytics />} />
+          <Route path="users" element={<AdminUsers />} />
+        </Route>
+
+        <Route path="*" element={<NotFoundPage />} />
+      </Routes>
+    </>
   )
 }
 
