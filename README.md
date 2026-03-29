@@ -1,4 +1,4 @@
-> Nền tảng đặt vé sự kiện trực tuyến hàng đầu Việt Nam. Khám phá và sở hữu vé cho những khoảnh khắc đáng nhớ.
+> Leading online event ticketing platform in Vietnam. Discover and own tickets for unforgettable moments.
 
 ![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
 ![React Router](https://img.shields.io/badge/React_Router-CA4245?style=for-the-badge&logo=react-router&logoColor=white)
@@ -14,144 +14,90 @@ The first time the page loads may be a bit slow. Thank you for your understandin
 
 | Repo | Description | Link |
 |---|---|---|
-| **event-ticketing-ui** | React frontend (repo này) | ← you are here |
+| **event-ticketing-ui** | React frontend (this repo) | ← you are here |
 | **event-ticketing-server** | Node.js REST API + Database | [View Server Repo](https://github.com/nhatsang12/BEserverEventTicketingPlatform) |
 
 ---
 
-## Screenshots
+## Features
 
-### Trang chủ
+### Home Page
+- Hero banner with prominent CTA
+- Featured events & recommended events list
+- Filter by category (Music, Sports, Arts...)
+- List of popular organizers
+- Customer testimonials
+- Popular venues by city
 
-<img width="1919" height="914" alt="Image" src="https://github.com/user-attachments/assets/62207435-dc05-4b78-a7ea-8748bd83048e" />
+### Authentication
+- Login / Register account
+- Quick login with Google, Facebook, Apple
+- JWT token security
 
-### Đăng nhập / Đăng ký
+### Events
+- Search by name, artist, venue
+- Filter by city (Ho Chi Minh City, Hanoi...)
+- Detail page: banner, description, date/time, location
+- Select ticket type (VIP, Early Bird...) and quantity
 
-<img width="1920" height="1429" alt="Image" src="https://github.com/user-attachments/assets/f952850c-675f-4e54-9e39-44bb24c239c1" />
+### Ticket Booking & Payment (3 Steps)
+- **Step 1 — Information:** View cart, enter booker details
+- **Step 2 — Payment:** Choose payment method:
+  - 💳 Credit Card — Visa, Mastercard via **Stripe**
+  - 🏦 Bank Transfer / VietQR via **PayOS**
+  - 📱 MoMo Wallet via **PayOS**
+- **Step 3 — Completion:** Order confirmation, receive E-Ticket
 
-<img width="1920" height="1464" alt="Image" src="https://github.com/user-attachments/assets/27d7a7d5-ee92-47d8-a48b-262c403d1819" />
-
-### Chi tiết sự kiện & Đặt vé
-
-<img width="1920" height="2362" alt="Image" src="https://github.com/user-attachments/assets/d0c08c7f-44ce-4680-8bd5-ad733a750c6a" />
-
-<img width="1920" height="2078" alt="Image" src="https://github.com/user-attachments/assets/ee21af8f-05c0-489c-a58f-125af802815b" />
-
-### Trang cá nhân người dùng
-
-<img width="1920" height="1533" alt="Image" src="https://github.com/user-attachments/assets/f84cfa3d-85a7-47ab-a86f-3a6edfd41b6a" />
-
-<img width="1920" height="2412" alt="Image" src="https://github.com/user-attachments/assets/e938a662-9303-416f-a722-b5134d9f5e33" />
-
-<img width="1919" height="866" alt="image" src="https://github.com/user-attachments/assets/6cf8f0b5-2f4b-466e-9a0a-dc04379ced69" />
-
-### Admin Panel
-
-#### **Admin Dashboard**
-
-<img width="1920" height="1039" alt="Image" src="https://github.com/user-attachments/assets/23613c29-fcc9-421e-a22c-9c0d06cb2a42" />
-
-#### **Admin Statistics**
-
-<img width="1920" height="1312" alt="Image" src="https://github.com/user-attachments/assets/8248908f-0d4c-4b71-84b8-14492c365804" />
-
-#### **Admin Checkin**
-
-<img width="1920" height="1009" alt="Image" src="https://github.com/user-attachments/assets/a3720087-178a-429a-9521-1ab4717b7e6b" />
-
-#### **Admin Ticket Types**
-
-<img width="1920" height="869" alt="Image" src="https://github.com/user-attachments/assets/f41b87a6-abad-4067-8658-87e1d8eb52ac" />
-
-#### **Admin Users**
-
-<img width="1920" height="1229" alt="Image" src="https://github.com/user-attachments/assets/115d8b4b-3d66-4927-accc-49975ade17f5" />
-
-#### **Admin Event**
-
-<img width="1920" height="1120" alt="Image" src="https://github.com/user-attachments/assets/312814e6-a605-454d-b08a-dc37a27fb82e" />
-
----
-
-## Tính năng
-
-### Trang chủ
-- Hero banner với CTA nổi bật
-- Danh sách sự kiện nổi bật & sự kiện đề xuất
-- Lọc theo danh mục (Âm nhạc, Thể thao, Nghệ thuật...)
-- Danh sách nhà tổ chức nổi tiếng
-- Đánh giá từ khách hàng (testimonials)
-- Địa điểm phổ biến theo thành phố
-
-### Xác thực
-- Đăng nhập / Đăng ký tài khoản
-- Đăng nhập nhanh với Google, Facebook, Apple
-- Bảo mật JWT token
-
-### Sự kiện
-- Tìm kiếm theo tên, nghệ sĩ, địa điểm
-- Lọc theo thành phố (TP.HCM, Hà Nội...)
-- Trang chi tiết: banner, mô tả, ngày giờ, địa điểm
-- Chọn loại vé (VIP, Early Bird...) và số lượng
-
-### Đặt vé & Thanh toán (3 bước)
-- **Bước 1 — Thông tin:** Xem giỏ hàng, nhập thông tin người đặt
-- **Bước 2 — Thanh toán:** Chọn phương thức:
-  - 💳 Thẻ tín dụng — Visa, Mastercard qua **Stripe**
-  - 🏦 Chuyển khoản / VietQR qua **PayOS**
-  - 📱 Ví MoMo qua **PayOS**
-- **Bước 3 — Hoàn tất:** Xác nhận đơn hàng, nhận E-Ticket
-
-### Trang cá nhân
-- Thống kê: Đơn hàng, Vé đã mua, Tổng chi tiêu
-- Hệ thống hạng thành viên: Member → Silver → Gold (tích điểm qua mỗi vé)
-- Chỉnh sửa thông tin cá nhân
-- **Lịch sử vé:** Xem E-Ticket với ID và trạng thái (Active / Hết hạn)
-- **QR Check-in:** Hiển thị mã QR để quét vào cổng sự kiện
-- Tab Vé gần đây & Bảo mật tài khoản
+### User Profile
+- Statistics: Orders, Tickets Purchased, Total Spending
+- Membership tier system: Member → Silver → Gold (points earned per ticket)
+- Edit personal information
+- **Ticket History:** View E-Ticket with ID and status (Active / Expired)
+- **QR Check-in:** Display QR code to scan at event gate
+- Recent Tickets tab & Account Security
 
 ### API Integration (Server Repo)
-- Authentication với JWT (login / register / logout)
-- Fetch danh sách events và chi tiết từ REST API
-- Tạo và quản lý orders qua API
-- Payment flow kết nối Stripe & PayOS
-- Admin dashboard lấy dữ liệu KPI từ server
+- Authentication with JWT (login / register / logout)
+- Fetch event list and details from REST API
+- Create and manage orders via API
+- Payment flow connected to Stripe & PayOS
+- Admin dashboard fetches KPI data from server
 
 ---
 
 ## Admin Panel
 
 ### Dashboard
-- KPI cards: Tổng doanh thu, Đơn hàng, Vé đã bán, Sự kiện có doanh thu
-- Biểu đồ doanh thu theo từng sự kiện
-- Danh sách đơn hàng gần đây
+- KPI cards: Total Revenue, Orders, Tickets Sold, Revenue-Generating Events
+- Revenue chart by event
+- Recent orders list
 
-### Thống kê & Phân tích
-- Lọc dữ liệu theo: 7 ngày / 30 ngày / 90 ngày / Tất cả
-- Biểu đồ doanh thu theo ngày
-- Hiệu suất theo sự kiện: doanh thu, vé bán, tỷ lệ tham gia
-- Xuất báo cáo **CSV**
+### Statistics & Analytics
+- Filter data by: 7 days / 30 days / 90 days / All time
+- Daily revenue chart
+- Event performance: revenue, tickets sold, attendance rate
+- Export **CSV** reports
 
-### Quản lý sự kiện
-- Tạo / Sửa / Xóa sự kiện
-- Thông tin: tên, mô tả, ngày, địa điểm, banner
+### Event Management
+- Create / Edit / Delete events
+- Details: name, description, date, venue, banner
 
-### Quản lý loại vé
-- Tạo nhiều loại vé cho mỗi sự kiện (VIP, Early Bird, Standard...)
-- Theo dõi: số lượng, đã bán, còn lại, trạng thái Bật/Tắt
-- Lọc theo sự kiện, trạng thái, sắp xếp theo giá
+### Ticket Type Management
+- Create multiple ticket types per event (VIP, Early Bird, Standard...)
+- Track: quantity, sold, remaining, Enable/Disable status
+- Filter by event, status, sort by price
 
 ### Check-in
-- Quét mã QR hoặc nhập ID vé thủ công để xác minh
-- Thống kê real-time: Tổng vé / Đã check-in / Chờ vào / Vé hết hạn
-- Tiến độ tham gia theo %
-- Lịch sử vào cổng & Danh sách điểm danh có thể xuất file
+- Scan QR code or manually enter ticket ID to verify
+- Real-time statistics: Total Tickets / Checked In / Waiting / Expired Tickets
+- Attendance progress in %
+- Gate entry history & exportable attendance list
 
-### Quản lý Users
-- Danh sách tất cả users với phân quyền (Admin / User)
-- Tìm kiếm theo tên, email, username
-- Tạo user mới / Sửa / Xóa
-- Thống kê: Tổng users, Admins, Users thường, Mới trong 7 ngày
+### User Management
+- List of all users with roles (Admin / User)
+- Search by name, email, username
+- Create new user / Edit / Delete
+- Statistics: Total Users, Admins, Regular Users, New in 7 days
 
 ---
 
@@ -163,36 +109,36 @@ The first time the page loads may be a bit slow. Thank you for your understandin
 | **React Router** | Client-side routing & Protected Routes |
 | **Tailwind CSS** | Styling & responsive layout |
 | **Lucide React** | Icon library |
-| **Stripe** | Thanh toán thẻ tín dụng |
-| **PayOS** | Thanh toán VietQR & MoMo |
+| **Stripe** | Credit card payments |
+| **PayOS** | VietQR & MoMo payments |
 
 ---
 
 ## Role-Based Access
 
-| Role | Quyền truy cập |
+| Role | Access |
 |---|---|
-| **User** | Đặt vé, thanh toán, xem lịch sử, QR check-in cá nhân |
-| **Admin / Staff** | Quản lý sự kiện, loại vé, users, dashboard, check-in |
+| **User** | Book tickets, payment, view history, personal QR check-in |
+| **Admin / Staff** | Manage events, ticket types, users, dashboard, check-in |
 
-Protected Routes tự động redirect người dùng chưa đăng nhập về trang login.
+Protected Routes automatically redirect unauthenticated users to the login page.
 
 ---
 
 ## Environment Variables
 
-Tạo file `.env` tại thư mục gốc:
+Create a `.env` file at the project root:
 ```env
 VITE_API_URL=http://localhost:8000
 VITE_STRIPE_PUBLIC_KEY=your_stripe_public_key
 ```
 
-Với môi trường deploy (Vercel), bắt buộc set `VITE_API_URL` trỏ đúng backend production trong `Project Settings -> Environment Variables`, rồi redeploy frontend.
+For deployment environments (Vercel), you must set `VITE_API_URL` pointing to the correct production backend in `Project Settings -> Environment Variables`, then redeploy the frontend.
 
 ---
 
-## Tác giả
+## Author
 
-**Tiêu Nhật Sang**
+**Tieu Nhat Sang**
 - nhatsang58@gmail.com
 - GitHub: [@nhatsang12](https://github.com/nhatsang12)
