@@ -27,7 +27,14 @@ function App() {
   return (
     <>
       <Toaster
-        position="top-right"
+        position="bottom-right"
+        gutter={8}
+        containerStyle={{
+          top: 'auto',
+          bottom: 20,
+          right: 20,
+          left: 'auto',
+        }}
         toastOptions={{
           duration: 3500,
           style: {
@@ -35,6 +42,14 @@ function App() {
             borderRadius: '10px',
             background: '#111827',
             color: '#f9fafb',
+            minWidth: '320px',
+            maxWidth: '420px',
+            padding: '12px 14px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            lineHeight: 1.45,
+            boxShadow: '0 10px 28px rgba(0,0,0,0.35)',
           },
         }}
       />

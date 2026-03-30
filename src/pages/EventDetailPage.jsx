@@ -62,23 +62,62 @@ const getEntityId = (value) => {
   return null;
 };
 
-const extractTicketDescription = (ticket) => {
-  if (typeof ticket?.description === 'string' && ticket.description.trim()) return ticket.description.trim();
-  if (typeof ticket?.details === 'string' && ticket.details.trim()) return ticket.details.trim();
-  if (Array.isArray(ticket?.benefits) && ticket.benefits.length > 0) {
-    return ticket.benefits.map((item) => `- ${item}`).join('\n');
+const readFirstNonEmptyString = (...values) => {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) return value.trim();
   }
   return '';
 };
 
+const toDescriptionFromList = (value) => {
+  if (!Array.isArray(value)) return '';
+  const lines = value
+    .map((item) => {
+      if (typeof item === 'string') return item.trim();
+      if (item && typeof item === 'object') {
+        return readFirstNonEmptyString(item.description, item.detail, item.text, item.label, item.name);
+      }
+      return '';
+    })
+    .filter(Boolean);
+
+  if (lines.length === 0) return '';
+  return lines.map((line) => `- ${line}`).join('\n');
+};
+
+const extractTicketDescription = (ticket) => {
+  const direct = readFirstNonEmptyString(
+    ticket?.description,
+    ticket?.details,
+    ticket?.detail,
+    ticket?.notes,
+    ticket?.note,
+    ticket?.desc,
+    ticket?.ticketDescription
+  );
+  if (direct) return direct;
+
+  const fromBenefits = toDescriptionFromList(ticket?.benefits);
+  if (fromBenefits) return fromBenefits;
+
+  const fromPerks = toDescriptionFromList(ticket?.perks);
+  if (fromPerks) return fromPerks;
+
+  const fromHighlights = toDescriptionFromList(ticket?.highlights);
+  if (fromHighlights) return fromHighlights;
+
+  return '';
+};
+
 const normalizeTicketType = (ticket, fallbackEventId) => {
-  const ticketId = getEntityId(ticket?._id || ticket?.id || ticket?.ticketId);
-  const eventId = getEntityId(ticket?.event?._id || ticket?.event || ticket?.eventId || fallbackEventId);
+  const sourceTicket = ticket && typeof ticket === 'object' ? ticket : {};
+  const ticketId = getEntityId(sourceTicket?._id || sourceTicket?.id || sourceTicket?.ticketId || sourceTicket?.ticketType || sourceTicket?.ticketTypeId);
+  const eventId = getEntityId(sourceTicket?.event?._id || sourceTicket?.event || sourceTicket?.eventId || fallbackEventId);
   return {
-    ...ticket,
-    _id: ticket?._id || ticket?.id || ticketId,
+    ...sourceTicket,
+    _id: sourceTicket?._id || sourceTicket?.id || sourceTicket?.ticketId || sourceTicket?.ticketType || sourceTicket?.ticketTypeId || ticketId,
     event: eventId,
-    description: extractTicketDescription(ticket),
+    description: extractTicketDescription(sourceTicket),
   };
 };
 
@@ -91,8 +130,22 @@ const collectArrayPayload = (payload) => {
   return [];
 };
 
+const isLikelyTicketType = (ticket) => {
+  const hasName = typeof ticket?.name === 'string' && ticket.name.trim().length > 0;
+  const hasPrice = Number.isFinite(Number(ticket?.price));
+  const hasQuantitySignals =
+    ticket?.quantity !== undefined ||
+    ticket?.remaining !== undefined ||
+    ticket?.sold !== undefined;
+  const isPurchasedTicketShape = Boolean(ticket?.qrCode || ticket?.order || ticket?.user || ticket?.ticketType);
+
+  if (!hasName || !hasPrice) return false;
+  if (isPurchasedTicketShape && !hasQuantitySignals) return false;
+  return true;
+};
+
 const isDisplayableTicket = (ticket) =>
-  ticket?.isActive !== false && ticket?.isEnabled !== false;
+  isLikelyTicketType(ticket) && ticket?.isActive !== false && ticket?.isEnabled !== false;
 
 const dedupeTickets = (tickets) => {
   const seen = new Set();
@@ -104,12 +157,73 @@ const dedupeTickets = (tickets) => {
   });
 };
 
+const getTicketNamePriceKey = (ticket) => {
+  const name = typeof ticket?.name === 'string' ? ticket.name.trim().toLowerCase() : '';
+  const parsedPrice = Number(ticket?.price);
+  const hasPrice = Number.isFinite(parsedPrice);
+  if (!name || !hasPrice) return '';
+  return `${name}__${parsedPrice}`;
+};
+
+const mergeTicketsWithFallback = (primaryTickets, fallbackTickets) => {
+  const primary = Array.isArray(primaryTickets) ? primaryTickets : [];
+  const fallback = Array.isArray(fallbackTickets) ? fallbackTickets : [];
+  if (primary.length === 0) return dedupeTickets(fallback).filter(isDisplayableTicket);
+  if (fallback.length === 0) return dedupeTickets(primary).filter(isDisplayableTicket);
+
+  const fallbackById = new Map();
+  const fallbackByNamePrice = new Map();
+
+  fallback.forEach((ticket) => {
+    const id = getEntityId(ticket?._id || ticket?.id || ticket?.ticketId);
+    if (id && !fallbackById.has(id)) fallbackById.set(id, ticket);
+    const namePriceKey = getTicketNamePriceKey(ticket);
+    if (namePriceKey && !fallbackByNamePrice.has(namePriceKey)) fallbackByNamePrice.set(namePriceKey, ticket);
+  });
+
+  const mergedPrimary = primary.map((ticket) => {
+    const id = getEntityId(ticket?._id || ticket?.id || ticket?.ticketId);
+    const namePriceKey = getTicketNamePriceKey(ticket);
+    const matchedFallback = (id && fallbackById.get(id)) || (namePriceKey && fallbackByNamePrice.get(namePriceKey));
+    const description = extractTicketDescription(ticket) || extractTicketDescription(matchedFallback);
+
+    return {
+      ...(matchedFallback || {}),
+      ...ticket,
+      description,
+    };
+  });
+
+  const usedIds = new Set(
+    mergedPrimary
+      .map((ticket) => getEntityId(ticket?._id || ticket?.id || ticket?.ticketId))
+      .filter(Boolean)
+  );
+
+  const additionalFallbackTickets = fallback.filter((ticket) => {
+    const id = getEntityId(ticket?._id || ticket?.id || ticket?.ticketId);
+    return id && !usedIds.has(id);
+  });
+
+  return dedupeTickets([...mergedPrimary, ...additionalFallbackTickets]).filter(isDisplayableTicket);
+};
+
+const normalizeEventTicketTypes = (event, eventId) => {
+  if (!Array.isArray(event?.ticketTypes)) return [];
+  return dedupeTickets(
+    event.ticketTypes
+      .map((ticket) => normalizeTicketType(ticket, eventId))
+      .filter(isDisplayableTicket)
+  );
+};
+
 const fetchTicketTypesByEvent = async (eventId) => {
   const attempts = [
-    `${API_URL}/api/ticket-types/event/${eventId}`,
-    `${API_URL}/api/ticket-types?event=${eventId}`,
     `${API_URL}/api/tickets?event=${eventId}`,
     `${API_URL}/api/tickets`,
+    `${API_URL}/api/tickets/event/${eventId}`,
+    `${API_URL}/api/ticket-types/event/${eventId}`,
+    `${API_URL}/api/ticket-types?event=${eventId}`,
   ];
 
   for (const url of attempts) {
@@ -307,8 +421,10 @@ const EventDetailPage = () => {
       if (!currentEvent) { setEventData(null); setLoading(false); return; }
 
       setEventData(currentEvent);
-      const eventTickets = await fetchTicketTypesByEvent(id);
-      setTicketTypes(eventTickets);
+      const eventTicketsFromEvent = normalizeEventTicketTypes(currentEvent, id);
+      const fetchedEventTickets = await fetchTicketTypesByEvent(id);
+      const mergedEventTickets = mergeTicketsWithFallback(fetchedEventTickets, eventTicketsFromEvent);
+      setTicketTypes(mergedEventTickets.length > 0 ? mergedEventTickets : eventTicketsFromEvent);
     } catch (err) {
       console.error(err);
       toast.error('Không thể tải thông tin sự kiện');

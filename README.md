@@ -1,144 +1,129 @@
-> Leading online event ticketing platform in Vietnam. Discover and own tickets for unforgettable moments.
+# TicketHub - Event Ticket Management Platform
 
-![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
-![React Router](https://img.shields.io/badge/React_Router-CA4245?style=for-the-badge&logo=react-router&logoColor=white)
-![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)
-![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)
+Nền tảng quản lý và đặt vé sự kiện trực tuyến, gồm:
+- **Frontend** cho người dùng đặt vé.
+- **Admin Panel** cho vận hành sự kiện, loại vé, check-in và thống kê.
 
----
+## 1) Demo & Repository
+- Frontend demo: `https://event-ticket-mangement-8s3y.vercel.app/`
+- Frontend repo (repo hiện tại): `event-ticketing-ui`
+- Backend repo: `https://github.com/nhatsang12/BEserverEventTicketingPlatform`
 
-## DEMO Event Ticket https://event-ticket-mangement-8s3y.vercel.app/
-The first time the page loads may be a bit slow. Thank you for your understanding.
+## 2) Tính năng chính
 
-## Repositories
+### Người dùng (Frontend)
+- Tìm kiếm và lọc sự kiện theo tên, giá, ngày, thành phố, danh mục.
+- Xem chi tiết sự kiện: thời gian, địa điểm, mô tả, hạng vé.
+- Chọn số lượng vé theo từng loại, tính tổng tiền realtime.
+- Thêm sự kiện yêu thích.
+- Quy trình đặt vé: giỏ hàng -> thanh toán -> lịch sử vé.
+- Trang cá nhân và danh sách vé đã mua.
 
-| Repo | Description | Link |
-|---|---|---|
-| **event-ticketing-ui** | React frontend (this repo) | ← you are here |
-| **event-ticketing-server** | Node.js REST API + Database | [View Server Repo](https://github.com/nhatsang12/BEserverEventTicketingPlatform) |
+### Quản trị (Admin)
+- Quản lý sự kiện: tạo/sửa/xóa, cập nhật lịch và trạng thái.
+- Quản lý loại vé: tạo/sửa/xóa, bật/tắt, thêm số lượng.
+- Quản lý người dùng.
+- Check-in vé tại cổng.
+- Dashboard/Analytics theo dữ liệu đơn hàng.
 
----
+## 3) Điểm nổi bật về nghiệp vụ
+- Không cho tạo sự kiện sát giờ: `start >= now + 2 hours`.
+- Thời gian kết thúc bắt buộc **lớn hơn** thời gian bắt đầu.
+- Khi chỉnh sửa loại vé trong admin, map theo `_id` để tránh nhầm dữ liệu khi sort/filter/paginate.
+- Event Detail chỉ hiển thị đúng vé thuộc event hiện tại (lọc theo `eventId`, loại vé không hợp lệ bị loại bỏ).
+- Trong Admin Tickets:
+  - Vé không còn event gốc được nhận diện rõ.
+  - Ẩn mặc định vé dữ liệu lỗi.
+  - Có nút dọn dữ liệu lỗi nhanh.
 
-## Features
+## 4) Tech Stack
+- **Frontend**: React 19, Vite, React Router, Zustand, Axios, Tailwind CSS, Lucide React, react-hot-toast.
+- **Backend**: Node.js, Express, MongoDB (Mongoose), JWT, Stripe, PayOS (ở repo server).
+- **Deploy**: Vercel (frontend), Render (backend), MongoDB Atlas.
 
-### Home Page
-- Hero banner with prominent CTA
-- Featured events & recommended events list
-- Filter by category (Music, Sports, Arts...)
-- List of popular organizers
-- Customer testimonials
-- Popular venues by city
+## 5) Cấu trúc thư mục frontend
+```text
+src/
+  components/
+    layout/
+  pages/
+    admin/
+    auth/
+  store/
+  config/
+  main.jsx
+  App.jsx
+```
 
-### Authentication
-- Login / Register account
-- Quick login with Google, Facebook, Apple
-- JWT token security
+## 6) Chạy local
 
-### Events
-- Search by name, artist, venue
-- Filter by city (Ho Chi Minh City, Hanoi...)
-- Detail page: banner, description, date/time, location
-- Select ticket type (VIP, Early Bird...) and quantity
+### 6.1 Frontend (repo này)
+```bash
+npm install
+npx vite --port 3000
+```
 
-### Ticket Booking & Payment (3 Steps)
-- **Step 1 — Information:** View cart, enter booker details
-- **Step 2 — Payment:** Choose payment method:
-  - 💳 Credit Card — Visa, Mastercard via **Stripe**
-  - 🏦 Bank Transfer / VietQR via **PayOS**
-  - 📱 MoMo Wallet via **PayOS**
-- **Step 3 — Completion:** Order confirmation, receive E-Ticket
+Build production:
+```bash
+npm run build
+npm run preview
+```
 
-### User Profile
-- Statistics: Orders, Tickets Purchased, Total Spending
-- Membership tier system: Member → Silver → Gold (points earned per ticket)
-- Edit personal information
-- **Ticket History:** View E-Ticket with ID and status (Active / Expired)
-- **QR Check-in:** Display QR code to scan at event gate
-- Recent Tickets tab & Account Security
+### 6.2 Backend
+- Clone và chạy backend ở repo server.
+- Đảm bảo backend chạy tại `http://localhost:8000` (hoặc set đúng `VITE_API_URL`).
 
-### API Integration (Server Repo)
-- Authentication with JWT (login / register / logout)
-- Fetch event list and details from REST API
-- Create and manage orders via API
-- Payment flow connected to Stripe & PayOS
-- Admin dashboard fetches KPI data from server
+## 7) Environment Variables
 
----
-
-## Admin Panel
-
-### Dashboard
-- KPI cards: Total Revenue, Orders, Tickets Sold, Revenue-Generating Events
-- Revenue chart by event
-- Recent orders list
-
-### Statistics & Analytics
-- Filter data by: 7 days / 30 days / 90 days / All time
-- Daily revenue chart
-- Event performance: revenue, tickets sold, attendance rate
-- Export **CSV** reports
-
-### Event Management
-- Create / Edit / Delete events
-- Details: name, description, date, venue, banner
-
-### Ticket Type Management
-- Create multiple ticket types per event (VIP, Early Bird, Standard...)
-- Track: quantity, sold, remaining, Enable/Disable status
-- Filter by event, status, sort by price
-
-### Check-in
-- Scan QR code or manually enter ticket ID to verify
-- Real-time statistics: Total Tickets / Checked In / Waiting / Expired Tickets
-- Attendance progress in %
-- Gate entry history & exportable attendance list
-
-### User Management
-- List of all users with roles (Admin / User)
-- Search by name, email, username
-- Create new user / Edit / Delete
-- Statistics: Total Users, Admins, Regular Users, New in 7 days
-
----
-
-## Tech Stack
-
-| Technology | Purpose |
-|---|---|
-| **React.js** | UI framework |
-| **React Router** | Client-side routing & Protected Routes |
-| **Tailwind CSS** | Styling & responsive layout |
-| **Lucide React** | Icon library |
-| **Stripe** | Credit card payments |
-| **PayOS** | VietQR & MoMo payments |
-
----
-
-## Role-Based Access
-
-| Role | Access |
-|---|---|
-| **User** | Book tickets, payment, view history, personal QR check-in |
-| **Admin / Staff** | Manage events, ticket types, users, dashboard, check-in |
-
-Protected Routes automatically redirect unauthenticated users to the login page.
-
----
-
-## Environment Variables
-
-Create a `.env` file at the project root:
+Tạo file `.env` tại root frontend:
 ```env
 VITE_API_URL=http://localhost:8000
 VITE_STRIPE_PUBLIC_KEY=your_stripe_public_key
 ```
 
-For deployment environments (Vercel), you must set `VITE_API_URL` pointing to the correct production backend in `Project Settings -> Environment Variables`, then redeploy the frontend.
+Lưu ý:
+- Ở production, `VITE_API_URL` là **bắt buộc**.
+- Nếu thiếu `VITE_API_URL` ở môi trường non-local, app sẽ throw error theo cấu hình `src/config/api.js`.
 
----
+## 8) Scripts hiện có trong package.json
+```bash
+npm run build
+npm run preview
+npm run db:seed:test
+npm run db:images:unsplash
+```
 
-## Author
+Ghi chú:
+- Script `dev` hiện trỏ backend (`nodemon server.js`) theo cấu hình hiện tại package.
+- Để chạy frontend local trong repo này, dùng `npx vite --port 3000`.
 
-**Tieu Nhat Sang**
-- nhatsang58@gmail.com
-- GitHub: [@nhatsang12](https://github.com/nhatsang12)
+## 9) Quy trình deploy đề xuất
+
+### Frontend (Vercel)
+1. Import repo frontend vào Vercel.
+2. Set env `VITE_API_URL` trỏ tới backend production.
+3. Deploy.
+
+### Backend (Render)
+1. Set biến môi trường backend (Mongo URI, JWT, Stripe, PayOS, Cloudinary...).
+2. Cấu hình CORS cho domain Vercel.
+3. Deploy lại service sau khi đổi env.
+
+### Database (MongoDB Atlas)
+- Dùng `mongodump`/`mongorestore` để migrate dữ liệu từ local lên Atlas khi cần.
+
+## 10) Checklist demo nhanh cho giảng viên
+1. Admin tạo sự kiện mới + tạo loại vé.
+2. Demo validation:
+   - Start time phải cách hiện tại >= 2 giờ.
+   - End time phải lớn hơn start time.
+3. User tìm sự kiện qua filter/search.
+4. User vào detail, chọn vé, checkout thành công.
+5. User xem vé ở lịch sử.
+6. Admin check-in và xem analytics cập nhật.
+
+## 11) Tác giả
+- **Tiêu Nhật Sang**
+- Email: `nhatsang58@gmail.com`
+- GitHub: `https://github.com/nhatsang12`
+
