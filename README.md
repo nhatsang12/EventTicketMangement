@@ -1,4 +1,6 @@
 # TicketHub - Event Ticket Management Platform
+## Link Demo
+https://event-ticket-mangement-8s3y.vercel.app
 
 Nền tảng quản lý và đặt vé sự kiện trực tuyến, gồm:
 - **Frontend** cho người dùng đặt vé.
