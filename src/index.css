@@ -143,3 +143,18 @@
 .skeleton {
   @apply animate-pulse bg-slate-200 dark:bg-slate-700 rounded;
 }
+
+/* Hide react-hot-toast default icons globally */
+div[role="status"] > div > div[style*="display:flex"] > div:first-child:not([class]),
+div[role="status"] > div > div > div[style*="flex-shrink"] {
+  display: none !important;
+}
+/* Target the icon wrapper inside all toast types */
+[data-testid="toast-icon-wrapper"] {
+  display: none !important;
+}
+/* Catch-all: hide any animated SVG checkmark/X/spinner inside toast */
+div[role="status"] svg[viewBox="0 0 12 12"],
+div[role="status"] [class*="go"] {
+  display: none !important;
+}

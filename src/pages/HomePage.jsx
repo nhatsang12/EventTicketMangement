@@ -732,6 +732,17 @@ const HomePage = () => {
     window.scrollTo({ top: Math.max(0, top), behavior });
   };
 
+  // ── Scroll to top on mount (reload / navigate to homepage) ──
+  // Skip if there's a search param or scrollTo state (those handle their own scroll)
+  useEffect(() => {
+    const hasSearch = searchParams.get("search");
+    const hasScrollState = location.state?.scrollTo === "all-events";
+    if (!hasSearch && !hasScrollState) {
+      window.scrollTo(0, 0);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // only on mount
+
   useEffect(() => {
     const fetchData = async () => {
       try {

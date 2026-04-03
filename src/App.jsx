@@ -40,17 +40,39 @@ function App() {
           duration: 3500,
           style: {
             fontSize: '13px',
-            borderRadius: '10px',
+            borderRadius: '12px',
             background: '#111827',
             color: '#f9fafb',
-            minWidth: '320px',
-            maxWidth: '420px',
-            padding: '12px 14px',
+            minWidth: '200px',
+            maxWidth: '380px',
+            padding: '12px 16px',
             display: 'flex',
             alignItems: 'center',
-            gap: '10px',
-            lineHeight: 1.45,
+            gap: '8px',
+            lineHeight: 1.5,
             boxShadow: '0 10px 28px rgba(0,0,0,0.35)',
+            fontFamily: "'Be Vietnam Pro',sans-serif",
+          },
+          success: {
+            icon: '',
+            style: {
+              borderLeft: '3px solid #10b981',
+            },
+          },
+          error: {
+            icon: '',
+            style: {
+              borderLeft: '3px solid #ef4444',
+            },
+          },
+          loading: {
+            icon: '',
+            style: {
+              borderLeft: '3px solid #f97316',
+            },
+          },
+          blank: {
+            icon: '',
           },
         }}
       />

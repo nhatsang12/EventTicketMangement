@@ -58,7 +58,7 @@ const LoginPage = () => {
       const { accessToken, refreshToken, data } = response.data;
       const user = data.user;
       setAuth(user, accessToken, refreshToken);
-      toast.success(`👋 ${t('auth.welcome')} ${user.name || user.username}!`);
+      toast.success(`${t('auth.welcome')} ${user.name || user.username}!`);
       if (user.role === 'admin') navigate('/admin', { replace: true });
       else navigate(from, { replace: true });
     } catch (error) {

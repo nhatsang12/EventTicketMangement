@@ -512,7 +512,7 @@ const ProfilePage = () => {
                           <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.32)' }}>{desc}</p>
                         </div>
                       </div>
-                      <button onClick={() => toast('Tính năng đang phát triển 🚧')}
+                      <button onClick={() => toast('Tính năng đang phát triển')}
                         style={{ padding: '8px 18px', borderRadius: 999, border: `1px solid ${color}35`, background: `${color}08`, color, fontSize: 12, fontWeight: 700, cursor: 'pointer', flexShrink: 0, transition: 'all 0.2s', whiteSpace: 'nowrap' }}
                         className="pp-sec-btn">
                         {action}
