@@ -561,12 +561,12 @@ const EventDetailPage = () => {
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right,rgba(6,6,6,0.4) 0%,transparent 60%)' }}/>
 
         <button onClick={() => navigate('/', { state: { scrollTo: 'all-events' } })}
-          style={{ position: 'absolute', top: 50, left: 28, display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.8)', fontSize: 12, fontWeight: 700, padding: '8px 14px', borderRadius: 999, cursor: 'pointer', transition: 'all 0.2s', zIndex: 10 }}
+          style={{ position: 'absolute', top: 20, left: 20, display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.8)', fontSize: 12, fontWeight: 700, padding: '8px 14px', borderRadius: 999, cursor: 'pointer', transition: 'all 0.2s', zIndex: 10 }}
           className="edp-back-btn">
           <ArrowLeft style={{ width: 13, height: 13 }}/> Quay lại
         </button>
 
-        <div style={{ position: 'absolute', top: 50, right: 28, display: 'flex', gap: 8, zIndex: 10 }}>
+        <div style={{ position: 'absolute', top: 20, right: 20, display: 'flex', gap: 8, zIndex: 10 }}>
           <button onClick={() => { navigator.clipboard?.writeText(window.location.href); toast.success('Đã sao chép link!'); }}
             style={{ width: 38, height: 38, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.7)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}
             className="edp-icon-btn">

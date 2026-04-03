@@ -1,4 +1,5 @@
 import { Routes, Route } from 'react-router-dom'
+import ScrollToTop from './components/ScrollToTop.jsx'
 import { Toaster } from 'react-hot-toast'
 import Layout from './components/layout/Layout.jsx'
 import HomePage from './pages/HomePage'
@@ -54,6 +55,7 @@ function App() {
         }}
       />
 
+      <ScrollToTop />
       <Routes>
         {/* Main layout routes */}
         <Route path="/" element={<Layout />}>

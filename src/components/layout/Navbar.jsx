@@ -94,7 +94,7 @@ const Navbar = () => {
         transition: 'all 0.35s cubic-bezier(0.4,0,0.2,1)',
       }}>
         <div style={{ padding: '0 16px' }}>
-          <div style={{
+          <div className="nb-grid" style={{
             display: 'grid',
             gridTemplateColumns: 'minmax(0,1fr) auto minmax(0,1fr)',
             alignItems: 'center',
@@ -659,6 +659,7 @@ const Navbar = () => {
           .nb-desktop-links { display:none !important; }
           .nb-mobile-icons  { display:flex !important; }
           .nb-mobile-menu   { display:block !important; }
+          .nb-grid { grid-template-columns:1fr auto !important; gap:8px !important; }
         }
       `}</style>
     </>

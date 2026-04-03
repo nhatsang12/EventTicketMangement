@@ -9,7 +9,7 @@ const Layout = () => {
   return (
     <div className="min-h-screen flex flex-col font-body bg-[rgb(var(--bg))] text-[rgb(var(--text))]">
       <Navbar />
-      <main className="flex-grow pt-4 md:pt-6">
+      <main className="flex-grow" style={{ paddingTop: 64 }}>
         <Outlet />
       </main>
       <Footer />
