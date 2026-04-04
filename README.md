@@ -87,6 +87,30 @@ Lưu ý:
 - Ở production, `VITE_API_URL` là **bắt buộc**.
 - Nếu thiếu `VITE_API_URL` ở môi trường non-local, app sẽ throw error theo cấu hình `src/config/api.js`.
 
+### 7.1 Cấu hình đăng nhập Google/Facebook
+
+Frontend đã hỗ trợ nút đăng nhập social và callback tại:
+- `http://localhost:3000/auth/callback`
+
+Bạn cần thêm biến môi trường trong backend (`D:/serverticket/BEserverEventTicketingPlatform/.env`):
+
+```env
+CLIENT_URL=http://localhost:3000
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+FACEBOOK_CLIENT_ID=your_facebook_app_id
+FACEBOOK_CLIENT_SECRET=your_facebook_app_secret
+```
+
+Khai báo callback URL ở provider:
+- Google OAuth redirect URI: `http://localhost:8000/api/auth/google/callback`
+- Facebook OAuth redirect URI: `http://localhost:8000/api/auth/facebook/callback`
+
+Luồng hoạt động:
+1. User bấm Google/Facebook ở trang Login/Register.
+2. Backend xử lý OAuth và redirect về frontend `/auth/callback` kèm token.
+3. Frontend tự set session vào `authStore` và chuyển hướng về trang trước đó.
+
 ## 8) Scripts hiện có trong package.json
 ```bash
 npm run build

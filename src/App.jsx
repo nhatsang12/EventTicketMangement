@@ -9,6 +9,7 @@ import MyTicketsPage from './pages/TicketHistoryPage.jsx'
 import LoginPage from './pages/auth/LoginPage'
 import RegisterPage from './pages/auth/RegisterPage'
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage'
+import SocialAuthCallbackPage from './pages/auth/SocialAuthCallbackPage'
 import AdminUsers from './pages/admin/AdminUsers.jsx'
 import ProtectedRoute from './components/ProtectedRoute'
 import NotFoundPage from './pages/NotFoundPage'
@@ -85,6 +86,7 @@ function App() {
           <Route path="login" element={<LoginPage />} />
           <Route path="register" element={<RegisterPage />} />
           <Route path="forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="auth/callback" element={<SocialAuthCallbackPage />} />
           <Route path="event/:id" element={<EventDetailPage />} />
           <Route path="checkin" element={<CheckInPage />} />
           <Route path="payment-success" element={<PaymentSuccessPage />} />

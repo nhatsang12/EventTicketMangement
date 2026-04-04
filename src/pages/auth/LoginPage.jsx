@@ -11,6 +11,7 @@ const LoginPage = () => {
   const { t } = useTranslation();
   const { setAuth } = useAuthStore();
   const [loading, setLoading] = useState(false);
+  const [socialLoading, setSocialLoading] = useState('');
   const [showPass, setShowPass] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
@@ -66,6 +67,19 @@ const LoginPage = () => {
       setServerError(message); // ← hiện inline
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSocialLogin = (provider) => {
+    const redirectPath = typeof from === 'string' && from.startsWith('/') && !from.startsWith('//')
+      ? from
+      : '/';
+    try {
+      setSocialLoading(provider);
+      window.location.href = `${API_URL}/api/auth/${provider}?redirect=${encodeURIComponent(redirectPath)}`;
+    } catch (error) {
+      setSocialLoading('');
+      toast.error(t('auth.socialLoginFailed'));
     }
   };
 
@@ -194,17 +208,17 @@ const LoginPage = () => {
             )}
 
             {/* Submit */}
-            <button type="submit" disabled={loading || hasErrors}
+            <button type="submit" disabled={loading || hasErrors || !!socialLoading}
               style={{
                 width:'100%', padding:'15px', borderRadius:12,
-                background: loading || hasErrors ? 'rgba(255,255,255,0.06)' : 'linear-gradient(135deg,#f97316,#a855f7)',
-                border:'none', cursor: loading || hasErrors ? 'not-allowed' : 'pointer',
+                background: loading || hasErrors || socialLoading ? 'rgba(255,255,255,0.06)' : 'linear-gradient(135deg,#f97316,#a855f7)',
+                border:'none', cursor: loading || hasErrors || socialLoading ? 'not-allowed' : 'pointer',
                 color:'white', fontSize:15, fontWeight:800,
                 fontFamily:"'Be Vietnam Pro',sans-serif",
                 display:'flex', alignItems:'center', justifyContent:'center', gap:8,
                 transition:'all 0.25s',
-                boxShadow: loading || hasErrors ? 'none' : '0 6px 28px rgba(249,115,22,0.28)',
-                opacity: loading || hasErrors ? 0.5 : 1,
+                boxShadow: loading || hasErrors || socialLoading ? 'none' : '0 6px 28px rgba(249,115,22,0.28)',
+                opacity: loading || hasErrors || socialLoading ? 0.5 : 1,
               }} className="lp-submit">
               {loading ? (
                 <><span style={{ width:16, height:16, border:'2px solid rgba(255,255,255,0.3)', borderTopColor:'white', borderRadius:'50%', display:'inline-block' }} className="lp-spin"/> Đang xử lý...</>
@@ -221,9 +235,37 @@ const LoginPage = () => {
           </div>
 
           <div style={{ display:'flex', gap:12 }}>
-            {['apple','google','facebook'].map((p) => (
-              <button key={p} style={{ flex:1, height:48, background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.09)', borderRadius:12, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', transition:'all 0.2s' }} className="lp-social">
-                <img src={`https://cdn.jsdelivr.net/gh/devicons/devicon/icons/${p}/${p}-original.svg`} alt={p} style={{ width:20, height:20 }}/>
+            {[
+              { provider: 'google', label: 'Google' },
+              { provider: 'facebook', label: 'Facebook' },
+            ].map(({ provider, label }) => (
+              <button
+                key={provider}
+                type="button"
+                onClick={() => handleSocialLogin(provider)}
+                disabled={loading || !!socialLoading}
+                style={{
+                  flex: 1,
+                  height: 48,
+                  background: 'rgba(255,255,255,0.04)',
+                  border: '1px solid rgba(255,255,255,0.09)',
+                  borderRadius: 12,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  cursor: loading || socialLoading ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.2s',
+                  color: 'rgba(255,255,255,0.8)',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  fontFamily: "'Be Vietnam Pro',sans-serif",
+                  opacity: loading || socialLoading ? 0.55 : 1,
+                }}
+                className="lp-social"
+              >
+                <img src={`https://cdn.jsdelivr.net/gh/devicons/devicon/icons/${provider}/${provider}-original.svg`} alt={provider} style={{ width:18, height:18 }}/>
+                <span>{socialLoading === provider ? t('common.loading') : label}</span>
               </button>
             ))}
           </div>
@@ -246,7 +288,7 @@ const LoginPage = () => {
         .lp-spin { animation: lp-spin 0.8s linear infinite; }
         .lp-submit:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 10px 36px rgba(249,115,22,0.38) !important; }
         .lp-submit:active:not(:disabled) { transform: translateY(0); }
-        .lp-social:hover { background: rgba(255,255,255,0.08) !important; border-color: rgba(255,255,255,0.18) !important; transform: translateY(-1px); }
+        .lp-social:hover:not(:disabled) { background: rgba(255,255,255,0.08) !important; border-color: rgba(255,255,255,0.18) !important; transform: translateY(-1px); }
         .lp-forgot:hover { color: rgba(255,255,255,0.6) !important; }
         @media (max-width: 768px) { .lp-hero-panel { display: none !important; } }
       `}</style>

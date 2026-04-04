@@ -54,6 +54,8 @@
     "orContinueWith": "Hoặc tiếp tục với",
     "continueWithGoogle": "Tiếp tục với Google",
     "continueWithFacebook": "Tiếp tục với Facebook",
+    "socialLoginSuccess": "Đăng nhập mạng xã hội thành công!",
+    "socialLoginFailed": "Đăng nhập mạng xã hội thất bại. Vui lòng thử lại!",
     "createAccount": "Tạo tài khoản",
     "bySigningUp": "Bằng việc đăng ký, bạn đồng ý với",
     "termsOfService": "Điều khoản dịch vụ",

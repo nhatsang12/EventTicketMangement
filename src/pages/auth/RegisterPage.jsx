@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Mail, Lock, User, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import axios from 'axios';
@@ -10,8 +10,11 @@ import API_URL from '../../config/api';
 const RegisterPage = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
+  const from = location.state?.from || '/';
   const { setAuth } = useAuthStore();
   const [loading, setLoading] = useState(false);
+  const [socialLoading, setSocialLoading] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [focused, setFocused] = useState('');
@@ -77,6 +80,19 @@ const RegisterPage = () => {
     }
   };
 
+  const handleSocialLogin = (provider) => {
+    const redirectPath = typeof from === 'string' && from.startsWith('/') && !from.startsWith('//')
+      ? from
+      : '/';
+    try {
+      setSocialLoading(provider);
+      window.location.href = `${API_URL}/api/auth/${provider}?redirect=${encodeURIComponent(redirectPath)}`;
+    } catch (error) {
+      setSocialLoading('');
+      toast.error(t('auth.socialLoginFailed'));
+    }
+  };
+
   const fieldAccent = (field) => {
     if (errors[field]) return 'rgba(248,113,113,0.6)';
     if (field === 'password' || field === 'confirmPassword') return 'rgba(168,85,247,0.5)';
@@ -108,7 +124,16 @@ const RegisterPage = () => {
   const hasErrors = Object.keys(errors).length > 0;
 
   return (
-    <div style={{ minHeight: '100svh', display: 'flex', fontFamily: "'Be Vietnam Pro',sans-serif", background: '#060606', position: 'relative', overflow: 'hidden' }}>
+    <div
+      className="rp-root"
+      style={{
+        minHeight: '100svh',
+        display: 'flex',
+        fontFamily: "'Be Vietnam Pro',sans-serif",
+        background: '#060606',
+        position: 'relative',
+      }}
+    >
 
       <div style={{ flex: '0 0 52%', position: 'relative', display: 'flex' }} className="rp-hero-panel">
         <img src="https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=1400&auto=format&fit=crop&q=80" alt="event" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }}/>
@@ -116,13 +141,13 @@ const RegisterPage = () => {
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right,rgba(6,6,6,0) 60%,rgba(6,6,6,0.96) 100%)' }}/>
       </div>
 
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 48px', background: '#060606', position: 'relative', overflow: 'hidden' }}>
+      <div className="rp-form-panel" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 48px', background: '#060606', position: 'relative' }}>
         <div style={{ position: 'absolute', top: -100, right: -100, width: 400, height: 400, background: 'radial-gradient(circle,rgba(249,115,22,0.05) 0%,transparent 70%)', pointerEvents: 'none' }}/>
         <div style={{ position: 'absolute', bottom: -80, left: -80, width: 350, height: 350, background: 'radial-gradient(circle,rgba(168,85,247,0.06) 0%,transparent 70%)', pointerEvents: 'none' }}/>
 
-        <div style={{ width: '100%', maxWidth: 380, position: 'relative' }}>
+        <div className="rp-form-shell" style={{ width: '100%', maxWidth: 380, position: 'relative' }}>
 
-          <div style={{ marginBottom: 28 }}>
+          <div className="rp-heading" style={{ marginBottom: 28 }}>
             <p style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.25)', textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: 10 }}>{t('auth.signUp')}</p>
             <h1 style={{ fontSize: 'clamp(1.8rem,3vw,2.4rem)', fontWeight: 900, color: 'white', lineHeight: 1.1, letterSpacing: '-0.03em', fontFamily: "'Clash Display','Be Vietnam Pro',sans-serif", marginBottom: 8 }}>
               Tạo tài khoản<br/>
@@ -136,7 +161,7 @@ const RegisterPage = () => {
             <div>
               <div style={{ position: 'relative' }}>
                 <User style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', width: 15, height: 15, color: iconColor('username'), transition: 'color 0.2s', zIndex: 1 }}/>
-                <input type="text" name="username" value={formData.username} onChange={handleChange}
+                <input className="rp-input" type="text" name="username" value={formData.username} onChange={handleChange}
                   onFocus={() => setFocused('username')} onBlur={() => setFocused('')}
                   required placeholder={t('auth.fullName')} style={inputStyle('username')}/>
               </div>
@@ -146,7 +171,7 @@ const RegisterPage = () => {
             <div>
               <div style={{ position: 'relative' }}>
                 <Mail style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', width: 15, height: 15, color: iconColor('email'), transition: 'color 0.2s', zIndex: 1 }}/>
-                <input type="email" name="email" value={formData.email} onChange={handleChange}
+                <input className="rp-input" type="email" name="email" value={formData.email} onChange={handleChange}
                   onFocus={() => setFocused('email')} onBlur={() => setFocused('')}
                   required placeholder={t('auth.email')} style={inputStyle('email')}/>
               </div>
@@ -156,7 +181,7 @@ const RegisterPage = () => {
             <div>
               <div style={{ position: 'relative' }}>
                 <Lock style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', width: 15, height: 15, color: iconColor('password'), transition: 'color 0.2s', zIndex: 1 }}/>
-                <input type={showPass ? 'text' : 'password'} name="password" value={formData.password} onChange={handleChange}
+                <input className="rp-input" type={showPass ? 'text' : 'password'} name="password" value={formData.password} onChange={handleChange}
                   onFocus={() => setFocused('password')} onBlur={() => setFocused('')}
                   required placeholder={`${t('auth.password')} (${t('auth.passwordTooShort').toLowerCase()})`} style={inputStyle('password', { paddingRight: 44 })}/>
                 <button type="button" onClick={() => setShowPass(v => !v)}
@@ -173,7 +198,7 @@ const RegisterPage = () => {
             <div>
               <div style={{ position: 'relative' }}>
                 <Lock style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', width: 15, height: 15, color: iconColor('confirmPassword'), transition: 'color 0.2s', zIndex: 1 }}/>
-                <input type={showConfirm ? 'text' : 'password'} name="confirmPassword" value={formData.confirmPassword} onChange={handleChange}
+                <input className="rp-input" type={showConfirm ? 'text' : 'password'} name="confirmPassword" value={formData.confirmPassword} onChange={handleChange}
                   onFocus={() => setFocused('confirmPassword')} onBlur={() => setFocused('')}
                   required placeholder={t('auth.confirmPassword')} style={inputStyle('confirmPassword', { paddingRight: 44 })}/>
                 <button type="button" onClick={() => setShowConfirm(v => !v)}
@@ -204,17 +229,17 @@ const RegisterPage = () => {
             )}
 
             {/* Submit */}
-            <button type="submit" disabled={loading || hasErrors}
+            <button type="submit" disabled={loading || hasErrors || !!socialLoading}
               style={{
                 width: '100%', padding: '15px', borderRadius: 12,
-                background: loading || hasErrors ? 'rgba(255,255,255,0.06)' : 'linear-gradient(135deg,#f97316,#a855f7)',
-                border: 'none', cursor: loading || hasErrors ? 'not-allowed' : 'pointer',
+                background: loading || hasErrors || socialLoading ? 'rgba(255,255,255,0.06)' : 'linear-gradient(135deg,#f97316,#a855f7)',
+                border: 'none', cursor: loading || hasErrors || socialLoading ? 'not-allowed' : 'pointer',
                 color: 'white', fontSize: 15, fontWeight: 800,
                 fontFamily: "'Be Vietnam Pro',sans-serif",
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                 transition: 'all 0.25s',
-                boxShadow: loading || hasErrors ? 'none' : '0 6px 28px rgba(249,115,22,0.28)',
-                opacity: loading || hasErrors ? 0.5 : 1, marginTop: 4,
+                boxShadow: loading || hasErrors || socialLoading ? 'none' : '0 6px 28px rgba(249,115,22,0.28)',
+                opacity: loading || hasErrors || socialLoading ? 0.5 : 1, marginTop: 4,
               }} className="rp-submit">
               {loading ? (
                 <><span style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: 'white', borderRadius: '50%', display: 'inline-block' }} className="rp-spin"/> {t('common.loading')}</>
@@ -230,10 +255,38 @@ const RegisterPage = () => {
             <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.07)' }}/>
           </div>
 
-          <div style={{ display: 'flex', gap: 12 }}>
-            {['apple', 'google', 'facebook'].map((p) => (
-              <button key={p} style={{ flex: 1, height: 48, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s' }} className="rp-social">
-                <img src={`https://cdn.jsdelivr.net/gh/devicons/devicon/icons/${p}/${p}-original.svg`} alt={p} style={{ width: 20, height: 20 }}/>
+          <div className="rp-social-row" style={{ display: 'flex', gap: 12 }}>
+            {[
+              { provider: 'google', label: 'Google' },
+              { provider: 'facebook', label: 'Facebook' },
+            ].map(({ provider, label }) => (
+              <button
+                key={provider}
+                type="button"
+                onClick={() => handleSocialLogin(provider)}
+                disabled={loading || !!socialLoading}
+                style={{
+                  flex: 1,
+                  height: 48,
+                  background: 'rgba(255,255,255,0.04)',
+                  border: '1px solid rgba(255,255,255,0.09)',
+                  borderRadius: 12,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  cursor: loading || socialLoading ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.2s',
+                  color: 'rgba(255,255,255,0.8)',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  fontFamily: "'Be Vietnam Pro',sans-serif",
+                  opacity: loading || socialLoading ? 0.55 : 1,
+                }}
+                className="rp-social rp-social-btn"
+              >
+                <img src={`https://cdn.jsdelivr.net/gh/devicons/devicon/icons/${provider}/${provider}-original.svg`} alt={provider} style={{ width: 18, height: 18 }}/>
+                <span>{socialLoading === provider ? t('common.loading') : label}</span>
               </button>
             ))}
           </div>
@@ -256,8 +309,28 @@ const RegisterPage = () => {
         .rp-spin { animation: rp-spin 0.8s linear infinite; }
         .rp-submit:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 10px 36px rgba(249,115,22,0.38) !important; }
         .rp-submit:active:not(:disabled) { transform: translateY(0); }
-        .rp-social:hover { background: rgba(255,255,255,0.08) !important; border-color: rgba(255,255,255,0.18) !important; transform: translateY(-1px); }
-        @media (max-width: 768px) { .rp-hero-panel { display: none !important; } }
+        .rp-social:hover:not(:disabled) { background: rgba(255,255,255,0.08) !important; border-color: rgba(255,255,255,0.18) !important; transform: translateY(-1px); }
+        @media (max-width: 1024px) {
+          .rp-form-panel { padding: 32px 24px !important; }
+        }
+        @media (max-width: 768px) {
+          .rp-hero-panel { display: none !important; }
+          .rp-root { min-height: 100dvh !important; }
+          .rp-form-panel {
+            align-items: flex-start !important;
+            justify-content: flex-start !important;
+            padding: 24px 16px 32px !important;
+          }
+          .rp-form-shell { max-width: none !important; }
+          .rp-heading { margin-bottom: 22px !important; }
+          .rp-heading h1 { font-size: clamp(1.55rem, 8vw, 2rem) !important; line-height: 1.2 !important; }
+          .rp-input { font-size: 16px !important; padding-top: 13px !important; padding-bottom: 13px !important; }
+          .rp-social-row { gap: 8px !important; }
+        }
+        @media (max-width: 420px) {
+          .rp-form-panel { padding: 20px 12px 28px !important; }
+          .rp-social-btn { height: 44px !important; }
+        }
       `}</style>
     </div>
   );

@@ -54,6 +54,8 @@
     "orContinueWith": "Or continue with",
     "continueWithGoogle": "Continue with Google",
     "continueWithFacebook": "Continue with Facebook",
+    "socialLoginSuccess": "Social login successful!",
+    "socialLoginFailed": "Social login failed. Please try again!",
     "createAccount": "Create Account",
     "bySigningUp": "By signing up, you agree to our",
     "termsOfService": "Terms of Service",

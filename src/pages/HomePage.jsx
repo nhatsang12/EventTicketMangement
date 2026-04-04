@@ -394,11 +394,11 @@ const EventListRow = ({ event, index = 0 }) => {
         </div>}
       </div>
       <div className="hp2-list-price" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "flex-end", gap: 10, flexShrink: 0, borderLeft: "1px solid rgba(255,255,255,0.06)" }}>
-        <div style={{ textAlign: "right" }}>
+        <div className="hp2-list-price-meta" style={{ textAlign: "right" }}>
           <p style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", fontFamily: "'Be Vietnam Pro',sans-serif", marginBottom: 2 }}>Từ</p>
-          <span style={{ fontSize: 15, fontWeight: 900, background: "linear-gradient(90deg,#f97316,#a855f7)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", fontFamily: "'Be Vietnam Pro','Clash Display',sans-serif" }}>{fmtPriceRange({ min, max })}</span>
+          <span className="hp2-list-price-value" style={{ fontSize: 15, fontWeight: 900, background: "linear-gradient(90deg,#f97316,#a855f7)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", fontFamily: "'Be Vietnam Pro','Clash Display',sans-serif" }}>{fmtPriceRange({ min, max })}</span>
         </div>
-        <span style={{ fontSize: 11, fontWeight: 800, color: "white", padding: "8px 18px", borderRadius: 999, background: "linear-gradient(135deg,#f97316,#a855f7)", fontFamily: "'Be Vietnam Pro',sans-serif", boxShadow: "0 4px 16px rgba(249,115,22,0.25)", display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap" }}>Đặt vé <ArrowRight style={{ width: 11, height: 11 }} /></span>
+        <span className="hp2-list-cta" style={{ fontSize: 11, fontWeight: 800, color: "white", padding: "8px 18px", borderRadius: 999, background: "linear-gradient(135deg,#f97316,#a855f7)", fontFamily: "'Be Vietnam Pro',sans-serif", boxShadow: "0 4px 16px rgba(249,115,22,0.25)", display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap" }}>Đặt vé <ArrowRight style={{ width: 11, height: 11 }} /></span>
       </div>
     </Link></Reveal>
   );
@@ -471,14 +471,14 @@ const AllEventsSection = ({
               </h2>
               {!loading && <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 999, background: "rgba(249,115,22,0.1)", color: "#fb923c", border: "1px solid rgba(249,115,22,0.2)", fontFamily: "'Space Mono',monospace" }}>{events.length}</span>}
             </div>
-            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", fontFamily: "'Be Vietnam Pro',sans-serif" }}>
+            <p className="hp2-all-subtitle" style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", fontFamily: "'Be Vietnam Pro',sans-serif" }}>
               {!loading && events.length > 0
                 ? `Đang hiển thị ${pageStart + 1}–${Math.min(pageEnd, events.length)} / ${events.length} sự kiện`
                 : "Khám phá và đặt vé ngay hôm nay"}
             </p>
           </div>
           <div className="hp2-all-controls" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <div style={{ display: "flex", background: "rgba(255,255,255,0.04)", borderRadius: 10, border: "1px solid rgba(255,255,255,0.08)", overflow: "hidden" }}>
+            <div className="hp2-all-sort" style={{ display: "flex", background: "rgba(255,255,255,0.04)", borderRadius: 10, border: "1px solid rgba(255,255,255,0.08)", overflow: "hidden" }}>
               {SORT_OPTIONS.map(o => (
                 <button key={o.value} onClick={() => setSortFilter(o.value)} style={{
                   padding: "7px 12px", fontSize: 11, fontWeight: sortFilter === o.value ? 700 : 500,
@@ -490,7 +490,7 @@ const AllEventsSection = ({
                 }}>{o.label}</button>
               ))}
             </div>
-            <div style={{ display: "flex", background: "rgba(255,255,255,0.04)", borderRadius: 10, border: "1px solid rgba(255,255,255,0.08)", overflow: "hidden" }}>
+            <div className="hp2-view-toggle" style={{ display: "flex", background: "rgba(255,255,255,0.04)", borderRadius: 10, border: "1px solid rgba(255,255,255,0.08)", overflow: "hidden" }}>
               {[{ v: "grid", Icon: LayoutGrid }, { v: "list", Icon: List }].map(({ v, Icon }) => (
                 <button key={v} onClick={() => setViewMode(v)} style={{
                   padding: "7px 10px", background: viewMode === v ? "rgba(249,115,22,0.15)" : "transparent",
@@ -892,7 +892,7 @@ const HomePage = () => {
           <div style={{ maxWidth: 1152, margin: "0 auto", padding: "0 24px" }}>
             <div className="hp2-filter-date-row" style={{ display: "flex", alignItems: "center", gap: 6, padding: "12px 0 0", overflowX: "auto", scrollbarWidth: "none", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
               {DATE_OPTIONS.map(opt => (
-                <button key={opt.value} onClick={() => setDateFilter(opt.value)} style={{
+                <button className="hp2-date-chip" key={opt.value} onClick={() => setDateFilter(opt.value)} style={{
                   padding: "7px 16px", borderRadius: 999, fontSize: 11, fontWeight: 700,
                   border: dateFilter === opt.value ? "none" : "1px solid rgba(255,255,255,0.1)",
                   background: dateFilter === opt.value ? "linear-gradient(135deg,#f97316,#a855f7)" : "rgba(255,255,255,0.04)",
@@ -906,7 +906,7 @@ const HomePage = () => {
               <div className="hp2-spacer" style={{ flex: 1 }} />
               <div className="hp2-filter-price" style={{ display: "flex", gap: 3, marginBottom: 10, flexShrink: 0, background: "rgba(255,255,255,0.03)", borderRadius: 999, border: "1px solid rgba(255,255,255,0.08)", padding: "3px 4px" }}>
                 {PRICE_OPTIONS.map(opt => (
-                  <button key={opt.value} onClick={() => setPriceFilter(opt.value)} style={{
+                  <button className="hp2-price-chip" key={opt.value} onClick={() => setPriceFilter(opt.value)} style={{
                     padding: "4px 11px", borderRadius: 999, fontSize: 10, fontWeight: 700, border: "none",
                     background: priceFilter === opt.value ? "linear-gradient(135deg,rgba(249,115,22,0.3),rgba(168,85,247,0.3))" : "transparent",
                     color: priceFilter === opt.value ? "#fb923c" : "rgba(255,255,255,0.38)",
@@ -921,7 +921,7 @@ const HomePage = () => {
               </div>
               <div className="hp2-filter-city" style={{ display: "flex", gap: 3, marginBottom: 10, marginLeft: 6, flexShrink: 0, background: "rgba(255,255,255,0.03)", borderRadius: 999, border: "1px solid rgba(255,255,255,0.08)", padding: "3px 4px" }}>
                 {CITY_OPTIONS.map(opt => (
-                  <button key={opt.value} onClick={() => setCityFilter(opt.value)} style={{
+                  <button className="hp2-city-chip" key={opt.value} onClick={() => setCityFilter(opt.value)} style={{
                     padding: "4px 10px", borderRadius: 999, fontSize: 10, fontWeight: 700, border: "none",
                     background: cityFilter === opt.value ? "linear-gradient(135deg,rgba(249,115,22,0.3),rgba(168,85,247,0.3))" : "transparent",
                     color: cityFilter === opt.value ? "#fb923c" : "rgba(255,255,255,0.38)",
@@ -935,20 +935,22 @@ const HomePage = () => {
               </div>
             </div>
             <div className="hp2-filter-sort-row" style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0 10px", overflowX: "auto", scrollbarWidth: "none" }}>
-              <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", fontFamily: "'Space Mono',monospace", flexShrink: 0 }}>
-                <span style={{ fontWeight: 900, fontSize: 13, background: "linear-gradient(90deg,#f97316,#a855f7)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>{events.length}</span>
-                <span style={{ color: "rgba(255,255,255,0.25)" }}> kết quả</span>
-              </span>
-              {activeFilters > 0 && (
-                <button onClick={clearFilters} style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 999, fontSize: 10, fontWeight: 700, border: "1px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.08)", color: "#f87171", cursor: "pointer", fontFamily: "'Be Vietnam Pro',sans-serif", flexShrink: 0, transition: "all 0.2s" }}>
-                  <X style={{ width: 10, height: 10 }} /> Xoá {activeFilters} bộ lọc
-                </button>
-              )}
+              <div className="hp2-filter-meta" style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                <span className="hp2-filter-count" style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", fontFamily: "'Space Mono',monospace", flexShrink: 0 }}>
+                  <span style={{ fontWeight: 900, fontSize: 13, background: "linear-gradient(90deg,#f97316,#a855f7)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>{events.length}</span>
+                  <span style={{ color: "rgba(255,255,255,0.25)" }}> kết quả</span>
+                </span>
+                {activeFilters > 0 && (
+                  <button className="hp2-filter-clear" onClick={clearFilters} style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 999, fontSize: 10, fontWeight: 700, border: "1px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.08)", color: "#f87171", cursor: "pointer", fontFamily: "'Be Vietnam Pro',sans-serif", flexShrink: 0, transition: "all 0.2s" }}>
+                    <X style={{ width: 10, height: 10 }} /> Xoá {activeFilters} bộ lọc
+                  </button>
+                )}
+              </div>
               <div className="hp2-spacer" style={{ flex: 1 }} />
-              <div style={{ display: "flex", alignItems: "center", gap: 2, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 999, padding: "3px 4px", flexShrink: 0 }}>
-                <span style={{ fontSize: 10, color: "rgba(255,255,255,0.2)", fontFamily: "'Be Vietnam Pro',sans-serif", padding: "0 6px" }}>Sắp xếp</span>
+              <div className="hp2-filter-sort-box" style={{ display: "flex", alignItems: "center", gap: 2, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 999, padding: "3px 4px", flexShrink: 0 }}>
+                <span className="hp2-filter-sort-label" style={{ fontSize: 10, color: "rgba(255,255,255,0.2)", fontFamily: "'Be Vietnam Pro',sans-serif", padding: "0 6px" }}>Sắp xếp</span>
                 {SORT_OPTIONS.map(o => (
-                  <button key={o.value} onClick={() => setSortFilter(o.value)} style={{
+                  <button className="hp2-filter-sort-btn" key={o.value} onClick={() => setSortFilter(o.value)} style={{
                     padding: "4px 12px", borderRadius: 999, fontSize: 10, fontWeight: 700, border: "none",
                     background: sortFilter === o.value ? "linear-gradient(135deg,rgba(249,115,22,0.25),rgba(168,85,247,0.25))" : "transparent",
                     color: sortFilter === o.value ? "#fb923c" : "rgba(255,255,255,0.35)",
@@ -1065,9 +1067,21 @@ const HomePage = () => {
 
           /* All Events header */
           .hp2-all-header { flex-direction:column !important; gap:12px !important; }
-          .hp2-all-controls { width:100%; flex-wrap:wrap; }
-          .hp2-all-controls > div { flex:1; min-width:0; }
-          .hp2-all-controls > div > button { flex:1; text-align:center; }
+          .hp2-all-controls {
+            width:100%;
+            flex-wrap:nowrap;
+            overflow:visible;
+            padding-bottom:2px;
+          }
+          .hp2-all-sort {
+            flex:1 1 auto;
+            min-width:0;
+            overflow-x:auto !important;
+            overflow-y:hidden !important;
+            -webkit-overflow-scrolling:touch;
+          }
+          .hp2-all-sort > button { flex:0 0 auto; text-align:center; }
+          .hp2-view-toggle { flex:0 0 auto; margin-left:0; }
 
           /* List row → stack */
           .hp2-list-row { flex-direction:column !important; }
@@ -1108,9 +1122,16 @@ const HomePage = () => {
           }
           .hp2-filter-sort-row {
             flex-wrap:nowrap !important;
-            overflow-x:auto !important;
+            overflow-x:visible !important;
             gap:6px !important;
             padding:6px 0 8px !important;
+            align-items:center !important;
+          }
+          .hp2-filter-meta { display:flex !important; align-items:center !important; gap:6px !important; flex-shrink:0 !important; }
+          .hp2-filter-sort-box {
+            max-width:100%;
+            overflow-x:auto !important;
+            overflow-y:hidden !important;
             -webkit-overflow-scrolling:touch;
           }
 
@@ -1129,11 +1150,60 @@ const HomePage = () => {
           .hp2-hero-content form button[type="submit"] { padding:9px 12px !important; font-size:10px !important; }
           .hp2-events-grid { gap:12px !important; }
           .hp2-loc-card img { height:140px !important; }
+          .hp2-filter-date-row { gap:5px !important; padding:7px 0 2px !important; }
+          .hp2-date-chip { padding:6px 12px !important; font-size:10px !important; margin-bottom:8px !important; }
+          .hp2-filter-sort-row { gap:6px !important; padding:6px 0 9px !important; }
+          .hp2-filter-count { font-size:10px !important; }
+          .hp2-filter-clear { padding:4px 8px !important; font-size:9px !important; }
+          .hp2-filter-sort-label { font-size:9px !important; padding:0 5px !important; }
+          .hp2-filter-sort-btn { padding:5px 10px !important; font-size:10px !important; }
+          .hp2-filter-price,
+          .hp2-filter-city { padding:2px 3px !important; margin-bottom:8px !important; }
+          .hp2-price-chip,
+          .hp2-city-chip { padding:4px 8px !important; font-size:9px !important; }
 
           /* Tall card compact */
           .hp2-tall-card { min-height:380px !important; }
           .hp2-tall-card img { min-height:380px !important; }
           .hp2-cta-btn { padding:7px 14px !important; font-size:11px !important; }
+        }
+
+        @media (max-width:360px) {
+          .hp2-all-subtitle { font-size:11px !important; line-height:1.45 !important; }
+          .hp2-all-controls { gap:6px !important; }
+          .hp2-all-sort > button { padding:6px 10px !important; font-size:10px !important; }
+          .hp2-date-chip { padding:6px 10px !important; font-size:9px !important; }
+          .hp2-filter-sort-row {
+            flex-direction:column !important;
+            align-items:stretch !important;
+            gap:7px !important;
+          }
+          .hp2-filter-meta {
+            width:100%;
+            justify-content:space-between !important;
+            min-width:0 !important;
+          }
+          .hp2-filter-count { font-size:10px !important; }
+          .hp2-filter-clear { padding:3px 8px !important; font-size:9px !important; }
+          .hp2-filter-sort-box { width:100% !important; }
+          .hp2-filter-sort-label { display:none !important; }
+          .hp2-filter-sort-btn { padding:5px 9px !important; font-size:9px !important; }
+          .hp2-list-price {
+            flex-direction:column !important;
+            align-items:flex-start !important;
+            gap:8px !important;
+            padding:12px 14px !important;
+          }
+          .hp2-list-price-meta { text-align:left !important; width:100% !important; }
+          .hp2-list-price-value {
+            display:block !important;
+            font-size:14px !important;
+            line-height:1.32 !important;
+            max-width:100%;
+            overflow-wrap:anywhere;
+            word-break:break-word;
+          }
+          .hp2-list-cta { padding:7px 14px !important; font-size:10px !important; }
         }
 
         @media (prefers-reduced-motion:reduce) { *{ transition-duration:0.01ms !important; animation-duration:0.01ms !important; } }
