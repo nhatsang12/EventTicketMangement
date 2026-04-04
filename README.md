@@ -20,6 +20,7 @@ Nền tảng quản lý và đặt vé sự kiện trực tuyến, gồm:
 - Thêm sự kiện yêu thích.
 - Đăng nhập bằng tài khoản Google (OAuth).
 - Quy trình đặt vé: giỏ hàng -> thanh toán -> lịch sử vé.
+- Hỗ trợ thanh toán MoMo (giao dịch thật, có thể chuyển khoản thực tế).
 - Trang cá nhân và danh sách vé đã mua.
 
 ### Quản trị (Admin)
@@ -124,6 +125,12 @@ Luồng hoạt động:
 Lưu ý:
 - Chỉ dùng cho môi trường test/sandbox, không phải thẻ thật.
 - Backend cần cấu hình `STRIPE_SECRET_KEY` test và frontend cần `VITE_STRIPE_PUBLIC_KEY` test.
+
+### 7.3 Thanh toán MoMo (Live)
+
+- Luồng MoMo trong hệ thống là thanh toán thật (live), có thể chuyển khoản và phát sinh giao dịch thực tế.
+- Nên dùng MoMo khi bạn muốn kiểm tra giao dịch thật trên môi trường production.
+- Khi demo nội bộ/test an toàn, ưu tiên dùng Stripe sandbox ở mục `7.2`.
 
 ## 8) Scripts hiện có trong package.json
 ```bash
