@@ -18,6 +18,7 @@ Nền tảng quản lý và đặt vé sự kiện trực tuyến, gồm:
 - Xem chi tiết sự kiện: thời gian, địa điểm, mô tả, hạng vé.
 - Chọn số lượng vé theo từng loại, tính tổng tiền realtime.
 - Thêm sự kiện yêu thích.
+- Đăng nhập bằng tài khoản Google (OAuth).
 - Quy trình đặt vé: giỏ hàng -> thanh toán -> lịch sử vé.
 - Trang cá nhân và danh sách vé đã mua.
 
@@ -110,6 +111,19 @@ Luồng hoạt động:
 1. User bấm Google/Facebook ở trang Login/Register.
 2. Backend xử lý OAuth và redirect về frontend `/auth/callback` kèm token.
 3. Frontend tự set session vào `authStore` và chuyển hướng về trang trước đó.
+
+### 7.2 Test thanh toán Stripe Sandbox
+
+Để test thanh toán trong môi trường sandbox, dùng thẻ mẫu Stripe:
+
+- Số thẻ: `4242 4242 4242 4242`
+- Ngày hết hạn: dùng ngày hợp lệ ở tương lai (ví dụ: `09/28`)
+- CVC: 3 số bất kỳ (ví dụ: `123`)
+- ZIP/Postal code: nhập bất kỳ
+
+Lưu ý:
+- Chỉ dùng cho môi trường test/sandbox, không phải thẻ thật.
+- Backend cần cấu hình `STRIPE_SECRET_KEY` test và frontend cần `VITE_STRIPE_PUBLIC_KEY` test.
 
 ## 8) Scripts hiện có trong package.json
 ```bash
